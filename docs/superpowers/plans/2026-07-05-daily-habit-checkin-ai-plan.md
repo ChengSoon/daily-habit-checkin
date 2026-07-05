@@ -106,16 +106,28 @@ Responsibility boundaries:
 - Create: `app/(tabs)/index.tsx`
 - Create: `app/(tabs)/habits.tsx`
 - Create: `app/(tabs)/profile.tsx`
+- Create: `app/habit/new.tsx`
+- Create: `app/habit/[id].tsx`
+- Create: `app/plan-preview.tsx`
+- Create: `src/db/database.ts`
+- Create: `src/reminders/reminderService.ts`
 
 - [ ] **Step 1: Scaffold the Expo app**
 
 Run:
 
 ```bash
-npx create-expo-app@latest . --template default
+rm -rf /tmp/daily-habit-expo-scaffold
+npx create-expo-app@latest /tmp/daily-habit-expo-scaffold --template default --no-install --no-agents-md
+cp /tmp/daily-habit-expo-scaffold/package.json .
+cp /tmp/daily-habit-expo-scaffold/app.json .
+cp /tmp/daily-habit-expo-scaffold/tsconfig.json .
+cp /tmp/daily-habit-expo-scaffold/.gitignore .
+cp -R /tmp/daily-habit-expo-scaffold/assets .
+npm install
 ```
 
-Expected: Expo creates a TypeScript app in the current directory without deleting `docs/`.
+Expected: Expo creates a TypeScript app scaffold without deleting `docs/`; dependencies install in the current repository.
 
 - [ ] **Step 2: Install mobile dependencies**
 
@@ -260,15 +272,76 @@ const styles = StyleSheet.create({
 });
 ```
 
+Create `src/db/database.ts`:
+
+```ts
+export function initializeDatabase(): void {
+  // Real migrations are added in the persistence task.
+}
+```
+
+Create `src/reminders/reminderService.ts`:
+
+```ts
+export function configureNotificationHandler(): void {
+  // Real notification handling is added in the reminder task.
+}
+```
+
+Create `app/habit/new.tsx`:
+
+```tsx
+import { Text } from "react-native";
+import { Screen } from "../../src/ui/Screen";
+
+export default function NewHabitScreen() {
+  return (
+    <Screen>
+      <Text>新增习惯</Text>
+    </Screen>
+  );
+}
+```
+
+Create `app/habit/[id].tsx`:
+
+```tsx
+import { Text } from "react-native";
+import { Screen } from "../../src/ui/Screen";
+
+export default function HabitDetailScreen() {
+  return (
+    <Screen>
+      <Text>习惯详情</Text>
+    </Screen>
+  );
+}
+```
+
+Create `app/plan-preview.tsx`:
+
+```tsx
+import { Text } from "react-native";
+import { Screen } from "../src/ui/Screen";
+
+export default function PlanPreviewScreen() {
+  return (
+    <Screen>
+      <Text>AI 计划预览</Text>
+    </Screen>
+  );
+}
+```
+
 - [ ] **Step 7: Run the app**
 
 Run:
 
 ```bash
-npm run web
+npm run ios
 ```
 
-Expected: Expo web starts and shows three tabs: 今日、习惯、我的.
+Expected: Expo starts the mobile app in the iOS simulator and shows three tabs: 今日、习惯、我的. If no simulator is available, run `npm start -- --port 8082`, confirm the Expo Go QR code appears, and verify on a physical device.
 
 - [ ] **Step 8: Commit**
 
@@ -1584,10 +1657,10 @@ cd server && cp .env.example .env && npm run dev
 Run in another terminal:
 
 ```bash
-EXPO_PUBLIC_API_BASE_URL=http://localhost:8787 npm run web
+EXPO_PUBLIC_API_BASE_URL=http://localhost:8787 npm run ios
 ```
 
-Expected: creating a habit through AI reaches the preview screen. If no API key is configured, the mobile UI shows the backend error instead of crashing.
+Expected: creating a habit through AI reaches the preview screen in the mobile app. If no API key is configured, the mobile UI shows the backend error instead of crashing. When testing on a physical device, replace `localhost` with the computer's LAN IP.
 
 - [ ] **Step 6: Commit**
 
@@ -1850,10 +1923,10 @@ export default function HabitDetailScreen() {
 Run:
 
 ```bash
-npm run web
+npm run ios
 ```
 
-Expected: user can create a habit, see it on 今日 and 习惯 tabs, complete it, and open detail.
+Expected: user can create a habit in the mobile app, see it on 今日 and 习惯 tabs, complete it, and open detail.
 
 - [ ] **Step 6: Commit**
 
@@ -2316,10 +2389,10 @@ Run:
 
 ```bash
 npm test
-npm run web
+npm run ios
 ```
 
-Expected: tests pass, settings screen saves evening summary preferences, numeric habits ask for a value before completion, and AI-created plans are persisted.
+Expected: tests pass, the mobile app launches, settings screen saves evening summary preferences, numeric habits ask for a value before completion, and AI-created plans are persisted.
 
 - [ ] **Step 9: Commit**
 
@@ -2341,8 +2414,8 @@ Create `docs/verification/v1-mvp-checklist.md`:
 ```md
 # V1 MVP Verification Checklist
 
-- [ ] App launches on Expo web.
-- [ ] App launches on iOS or Android through Expo.
+- [ ] App launches on iOS simulator or Android emulator through Expo.
+- [ ] App launches on a physical device through Expo Go.
 - [ ] User can create a habit from AI plan preview.
 - [ ] AI failure is shown as an error message and does not crash the app.
 - [ ] Today tab lists active habits.
@@ -2370,10 +2443,10 @@ Expected: all tests and server build pass.
 Run:
 
 ```bash
-npm run web
+npm run ios
 ```
 
-Expected: app launches and core navigation works.
+Expected: app launches in the iOS simulator and core navigation works.
 
 Run on a mobile target:
 
@@ -2397,7 +2470,7 @@ Before claiming V1 implementation complete, run:
 ```bash
 git status --short
 npm test
-npm run web
+npm run ios
 cd server && npm test && npm run build
 ```
 
@@ -2405,7 +2478,7 @@ Expected:
 
 - Git status only contains intentional uncommitted changes, or is clean.
 - Mobile tests pass.
-- Expo web launches.
+- Expo mobile app launches in simulator or on a physical device.
 - Backend tests pass.
 - Backend TypeScript build passes.
 
@@ -2431,5 +2504,5 @@ Spec coverage:
 Execution notes:
 
 - The initial UI is intentionally functional and plain; visual polish should be handled after the core flows work.
-- Evening summary notifications are rescheduled from current app state; real-device verification is required because local notification behavior differs across Expo web, simulator, and physical devices.
+- Evening summary notifications are rescheduled from current app state; real-device verification is required because local notification behavior differs across simulator and physical devices.
 - Visual polish is intentionally outside the first implementation pass and should be handled after V1 behavior passes verification.
