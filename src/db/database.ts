@@ -18,6 +18,7 @@ export async function initializeDatabase(): Promise<void> {
 export async function resetDatabaseForTests(): Promise<void> {
   const db = getDatabase();
   await db.execAsync(`
+    DELETE FROM app_settings;
     DELETE FROM reminder_settings;
     DELETE FROM habit_plans;
     DELETE FROM check_ins;

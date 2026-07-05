@@ -21,6 +21,23 @@ type CheckInRow = {
   created_at: string;
 };
 
+type HabitPlanRow = {
+  id: string;
+  habit_id: string;
+  duration_days: 7 | 21;
+  goal_text: string;
+  daily_actions_json: string;
+  start_date: string;
+  end_date: string;
+  current_stage: string;
+  created_by: "ai" | "manual";
+};
+
+type AppSettingRow = {
+  key: string;
+  value: string;
+};
+
 export type SQLiteDatabase = {
   execAsync(sql: string): Promise<void>;
   runAsync(sql: string, params?: unknown[]): Promise<void>;
@@ -31,11 +48,15 @@ export type SQLiteDatabase = {
 class FakeSQLiteDatabase implements SQLiteDatabase {
   private habits: HabitRow[] = [];
   private checkIns: CheckInRow[] = [];
+  private habitPlans: HabitPlanRow[] = [];
+  private appSettings: AppSettingRow[] = [];
 
   async execAsync(sql: string): Promise<void> {
     if (sql.includes("DELETE FROM reminder_settings")) {
       this.checkIns = [];
       this.habits = [];
+      this.habitPlans = [];
+      this.appSettings = [];
     }
   }
 
@@ -70,6 +91,28 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
         return !(checkIn.habit_id === row.habit_id && checkIn.date === row.date);
       });
       this.checkIns.push(row);
+      return;
+    }
+
+    if (sql.includes("INSERT INTO habit_plans")) {
+      this.habitPlans.push({
+        id: String(params[0]),
+        habit_id: String(params[1]),
+        duration_days: params[2] as 7 | 21,
+        goal_text: String(params[3]),
+        daily_actions_json: String(params[4]),
+        start_date: String(params[5]),
+        end_date: String(params[6]),
+        current_stage: String(params[7]),
+        created_by: params[8] as "ai" | "manual"
+      });
+      return;
+    }
+
+    if (sql.includes("INSERT INTO app_settings")) {
+      const row = { key: String(params[0]), value: String(params[1]) };
+      this.appSettings = this.appSettings.filter((setting) => setting.key !== row.key);
+      this.appSettings.push(row);
     }
   }
 
@@ -82,12 +125,20 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
       return this.checkIns.filter((checkIn) => checkIn.habit_id === params[0]) as T[];
     }
 
+    if (sql.includes("FROM app_settings")) {
+      return this.appSettings as T[];
+    }
+
     return [];
   }
 
   async getFirstAsync<T>(sql: string, params: unknown[] = []): Promise<T | null> {
     if (sql.includes("FROM habits WHERE id = ?")) {
       return (this.habits.find((habit) => habit.id === params[0]) as T | undefined) ?? null;
+    }
+
+    if (sql.includes("FROM habit_plans WHERE habit_id = ?")) {
+      return (this.habitPlans.find((plan) => plan.habit_id === params[0]) as T | undefined) ?? null;
     }
 
     return null;

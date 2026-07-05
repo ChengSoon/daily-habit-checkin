@@ -52,5 +52,10 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       quiet_hours_end TEXT,
       FOREIGN KEY(habit_id) REFERENCES habits(id) ON DELETE CASCADE
     );
+
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
   `);
 }

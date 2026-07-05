@@ -1,15 +1,17 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { Button, Text, View } from "react-native";
+import { saveAIHabitPlan } from "../src/ai/habitPlanRepository";
 import { AIPlanPreview } from "../src/ai/types";
 import { createHabit } from "../src/habits/habitRepository";
 import { Screen } from "../src/ui/Screen";
+import { todayKey } from "../src/utils/date";
 
 export default function PlanPreviewScreen() {
   const params = useLocalSearchParams<{ plan: string; goalText: string }>();
   const plan = JSON.parse(params.plan) as AIPlanPreview;
 
   async function savePlan() {
-    await createHabit({
+    const habit = await createHabit({
       name: plan.habitName,
       description: plan.description,
       frequency: { type: "daily" },
@@ -17,6 +19,13 @@ export default function PlanPreviewScreen() {
       isReminderEnabled: true,
       trackType: plan.recommendedTrackType,
       numericUnit: plan.numericUnit
+    });
+
+    await saveAIHabitPlan({
+      habitId: habit.id,
+      goalText: params.goalText,
+      startDate: todayKey(),
+      preview: plan
     });
 
     router.replace("/(tabs)/habits");

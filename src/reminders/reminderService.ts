@@ -91,3 +91,28 @@ export async function scheduleEveningSummary(input: {
     }
   });
 }
+
+let eveningSummaryNotificationId: string | null = null;
+
+export async function rescheduleTodayEveningSummary(input: {
+  isEnabled: boolean;
+  incompleteNames: string[];
+  time: string;
+}): Promise<string | null> {
+  if (eveningSummaryNotificationId) {
+    await Notifications.cancelScheduledNotificationAsync(eveningSummaryNotificationId);
+    eveningSummaryNotificationId = null;
+  }
+
+  if (!input.isEnabled || input.incompleteNames.length === 0) {
+    return null;
+  }
+
+  eveningSummaryNotificationId = await scheduleEveningSummary({
+    incompleteCount: input.incompleteNames.length,
+    incompleteNames: input.incompleteNames,
+    time: input.time
+  });
+
+  return eveningSummaryNotificationId;
+}
