@@ -15,5 +15,6 @@ export type Habit = {
   isPaused: boolean;
   trackType: HabitTrackType;
   numericUnit: string | null;
+  sortOrder: number;
   createdAt: string;
 };

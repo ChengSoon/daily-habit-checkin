@@ -8,6 +8,7 @@ type HabitRow = {
   is_paused: number;
   track_type: "check" | "numeric";
   numeric_unit: string | null;
+  sort_order: number;
   created_at: string;
 };
 
@@ -72,8 +73,43 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
         is_paused: Number(params[6]),
         track_type: params[7] as "check" | "numeric",
         numeric_unit: params[8] === null ? null : String(params[8]),
-        created_at: String(params[9])
+        sort_order: Number(params[9]),
+        created_at: String(params[10])
       });
+      return;
+    }
+
+    if (sql.includes("UPDATE habits SET") && sql.includes("name = ?")) {
+      this.habits = this.habits.map((habit) => {
+        if (habit.id !== params[7]) {
+          return habit;
+        }
+
+        return {
+          ...habit,
+          name: String(params[0]),
+          description: params[1] === null ? null : String(params[1]),
+          frequency_json: String(params[2]),
+          reminder_time: params[3] === null ? null : String(params[3]),
+          is_reminder_enabled: Number(params[4]),
+          track_type: params[5] as "check" | "numeric",
+          numeric_unit: params[6] === null ? null : String(params[6])
+        };
+      });
+      return;
+    }
+
+    if (sql.includes("UPDATE habits SET is_paused = ?")) {
+      this.habits = this.habits.map((habit) => {
+        return habit.id === params[1] ? { ...habit, is_paused: Number(params[0]) } : habit;
+      });
+      return;
+    }
+
+    if (sql.includes("DELETE FROM habits WHERE id = ?")) {
+      this.habits = this.habits.filter((habit) => habit.id !== params[0]);
+      this.checkIns = this.checkIns.filter((checkIn) => checkIn.habit_id !== params[0]);
+      this.habitPlans = this.habitPlans.filter((plan) => plan.habit_id !== params[0]);
       return;
     }
 
@@ -118,7 +154,13 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
 
   async getAllAsync<T>(sql: string, params: unknown[] = []): Promise<T[]> {
     if (sql.includes("FROM habits WHERE is_paused = 0")) {
-      return this.habits.filter((habit) => habit.is_paused === 0) as T[];
+      return this.habits
+        .filter((habit) => habit.is_paused === 0)
+        .sort((left, right) => left.sort_order - right.sort_order) as T[];
+    }
+
+    if (sql.includes("FROM habits ORDER BY")) {
+      return [...this.habits].sort((left, right) => left.is_paused - right.is_paused || left.sort_order - right.sort_order) as T[];
     }
 
     if (sql.includes("FROM check_ins WHERE habit_id = ?")) {

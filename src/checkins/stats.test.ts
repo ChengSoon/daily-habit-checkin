@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculateCurrentStreak, calculateMonthlyCompletionRate } from "./stats";
+import { calculateCurrentStreak, calculateLongestStreak, calculateMonthlyCompletionRate } from "./stats";
 import { CheckIn } from "./types";
 
 const completed = (date: string): CheckIn => ({
@@ -40,5 +40,14 @@ describe("check-in stats", () => {
     });
 
     expect(result).toBe(50);
+  });
+
+  it("calculates longest streak", () => {
+    const result = calculateLongestStreak({
+      scheduledDates: ["2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04", "2026-07-05"],
+      checkIns: [completed("2026-07-01"), completed("2026-07-02"), completed("2026-07-04")]
+    });
+
+    expect(result).toBe(2);
   });
 });

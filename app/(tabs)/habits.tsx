@@ -1,7 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Button } from "react-native";
-import { listActiveHabits } from "../../src/habits/habitRepository";
+import { listHabits } from "../../src/habits/habitRepository";
 import { Habit } from "../../src/habits/types";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { HabitRow } from "../../src/ui/HabitRow";
@@ -12,7 +12,7 @@ export default function HabitsScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      listActiveHabits().then(setHabits);
+      listHabits().then(setHabits);
     }, [])
   );
 

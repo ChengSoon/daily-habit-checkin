@@ -4,6 +4,7 @@ import { Button, Text, TextInput, View } from "react-native";
 import { completeCheckIn, listCheckInsForHabit } from "../../src/checkins/checkinRepository";
 import { CheckIn } from "../../src/checkins/types";
 import { listActiveHabits } from "../../src/habits/habitRepository";
+import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { Habit } from "../../src/habits/types";
 import { rescheduleTodayEveningSummary } from "../../src/reminders/reminderService";
 import { getAppSettings } from "../../src/settings/settingsRepository";
@@ -21,7 +22,8 @@ export default function TodayScreen() {
   const today = todayKey();
 
   const load = useCallback(async () => {
-    const loadedHabits = await listActiveHabits();
+    const activeHabits = await listActiveHabits();
+    const loadedHabits = activeHabits.filter((habit) => shouldRunOnDate(habit.frequency, new Date(`${today}T00:00:00`)));
     const loadedCheckIns = (await Promise.all(loadedHabits.map((habit) => listCheckInsForHabit(habit.id)))).flat();
     const todayCheckIns = loadedCheckIns.filter((checkIn) => checkIn.date === today);
     const completedIds = new Set(

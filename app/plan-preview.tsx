@@ -3,18 +3,24 @@ import { Button, Text, View } from "react-native";
 import { saveAIHabitPlan } from "../src/ai/habitPlanRepository";
 import { AIPlanPreview } from "../src/ai/types";
 import { createHabit } from "../src/habits/habitRepository";
+import { HabitFrequency } from "../src/habits/types";
+import { scheduleHabitReminder } from "../src/reminders/reminderService";
 import { Screen } from "../src/ui/Screen";
 import { todayKey } from "../src/utils/date";
 
+function toFrequency(type: string | undefined): HabitFrequency {
+  return type === "weekdays" ? { type: "weekdays" } : { type: "daily" };
+}
+
 export default function PlanPreviewScreen() {
-  const params = useLocalSearchParams<{ plan: string; goalText: string }>();
+  const params = useLocalSearchParams<{ plan: string; goalText: string; frequencyType?: string }>();
   const plan = JSON.parse(params.plan) as AIPlanPreview;
 
   async function savePlan() {
     const habit = await createHabit({
       name: plan.habitName,
       description: plan.description,
-      frequency: { type: "daily" },
+      frequency: toFrequency(params.frequencyType),
       reminderTime: plan.recommendedReminderTime,
       isReminderEnabled: true,
       trackType: plan.recommendedTrackType,
@@ -27,6 +33,7 @@ export default function PlanPreviewScreen() {
       startDate: todayKey(),
       preview: plan
     });
+    await scheduleHabitReminder(habit);
 
     router.replace("/(tabs)/habits");
   }

@@ -11,3 +11,19 @@ export function addDays(dateKey: string, days: number): string {
   date.setUTCDate(date.getUTCDate() + days);
   return toDateKey(date);
 }
+
+export function eachDateKey(startDateKey: string, endDateKey: string): string[] {
+  const dates: string[] = [];
+  let cursor = startDateKey;
+
+  while (cursor <= endDateKey) {
+    dates.push(cursor);
+    cursor = addDays(cursor, 1);
+  }
+
+  return dates;
+}
+
+export function startOfMonthKey(dateKey: string): string {
+  return `${dateKey.slice(0, 8)}01`;
+}

@@ -44,3 +44,23 @@ export function calculateMonthlyCompletionRate({ scheduledDates, checkIns }: Com
 
   return Math.round((completedCount / scheduledDates.length) * 100);
 }
+
+export function calculateLongestStreak({ scheduledDates, checkIns }: CompletionRateInput): number {
+  const completedDates = new Set(
+    checkIns.filter((checkIn) => checkIn.status === "completed").map((checkIn) => checkIn.date)
+  );
+  let current = 0;
+  let longest = 0;
+
+  for (const date of [...scheduledDates].sort()) {
+    if (completedDates.has(date)) {
+      current += 1;
+      longest = Math.max(longest, current);
+      continue;
+    }
+
+    current = 0;
+  }
+
+  return longest;
+}

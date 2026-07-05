@@ -14,6 +14,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       is_paused INTEGER NOT NULL,
       track_type TEXT NOT NULL,
       numeric_unit TEXT,
+      sort_order INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL
     );
 
@@ -58,4 +59,6 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       value TEXT NOT NULL
     );
   `);
+
+  await db.execAsync("ALTER TABLE habits ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;").catch(() => undefined);
 }
