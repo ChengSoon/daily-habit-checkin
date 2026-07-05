@@ -6,7 +6,8 @@ const notificationsFakePath = fileURLToPath(new URL("./test/fakes/expo-notificat
 
 export default defineConfig({
   test: {
-    environment: "node"
+    environment: "node",
+    exclude: ["node_modules/**", "server/node_modules/**", "server/dist/**", "dist/**"]
   },
   resolve: {
     alias: {
