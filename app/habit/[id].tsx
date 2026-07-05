@@ -109,6 +109,38 @@ export default function HabitDetailScreen() {
     router.replace("/(tabs)/habits");
   }
 
+  async function applySuggestion() {
+    if (!habit || !suggestion) {
+      return;
+    }
+
+    if (suggestion.actionLabel === "调整计划") {
+      const nextDescription = habit.description
+        ? `${habit.description}（已根据完成情况调轻：先缩短任务，降低启动压力）`
+        : "已根据完成情况调轻：先缩短任务，降低启动压力";
+
+      await updateHabit(habit.id, {
+        name: habit.name,
+        description: nextDescription,
+        frequency: habit.frequency,
+        reminderTime: habit.reminderTime,
+        isReminderEnabled: habit.isReminderEnabled,
+        trackType: habit.trackType,
+        numericUnit: habit.numericUnit
+      });
+      setMessage("已应用调整建议");
+      await load();
+      return;
+    }
+
+    if (suggestion.actionLabel === "生成下一阶段") {
+      router.push("/habit/new");
+      return;
+    }
+
+    setMessage("已确认保持当前节奏");
+  }
+
   const today = todayKey();
   const habitStartDate = habit.createdAt.slice(0, 10);
   const monthStartDate = startOfMonthKey(today);
@@ -142,10 +174,11 @@ export default function HabitDetailScreen() {
         ))}
       </View>
       {suggestion ? (
-        <>
+        <View style={{ gap: 8, padding: 12, borderRadius: 8, backgroundColor: "#FFFFFF" }}>
           <Text>{suggestion.title}</Text>
           <Text>{suggestion.body}</Text>
-        </>
+          <Button title={suggestion.actionLabel} onPress={applySuggestion} />
+        </View>
       ) : null}
       <View style={{ gap: 8, padding: 12, borderRadius: 8, backgroundColor: "#FFFFFF" }}>
         <Text style={{ fontSize: 18, fontWeight: "700" }}>编辑习惯</Text>
