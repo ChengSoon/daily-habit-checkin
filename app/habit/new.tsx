@@ -1,11 +1,20 @@
 import { router } from "expo-router";
 import { useState } from "react";
-import { Button, Text, TextInput, View } from "react-native";
+import { View } from "react-native";
 import { requestAIHabitPlan } from "../../src/ai/aiClient";
 import { createHabit } from "../../src/habits/habitRepository";
 import { HabitFrequency, HabitTrackType } from "../../src/habits/types";
 import { scheduleHabitReminder } from "../../src/reminders/reminderService";
+import {
+  AppButton,
+  HelperText,
+  Label,
+  SectionCard,
+  SegmentedControl,
+  TextField
+} from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
+import { spacing } from "../../src/ui/theme";
 
 type CurrentLevel = "beginner" | "some_experience" | "stable";
 type ReminderPreference = "morning" | "noon" | "evening" | "custom";
@@ -80,87 +89,133 @@ export default function NewHabitScreen() {
 
   return (
     <Screen>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Button title="AI 制定" onPress={() => setMode("ai")} color={mode === "ai" ? "#2F6B4F" : undefined} />
-        <Button title="手动创建" onPress={() => setMode("manual")} color={mode === "manual" ? "#2F6B4F" : undefined} />
-      </View>
-      <Text>想培养什么习惯？</Text>
-      <TextInput
-        value={goalText}
-        onChangeText={setGoalText}
-        placeholder="例如：我想每天运动"
-        style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
+      <SegmentedControl<"ai" | "manual">
+        value={mode}
+        onChange={setMode}
+        options={[
+          { label: "AI 制定", value: "ai" },
+          { label: "手动创建", value: "manual" }
+        ]}
       />
-      {mode === "manual" ? (
-        <TextInput
-          value={description}
-          onChangeText={setDescription}
-          placeholder="描述，例如 睡前阅读 10 分钟"
-          style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
+
+      <SectionCard title={mode === "ai" ? "想培养什么习惯" : "习惯信息"}>
+        <TextField
+          label="目标"
+          value={goalText}
+          onChangeText={setGoalText}
+          placeholder="例如：我想每天运动"
         />
-      ) : null}
+        {mode === "manual" ? (
+          <TextField
+            label="描述"
+            value={description}
+            onChangeText={setDescription}
+            placeholder="例如：睡前阅读 10 分钟"
+          />
+        ) : null}
+      </SectionCard>
+
       {mode === "ai" ? (
-        <>
-          <Text>当前基础</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <Button title="新手" onPress={() => setCurrentLevel("beginner")} color={currentLevel === "beginner" ? "#2F6B4F" : undefined} />
-            <Button title="有基础" onPress={() => setCurrentLevel("some_experience")} color={currentLevel === "some_experience" ? "#2F6B4F" : undefined} />
-            <Button title="稳定做过" onPress={() => setCurrentLevel("stable")} color={currentLevel === "stable" ? "#2F6B4F" : undefined} />
+        <SectionCard title="告诉 AI 更多">
+          <View style={{ gap: spacing.sm }}>
+            <Label>当前基础</Label>
+            <SegmentedControl<CurrentLevel>
+              value={currentLevel}
+              onChange={setCurrentLevel}
+              options={[
+                { label: "新手", value: "beginner" },
+                { label: "有基础", value: "some_experience" },
+                { label: "稳定做过", value: "stable" }
+              ]}
+            />
           </View>
-          <Text>计划周期</Text>
-          <View style={{ flexDirection: "row", gap: 8 }}>
-            <Button title="7 天" onPress={() => setDurationDays(7)} color={durationDays === 7 ? "#2F6B4F" : undefined} />
-            <Button title="21 天" onPress={() => setDurationDays(21)} color={durationDays === 21 ? "#2F6B4F" : undefined} />
+          <View style={{ gap: spacing.sm }}>
+            <Label>计划周期</Label>
+            <SegmentedControl<7 | 21>
+              value={durationDays}
+              onChange={setDurationDays}
+              options={[
+                { label: "7 天", value: 7 },
+                { label: "21 天", value: 21 }
+              ]}
+            />
           </View>
-          <TextInput
+          <TextField
+            label="每天可投入（分钟）"
             value={dailyMinutes}
             onChangeText={setDailyMinutes}
             keyboardType="numeric"
-            placeholder="每天可投入分钟数"
-            style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
+            placeholder="10"
           />
-        </>
+        </SectionCard>
       ) : null}
-      <Text>频率</Text>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Button title="每天" onPress={() => setFrequencyType("daily")} color={frequencyType === "daily" ? "#2F6B4F" : undefined} />
-        <Button title="工作日" onPress={() => setFrequencyType("weekdays")} color={frequencyType === "weekdays" ? "#2F6B4F" : undefined} />
-      </View>
-      {mode === "ai" ? (
-        <>
-          <Text>提醒偏好</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-            <Button title="早上" onPress={() => setReminderPreference("morning")} color={reminderPreference === "morning" ? "#2F6B4F" : undefined} />
-            <Button title="中午" onPress={() => setReminderPreference("noon")} color={reminderPreference === "noon" ? "#2F6B4F" : undefined} />
-            <Button title="晚上" onPress={() => setReminderPreference("evening")} color={reminderPreference === "evening" ? "#2F6B4F" : undefined} />
-            <Button title="自定义" onPress={() => setReminderPreference("custom")} color={reminderPreference === "custom" ? "#2F6B4F" : undefined} />
+
+      <SectionCard title="频率与提醒">
+        <View style={{ gap: spacing.sm }}>
+          <Label>频率</Label>
+          <SegmentedControl<FrequencyType>
+            value={frequencyType}
+            onChange={setFrequencyType}
+            options={[
+              { label: "每天", value: "daily" },
+              { label: "工作日", value: "weekdays" }
+            ]}
+          />
+        </View>
+        {mode === "ai" ? (
+          <View style={{ gap: spacing.sm }}>
+            <Label>提醒偏好</Label>
+            <SegmentedControl<ReminderPreference>
+              value={reminderPreference}
+              onChange={setReminderPreference}
+              options={[
+                { label: "早上", value: "morning" },
+                { label: "中午", value: "noon" },
+                { label: "晚上", value: "evening" },
+                { label: "自定义", value: "custom" }
+              ]}
+            />
           </View>
-        </>
-      ) : null}
-      <TextInput
-        value={customReminderTime}
-        onChangeText={setCustomReminderTime}
-        placeholder="提醒时间 21:30"
-        style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
-      />
-      <Text>记录方式</Text>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Button title="一键完成" onPress={() => setTrackType("check")} color={trackType === "check" ? "#2F6B4F" : undefined} />
-        <Button title="数值记录" onPress={() => setTrackType("numeric")} color={trackType === "numeric" ? "#2F6B4F" : undefined} />
-      </View>
-      {trackType === "numeric" ? (
-        <TextInput
-          value={numericUnit}
-          onChangeText={setNumericUnit}
-          placeholder="单位，例如 分钟、页、次"
-          style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
+        ) : null}
+        {mode === "manual" || reminderPreference === "custom" ? (
+          <TextField
+            label="提醒时间"
+            value={customReminderTime}
+            onChangeText={setCustomReminderTime}
+            placeholder="21:30"
+          />
+        ) : null}
+      </SectionCard>
+
+      <SectionCard title="记录方式">
+        <SegmentedControl<HabitTrackType>
+          value={trackType}
+          onChange={setTrackType}
+          options={[
+            { label: "一键完成", value: "check" },
+            { label: "数值记录", value: "numeric" }
+          ]}
         />
-      ) : null}
-      {error ? <Text>{error}</Text> : null}
+        {trackType === "numeric" ? (
+          <TextField
+            label="单位"
+            value={numericUnit}
+            onChangeText={setNumericUnit}
+            placeholder="例如：分钟、页、次"
+          />
+        ) : null}
+      </SectionCard>
+
+      {error ? <HelperText tone="danger">{error}</HelperText> : null}
+
       {mode === "ai" ? (
-        <Button title={isLoading ? "生成中..." : "让 AI 制定计划"} onPress={generatePlan} disabled={!goalText || isLoading} />
+        <AppButton
+          title={isLoading ? "生成中..." : "让 AI 制定计划"}
+          onPress={generatePlan}
+          disabled={!goalText || isLoading}
+        />
       ) : (
-        <Button title="保存习惯" onPress={saveManualHabit} disabled={!goalText} />
+        <AppButton title="保存习惯" onPress={saveManualHabit} disabled={!goalText} />
       )}
     </Screen>
   );

@@ -1,7 +1,9 @@
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
-import { Button, Text, TextInput, View } from "react-native";
+import { View } from "react-native";
 import { getAdjustmentSuggestion } from "../../src/ai/adjustmentRules";
+import { getPlanForHabit } from "../../src/ai/habitPlanRepository";
+import { HabitPlan } from "../../src/ai/types";
 import { listCheckInsForHabit } from "../../src/checkins/checkinRepository";
 import { calculateCurrentStreak, calculateLongestStreak, calculateMonthlyCompletionRate } from "../../src/checkins/stats";
 import { CheckIn } from "../../src/checkins/types";
@@ -9,21 +11,33 @@ import { deleteHabit, getHabitById, setHabitPaused, updateHabit } from "../../sr
 import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { Habit, HabitFrequency, HabitTrackType } from "../../src/habits/types";
 import { scheduleHabitReminder } from "../../src/reminders/reminderService";
+import {
+  AppButton,
+  AppText,
+  Badge,
+  Card,
+  HelperText,
+  Label,
+  SectionCard,
+  SegmentedControl,
+  StatTile,
+  TextField
+} from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
+import { radius, spacing } from "../../src/ui/theme";
+import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, startOfMonthKey, todayKey } from "../../src/utils/date";
 
-function parseFrequency(value: string): HabitFrequency {
-  if (value === "weekdays") {
-    return { type: "weekdays" };
-  }
-
-  return { type: "daily" };
+function parseFrequency(value: "daily" | "weekdays"): HabitFrequency {
+  return value === "weekdays" ? { type: "weekdays" } : { type: "daily" };
 }
 
 export default function HabitDetailScreen() {
+  const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [habit, setHabit] = useState<Habit | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
+  const [plan, setPlan] = useState<HabitPlan | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [frequencyType, setFrequencyType] = useState<"daily" | "weekdays">("daily");
@@ -62,7 +76,9 @@ export default function HabitDetailScreen() {
   if (!habit) {
     return (
       <Screen>
-        <Text>加载中...</Text>
+        <AppText variant="body" tone="muted">
+          加载中...
+        </AppText>
       </Screen>
     );
   }
@@ -87,7 +103,7 @@ export default function HabitDetailScreen() {
       await scheduleHabitReminder(nextHabit);
     }
 
-    setMessage("已保存");
+    setMessage("已保存修改");
     await load();
   }
 
@@ -152,57 +168,113 @@ export default function HabitDetailScreen() {
   const longestStreak = calculateLongestStreak({ scheduledDates, checkIns });
   const completionRate = calculateMonthlyCompletionRate({ scheduledDates, checkIns });
   const completedDates = new Set(checkIns.filter((checkIn) => checkIn.status === "completed").map((checkIn) => checkIn.date));
+  const planEnded = plan ? today > plan.endDate : false;
   const suggestion = getAdjustmentSuggestion({
     completionRate7Days: completionRate,
     currentStreak,
-    planEnded: false
+    planEnded
   });
 
   return (
     <Screen>
-      <Text style={{ fontSize: 28, fontWeight: "800" }}>{habit.name}</Text>
-      <Text>{habit.isPaused ? "已暂停" : "进行中"}</Text>
-      <Text>当前连续：{currentStreak} 天</Text>
-      <Text>最长连续：{longestStreak} 天</Text>
-      <Text>本月完成率：{completionRate}%</Text>
-      <Text>提醒时间：{habit.reminderTime ?? "未设置"}</Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-        {scheduledDates.map((date) => (
-          <Text key={date} style={{ padding: 6, borderRadius: 6, backgroundColor: completedDates.has(date) ? "#DDEFD2" : "#EFEDE7" }}>
-            {date.slice(5)}
-          </Text>
-        ))}
+      <View style={{ gap: spacing.sm }}>
+        <AppText variant="title">{habit.name}</AppText>
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          <Badge label={habit.isPaused ? "已暂停" : "进行中"} tone={habit.isPaused ? "muted" : "success"} />
+          <Badge label={habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒"} tone="neutral" />
+        </View>
       </View>
+
+      <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        <StatTile label="当前连续" value={`${currentStreak} 天`} />
+        <StatTile label="最长连续" value={`${longestStreak} 天`} />
+        <StatTile label="本月完成率" value={`${completionRate}%`} />
+      </View>
+
+      <SectionCard title="本月记录">
+        {scheduledDates.length === 0 ? (
+          <AppText variant="small" tone="muted">
+            本月还没有应执行的日期。
+          </AppText>
+        ) : (
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
+            {scheduledDates.map((date) => {
+              const isDone = completedDates.has(date);
+              return (
+                <View
+                  key={date}
+                  style={{
+                    width: 40,
+                    paddingVertical: spacing.xs,
+                    borderRadius: radius.sm,
+                    alignItems: "center",
+                    backgroundColor: isDone ? colors.primary : colors.surfaceMuted
+                  }}
+                >
+                  <AppText variant="small" tone={isDone ? "onPrimary" : "muted"}>
+                    {date.slice(8)}
+                  </AppText>
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </SectionCard>
+
       {suggestion ? (
-        <View style={{ gap: 8, padding: 12, borderRadius: 8, backgroundColor: "#FFFFFF" }}>
-          <Text>{suggestion.title}</Text>
-          <Text>{suggestion.body}</Text>
-          <Button title={suggestion.actionLabel} onPress={applySuggestion} />
-        </View>
+        <Card tone="tint">
+          <AppText variant="caption" tone="primary">
+            AI 调整建议
+          </AppText>
+          <AppText variant="bodyStrong">{suggestion.title}</AppText>
+          <AppText variant="body" tone="soft">
+            {suggestion.body}
+          </AppText>
+          <AppButton title={suggestion.actionLabel} variant="secondary" onPress={applySuggestion} />
+        </Card>
       ) : null}
-      <View style={{ gap: 8, padding: 12, borderRadius: 8, backgroundColor: "#FFFFFF" }}>
-        <Text style={{ fontSize: 18, fontWeight: "700" }}>编辑习惯</Text>
-        <TextInput value={name} onChangeText={setName} placeholder="习惯名称" style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }} />
-        <TextInput value={description} onChangeText={setDescription} placeholder="描述" style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }} />
-        <Text>频率</Text>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button title="每天" onPress={() => setFrequencyType("daily")} color={frequencyType === "daily" ? "#2F6B4F" : undefined} />
-          <Button title="工作日" onPress={() => setFrequencyType("weekdays")} color={frequencyType === "weekdays" ? "#2F6B4F" : undefined} />
+
+      <SectionCard title="编辑习惯">
+        <TextField label="名称" value={name} onChangeText={setName} placeholder="习惯名称" />
+        <TextField label="描述" value={description} onChangeText={setDescription} placeholder="描述" />
+        <View style={{ gap: spacing.sm }}>
+          <Label>频率</Label>
+          <SegmentedControl<"daily" | "weekdays">
+            value={frequencyType}
+            onChange={setFrequencyType}
+            options={[
+              { label: "每天", value: "daily" },
+              { label: "工作日", value: "weekdays" }
+            ]}
+          />
         </View>
-        <TextInput value={reminderTime} onChangeText={setReminderTime} placeholder="提醒时间 21:30" style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }} />
-        <Text>记录方式</Text>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <Button title="一键完成" onPress={() => setTrackType("check")} color={trackType === "check" ? "#2F6B4F" : undefined} />
-          <Button title="数值记录" onPress={() => setTrackType("numeric")} color={trackType === "numeric" ? "#2F6B4F" : undefined} />
+        <TextField label="提醒时间" value={reminderTime} onChangeText={setReminderTime} placeholder="21:30" />
+        <View style={{ gap: spacing.sm }}>
+          <Label>记录方式</Label>
+          <SegmentedControl<HabitTrackType>
+            value={trackType}
+            onChange={setTrackType}
+            options={[
+              { label: "一键完成", value: "check" },
+              { label: "数值记录", value: "numeric" }
+            ]}
+          />
         </View>
         {trackType === "numeric" ? (
-          <TextInput value={numericUnit} onChangeText={setNumericUnit} placeholder="单位，例如 分钟、页、次" style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }} />
+          <TextField label="单位" value={numericUnit} onChangeText={setNumericUnit} placeholder="例如：分钟、页、次" />
         ) : null}
-        {message ? <Text>{message}</Text> : null}
-        <Button title="保存修改" onPress={save} disabled={!name} />
+        {message ? <HelperText tone="success">{message}</HelperText> : null}
+        <AppButton title="保存修改" onPress={save} disabled={!name} />
+      </SectionCard>
+
+      <View style={{ gap: spacing.sm }}>
+        <AppButton
+          title={habit.isPaused ? "恢复习惯" : "暂停习惯"}
+          variant="secondary"
+          onPress={togglePaused}
+        />
+        <AppButton title="删除习惯" variant="danger" onPress={remove} />
       </View>
-      <Button title={habit.isPaused ? "恢复习惯" : "暂停习惯"} onPress={togglePaused} />
-      <Button title="删除习惯" onPress={remove} color="#B3261E" />
     </Screen>
   );
 }

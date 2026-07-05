@@ -25,6 +25,33 @@ export function parseReminderTime(time: string): { hour: number; minute: number 
   };
 }
 
+export type QuietHours = {
+  isEnabled: boolean;
+  start: string;
+  end: string;
+};
+
+export function isWithinQuietHours(time: string, start: string, end: string): boolean {
+  const target = parseReminderTime(time);
+  const from = parseReminderTime(start);
+  const to = parseReminderTime(end);
+
+  const targetMinutes = target.hour * 60 + target.minute;
+  const fromMinutes = from.hour * 60 + from.minute;
+  const toMinutes = to.hour * 60 + to.minute;
+
+  if (fromMinutes === toMinutes) {
+    return false;
+  }
+
+  // 跨午夜区间，例如 22:00–08:00
+  if (fromMinutes > toMinutes) {
+    return targetMinutes >= fromMinutes || targetMinutes < toMinutes;
+  }
+
+  return targetMinutes >= fromMinutes && targetMinutes < toMinutes;
+}
+
 function getNextReminderDate(time: string, now = new Date()): Date {
   const { hour, minute } = parseReminderTime(time);
   const reminderDate = new Date(now);
@@ -35,6 +62,22 @@ function getNextReminderDate(time: string, now = new Date()): Date {
   }
 
   return reminderDate;
+}
+
+export type ReminderPermissionStatus = "granted" | "denied" | "undetermined";
+
+export async function getReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
+  const current = await Notifications.getPermissionsAsync();
+
+  if (current.granted) {
+    return "granted";
+  }
+
+  if (current.canAskAgain) {
+    return "undetermined";
+  }
+
+  return "denied";
 }
 
 export async function requestReminderPermission(): Promise<boolean> {
@@ -76,6 +119,7 @@ let habitNotificationIds: string[] = [];
 export async function rescheduleHabitReminders(input: {
   habits: Habit[];
   completedHabitIds: Set<string>;
+  quietHours?: QuietHours;
 }): Promise<string[]> {
   await Promise.all(habitNotificationIds.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
   habitNotificationIds = [];
@@ -84,6 +128,14 @@ export async function rescheduleHabitReminders(input: {
 
   for (const habit of input.habits) {
     if (input.completedHabitIds.has(habit.id)) {
+      continue;
+    }
+
+    if (
+      habit.reminderTime &&
+      input.quietHours?.isEnabled &&
+      isWithinQuietHours(habit.reminderTime, input.quietHours.start, input.quietHours.end)
+    ) {
       continue;
     }
 

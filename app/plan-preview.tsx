@@ -1,12 +1,23 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Button, Text, TextInput, View } from "react-native";
+import { View } from "react-native";
 import { saveAIHabitPlan } from "../src/ai/habitPlanRepository";
 import { AIPlanDay, AIPlanPreview } from "../src/ai/types";
 import { createHabit } from "../src/habits/habitRepository";
 import { HabitFrequency, HabitTrackType } from "../src/habits/types";
 import { scheduleHabitReminder } from "../src/reminders/reminderService";
+import {
+  AppButton,
+  AppText,
+  Card,
+  HelperText,
+  Label,
+  SectionCard,
+  SegmentedControl,
+  TextField
+} from "../src/ui/Controls";
 import { Screen } from "../src/ui/Screen";
+import { spacing } from "../src/ui/theme";
 import { todayKey } from "../src/utils/date";
 
 function toFrequency(type: string | undefined): HabitFrequency {
@@ -70,61 +81,78 @@ export default function PlanPreviewScreen() {
     }
   }
 
+  const canSave = Boolean(habitName) && Boolean(description) && dailyActions.every((item) => item.action);
+
   return (
     <Screen>
-      <Text style={{ fontSize: 24, fontWeight: "800" }}>预览并编辑 AI 计划</Text>
-      <TextInput
-        value={habitName}
-        onChangeText={setHabitName}
-        placeholder="习惯名称"
-        style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
-      />
-      <TextInput
-        value={description}
-        onChangeText={setDescription}
-        placeholder="描述"
-        style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
-      />
-      <Text>{plan.durationDays} 天计划</Text>
-      {dailyActions.map((item) => (
-        <View key={item.day} style={{ gap: 6 }}>
-          <Text>第 {item.day} 天</Text>
-          <TextInput
+      <View style={{ gap: spacing.xs }}>
+        <AppText variant="title">预览 AI 计划</AppText>
+        <AppText variant="body" tone="muted">
+          {plan.durationDays} 天计划 · 确认前可自由编辑
+        </AppText>
+      </View>
+
+      {plan.safetyNote ? (
+        <Card tone="tint">
+          <AppText variant="caption" tone="primary">
+            安全提示
+          </AppText>
+          <AppText variant="body" tone="soft">
+            {plan.safetyNote}
+          </AppText>
+        </Card>
+      ) : null}
+
+      <SectionCard title="习惯信息">
+        <TextField label="名称" value={habitName} onChangeText={setHabitName} placeholder="习惯名称" />
+        <TextField label="描述" value={description} onChangeText={setDescription} placeholder="描述" />
+      </SectionCard>
+
+      <SectionCard title="每日行动">
+        {dailyActions.map((item) => (
+          <TextField
+            key={item.day}
+            label={`第 ${item.day} 天`}
             value={item.action}
             onChangeText={(value) => updateAction(item.day, value)}
-            style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
+            placeholder="当天的小行动"
+          />
+        ))}
+      </SectionCard>
+
+      <SectionCard title="提醒与记录">
+        <TextField label="提醒时间" value={reminderTime} onChangeText={setReminderTime} placeholder="21:30" />
+        <View style={{ gap: spacing.sm }}>
+          <Label>记录方式</Label>
+          <SegmentedControl<HabitTrackType>
+            value={trackType}
+            onChange={setTrackType}
+            options={[
+              { label: "一键完成", value: "check" },
+              { label: "数值记录", value: "numeric" }
+            ]}
           />
         </View>
-      ))}
-      <TextInput
-        value={reminderTime}
-        onChangeText={setReminderTime}
-        placeholder="提醒时间 21:30"
-        style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
-      />
-      <Text>记录方式</Text>
-      <View style={{ flexDirection: "row", gap: 8 }}>
-        <Button title="一键完成" onPress={() => setTrackType("check")} color={trackType === "check" ? "#2F6B4F" : undefined} />
-        <Button title="数值记录" onPress={() => setTrackType("numeric")} color={trackType === "numeric" ? "#2F6B4F" : undefined} />
-      </View>
-      {trackType === "numeric" ? (
-        <TextInput
-          value={numericUnit}
-          onChangeText={setNumericUnit}
-          placeholder="单位，例如 分钟、页、次"
-          style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
+        {trackType === "numeric" ? (
+          <TextField label="单位" value={numericUnit} onChangeText={setNumericUnit} placeholder="例如：分钟、页、次" />
+        ) : null}
+      </SectionCard>
+
+      <SectionCard title="降低难度建议">
+        <TextField
+          value={fallbackAdvice}
+          onChangeText={setFallbackAdvice}
+          placeholder="卡住时可以怎么调轻"
+          multiline
         />
-      ) : null}
-      <TextInput
-        value={fallbackAdvice}
-        onChangeText={setFallbackAdvice}
-        placeholder="降低难度建议"
-        style={{ borderWidth: 1, borderColor: "#CCC", padding: 12, borderRadius: 8 }}
-      />
-      {plan.safetyNote ? <Text>{plan.safetyNote}</Text> : null}
-      {error ? <Text>{error}</Text> : null}
-      <Button title="保存计划" onPress={savePlan} disabled={!habitName || !description || dailyActions.some((item) => !item.action)} />
-      <Button title="取消" onPress={() => router.back()} />
+      </SectionCard>
+
+      {error ? <HelperText tone="danger">{error}</HelperText> : null}
+
+      <View style={{ gap: spacing.sm }}>
+        <AppButton title="保存计划" onPress={savePlan} disabled={!canSave} />
+        <AppButton title="取消" variant="ghost" onPress={() => router.back()} />
+      </View>
     </Screen>
   );
 }

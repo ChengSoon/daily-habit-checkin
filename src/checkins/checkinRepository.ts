@@ -64,3 +64,12 @@ export async function listCheckInsForHabit(habitId: string): Promise<CheckIn[]> 
 
   return rows.map(mapRow);
 }
+
+export async function listAllCheckIns(): Promise<CheckIn[]> {
+  const db = getDatabase();
+  const rows = await db.getAllAsync<CheckInRow>(
+    "SELECT * FROM check_ins ORDER BY date ASC"
+  );
+
+  return rows.map(mapRow);
+}
