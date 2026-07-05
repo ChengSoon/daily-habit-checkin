@@ -25,6 +25,18 @@ export function parseReminderTime(time: string): { hour: number; minute: number 
   };
 }
 
+function getNextReminderDate(time: string, now = new Date()): Date {
+  const { hour, minute } = parseReminderTime(time);
+  const reminderDate = new Date(now);
+  reminderDate.setHours(hour, minute, 0, 0);
+
+  if (reminderDate <= now) {
+    reminderDate.setDate(reminderDate.getDate() + 1);
+  }
+
+  return reminderDate;
+}
+
 export async function requestReminderPermission(): Promise<boolean> {
   const current = await Notifications.getPermissionsAsync();
 
@@ -47,19 +59,42 @@ export async function scheduleHabitReminder(habit: Habit): Promise<string | null
     return null;
   }
 
-  const { hour, minute } = parseReminderTime(habit.reminderTime);
-
   return Notifications.scheduleNotificationAsync({
     content: {
       title: `该打卡了：${habit.name}`,
       body: "完成后点一下，今天就算坚持住了。"
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour,
-      minute
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: getNextReminderDate(habit.reminderTime)
     }
   });
+}
+
+let habitNotificationIds: string[] = [];
+
+export async function rescheduleHabitReminders(input: {
+  habits: Habit[];
+  completedHabitIds: Set<string>;
+}): Promise<string[]> {
+  await Promise.all(habitNotificationIds.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
+  habitNotificationIds = [];
+
+  const ids: string[] = [];
+
+  for (const habit of input.habits) {
+    if (input.completedHabitIds.has(habit.id)) {
+      continue;
+    }
+
+    const id = await scheduleHabitReminder(habit);
+    if (id) {
+      ids.push(id);
+    }
+  }
+
+  habitNotificationIds = ids;
+  return ids;
 }
 
 export async function scheduleEveningSummary(input: {
@@ -77,17 +112,14 @@ export async function scheduleEveningSummary(input: {
     return null;
   }
 
-  const { hour, minute } = parseReminderTime(input.time);
-
   return Notifications.scheduleNotificationAsync({
     content: {
       title: `今天还有 ${input.incompleteCount} 个习惯未完成`,
       body: input.incompleteNames.join("、")
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour,
-      minute
+      type: Notifications.SchedulableTriggerInputTypes.DATE,
+      date: getNextReminderDate(input.time)
     }
   });
 }

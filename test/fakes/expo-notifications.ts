@@ -8,7 +8,8 @@ type NotificationHandler = {
 };
 
 export const SchedulableTriggerInputTypes = {
-  DAILY: "daily"
+  DAILY: "daily",
+  DATE: "date"
 } as const;
 
 let handler: NotificationHandler | null = null;

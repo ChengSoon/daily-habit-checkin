@@ -6,7 +6,7 @@ import { CheckIn } from "../../src/checkins/types";
 import { listActiveHabits } from "../../src/habits/habitRepository";
 import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { Habit } from "../../src/habits/types";
-import { rescheduleTodayEveningSummary } from "../../src/reminders/reminderService";
+import { rescheduleHabitReminders, rescheduleTodayEveningSummary } from "../../src/reminders/reminderService";
 import { getAppSettings } from "../../src/settings/settingsRepository";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { HabitRow } from "../../src/ui/HabitRow";
@@ -34,6 +34,10 @@ export default function TodayScreen() {
 
     setHabits(loadedHabits);
     setCheckIns(todayCheckIns);
+    await rescheduleHabitReminders({
+      habits: loadedHabits,
+      completedHabitIds: completedIds
+    });
     await rescheduleTodayEveningSummary({
       isEnabled: settings.isEveningSummaryEnabled,
       incompleteNames,
