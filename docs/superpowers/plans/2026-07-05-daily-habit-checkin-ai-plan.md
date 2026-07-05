@@ -1120,21 +1120,8 @@ Create `server/package.json`:
     "build": "tsc -p tsconfig.json",
     "test": "vitest run"
   },
-  "dependencies": {
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "openai": "^4.78.1",
-    "zod": "^3.24.1"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.0",
-    "@types/node": "^22.10.5",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
-    "vitest": "^2.1.8"
-  }
+  "dependencies": {},
+  "devDependencies": {}
 }
 ```
 
@@ -1143,7 +1130,9 @@ Create `server/package.json`:
 Run:
 
 ```bash
-cd server && npm install
+cd server
+npm install cors dotenv express openai zod
+npm install -D @types/cors @types/express @types/node tsx typescript vitest
 ```
 
 Expected: `server/package-lock.json` is created.
@@ -1171,7 +1160,7 @@ Create `server/.env.example`:
 
 ```bash
 OPENAI_API_KEY=
-OPENAI_MODEL=gpt-4.1-mini
+OPENAI_MODEL=gpt-5.5
 PORT=8787
 ```
 
@@ -1282,23 +1271,16 @@ export async function generateHabitPlan(rawInput: unknown): Promise<HabitPlanRes
     throw new Error("OPENAI_API_KEY is required");
   }
 
-  const response = await client.chat.completions.create({
-    model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
-    messages: [
-      {
-        role: "system",
-        content:
-          "你是习惯计划助手。只生成温和、可执行、低压力的习惯入门计划。必须输出 JSON，不要输出 Markdown。"
-      },
-      {
-        role: "user",
-        content: JSON.stringify(input)
-      }
-    ],
-    response_format: {
-      type: "json_schema",
-      json_schema: {
+  const response = await client.responses.create({
+    model: process.env.OPENAI_MODEL ?? "gpt-5.5",
+    instructions:
+      "你是习惯计划助手。只生成温和、可执行、低压力的习惯入门计划。必须输出 JSON，不要输出 Markdown。",
+    input: JSON.stringify(input),
+    text: {
+      format: {
+        type: "json_schema",
         name: "habit_plan",
+        strict: true,
         schema: {
           type: "object",
           additionalProperties: false,
@@ -1341,7 +1323,7 @@ export async function generateHabitPlan(rawInput: unknown): Promise<HabitPlanRes
     }
   });
 
-  const content = response.choices[0]?.message.content;
+  const content = response.output_text;
 
   if (!content) {
     throw new Error("AI returned empty content");
