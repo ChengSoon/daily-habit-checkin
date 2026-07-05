@@ -26,6 +26,7 @@ export type HabitPlanResponse = z.infer<typeof HabitPlanResponseSchema>;
 export const HabitPlanRequestSchema = z.object({
   goalText: z.string().min(2).max(120),
   currentLevel: z.union([z.literal("beginner"), z.literal("some_experience"), z.literal("stable")]),
+  durationDays: z.union([z.literal(7), z.literal(21)]),
   dailyAvailableMinutes: z.number().int().min(1).max(180),
   expectedFrequency: z.object({
     type: z.union([z.literal("daily"), z.literal("weekdays"), z.literal("weekly")]),

@@ -3,6 +3,7 @@ import { HabitFrequency, HabitTrackType } from "../habits/types";
 export type AIPlanRequest = {
   goalText: string;
   currentLevel: "beginner" | "some_experience" | "stable";
+  durationDays: 7 | 21;
   dailyAvailableMinutes: number;
   expectedFrequency: HabitFrequency;
   reminderPreference: "morning" | "noon" | "evening" | "custom";

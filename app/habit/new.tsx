@@ -20,6 +20,7 @@ export default function NewHabitScreen() {
   const [goalText, setGoalText] = useState("");
   const [description, setDescription] = useState("");
   const [currentLevel, setCurrentLevel] = useState<CurrentLevel>("beginner");
+  const [durationDays, setDurationDays] = useState<7 | 21>(7);
   const [dailyMinutes, setDailyMinutes] = useState("10");
   const [frequencyType, setFrequencyType] = useState<FrequencyType>("daily");
   const [reminderPreference, setReminderPreference] = useState<ReminderPreference>("evening");
@@ -37,6 +38,7 @@ export default function NewHabitScreen() {
       const plan = await requestAIHabitPlan({
         goalText,
         currentLevel,
+        durationDays,
         dailyAvailableMinutes: Number(dailyMinutes),
         expectedFrequency: toFrequency(frequencyType),
         reminderPreference,
@@ -104,6 +106,11 @@ export default function NewHabitScreen() {
             <Button title="新手" onPress={() => setCurrentLevel("beginner")} color={currentLevel === "beginner" ? "#2F6B4F" : undefined} />
             <Button title="有基础" onPress={() => setCurrentLevel("some_experience")} color={currentLevel === "some_experience" ? "#2F6B4F" : undefined} />
             <Button title="稳定做过" onPress={() => setCurrentLevel("stable")} color={currentLevel === "stable" ? "#2F6B4F" : undefined} />
+          </View>
+          <Text>计划周期</Text>
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <Button title="7 天" onPress={() => setDurationDays(7)} color={durationDays === 7 ? "#2F6B4F" : undefined} />
+            <Button title="21 天" onPress={() => setDurationDays(21)} color={durationDays === 21 ? "#2F6B4F" : undefined} />
           </View>
           <TextInput
             value={dailyMinutes}
