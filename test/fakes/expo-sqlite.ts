@@ -106,6 +106,13 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
       return;
     }
 
+    if (sql.includes("UPDATE habits SET sort_order = ?")) {
+      this.habits = this.habits.map((habit) => {
+        return habit.id === params[1] ? { ...habit, sort_order: Number(params[0]) } : habit;
+      });
+      return;
+    }
+
     if (sql.includes("DELETE FROM habits WHERE id = ?")) {
       this.habits = this.habits.filter((habit) => habit.id !== params[0]);
       this.checkIns = this.checkIns.filter((checkIn) => checkIn.habit_id !== params[0]);

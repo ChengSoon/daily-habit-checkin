@@ -147,3 +147,24 @@ export async function deleteHabit(id: string): Promise<void> {
   const db = getDatabase();
   await db.runAsync("DELETE FROM habits WHERE id = ?", [id]);
 }
+
+export async function moveHabit(id: string, direction: "up" | "down"): Promise<void> {
+  const db = getDatabase();
+  const habits = await listHabits();
+  const currentIndex = habits.findIndex((habit) => habit.id === id);
+
+  if (currentIndex < 0) {
+    return;
+  }
+
+  const nextIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+  const current = habits[currentIndex];
+  const next = habits[nextIndex];
+
+  if (!current || !next) {
+    return;
+  }
+
+  await db.runAsync("UPDATE habits SET sort_order = ? WHERE id = ?", [next.sortOrder, current.id]);
+  await db.runAsync("UPDATE habits SET sort_order = ? WHERE id = ?", [current.sortOrder, next.id]);
+}

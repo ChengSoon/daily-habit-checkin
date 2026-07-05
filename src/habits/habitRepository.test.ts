@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { initializeDatabase, resetDatabaseForTests } from "../db/database";
-import { createHabit, deleteHabit, getHabitById, listActiveHabits, setHabitPaused, updateHabit } from "./habitRepository";
+import { createHabit, deleteHabit, getHabitById, listActiveHabits, moveHabit, setHabitPaused, updateHabit } from "./habitRepository";
 
 describe("habit repository", () => {
   beforeEach(async () => {
@@ -86,5 +86,32 @@ describe("habit repository", () => {
 
     await deleteHabit(habit.id);
     expect(await getHabitById(habit.id)).toBeNull();
+  });
+
+  it("moves habits up and down", async () => {
+    const first = await createHabit({
+      name: "阅读",
+      description: null,
+      frequency: { type: "daily" },
+      reminderTime: null,
+      isReminderEnabled: false,
+      trackType: "check",
+      numericUnit: null
+    });
+    const second = await createHabit({
+      name: "运动",
+      description: null,
+      frequency: { type: "daily" },
+      reminderTime: null,
+      isReminderEnabled: false,
+      trackType: "check",
+      numericUnit: null
+    });
+
+    await moveHabit(second.id, "up");
+    expect((await listActiveHabits()).map((habit) => habit.id)).toEqual([second.id, first.id]);
+
+    await moveHabit(second.id, "down");
+    expect((await listActiveHabits()).map((habit) => habit.id)).toEqual([first.id, second.id]);
   });
 });
