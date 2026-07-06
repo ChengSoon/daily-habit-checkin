@@ -17,7 +17,8 @@ export const DEFAULT_REWARDS: CreateRewardInput[] = [
     priceXp: 100,
     status: "active",
     virtualKind: "theme",
-    inventoryLimit: null
+    inventoryLimit: null,
+    imageUri: null
   },
   {
     title: "专属称号",
@@ -26,7 +27,8 @@ export const DEFAULT_REWARDS: CreateRewardInput[] = [
     priceXp: 200,
     status: "active",
     virtualKind: "title",
-    inventoryLimit: null
+    inventoryLimit: null,
+    imageUri: null
   },
   {
     title: "奶茶一杯",
@@ -35,7 +37,8 @@ export const DEFAULT_REWARDS: CreateRewardInput[] = [
     priceXp: 300,
     status: "active",
     virtualKind: "none",
-    inventoryLimit: null
+    inventoryLimit: null,
+    imageUri: null
   }
 ];
 
@@ -62,7 +65,7 @@ export async function redeemReward(rewardId: string): Promise<RewardRedemption> 
   const missing = reward.priceXp - wallet.balance;
 
   if (missing > 0) {
-    throw new Error(`XP 不足，还差 ${missing} XP`);
+    throw new Error(`积分不足，还差 ${missing} 积分`);
   }
 
   const redemption = await createRedemption({

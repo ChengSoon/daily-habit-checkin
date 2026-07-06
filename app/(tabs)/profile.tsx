@@ -23,7 +23,10 @@ export default function ProfileScreen() {
     themeMode: "system",
     isQuietHoursEnabled: false,
     quietHoursStart: "22:00",
-    quietHoursEnd: "08:00"
+    quietHoursEnd: "08:00",
+    aiBaseUrl: "",
+    aiApiKey: "",
+    aiModel: ""
   });
   const [permission, setPermission] = useState<ReminderPermissionStatus>("undetermined");
   const [xpBalance, setXpBalance] = useState(0);
@@ -105,13 +108,13 @@ export default function ProfileScreen() {
       <SectionCard title="奖励">
         <Pressable onPress={revealAdminEntry} style={{ gap: spacing.xs }}>
           <AppText variant="caption" tone="primary">
-            当前 XP
+            当前积分
           </AppText>
           <AppText variant="title" tone="primary">
-            {xpBalance} XP
+            {xpBalance} 积分
           </AppText>
           <AppText variant="small" tone="muted">
-            累计获得 {lifetimeEarned} XP
+            累计获得 {lifetimeEarned} 积分
           </AppText>
         </Pressable>
         <Divider />
@@ -155,6 +158,37 @@ export default function ProfileScreen() {
             { label: "深色", value: "dark" }
           ]}
         />
+      </SectionCard>
+
+      <SectionCard title="AI 服务配置">
+        <AppText variant="body" tone="soft">
+          填写你自己的 AI 服务地址、访问密钥和模型名。留空则使用默认配置。
+        </AppText>
+        <TextField
+          label="服务地址"
+          value={settings.aiBaseUrl}
+          onChangeText={(value) => setSettings({ ...settings, aiBaseUrl: value })}
+          onBlur={() => save(settings)}
+          placeholder="https://your-server.com"
+          keyboardType="url"
+        />
+        <TextField
+          label="访问密钥"
+          value={settings.aiApiKey}
+          onChangeText={(value) => setSettings({ ...settings, aiApiKey: value })}
+          onBlur={() => save(settings)}
+          placeholder="x-api-key（可留空）"
+        />
+        <TextField
+          label="模型名"
+          value={settings.aiModel}
+          onChangeText={(value) => setSettings({ ...settings, aiModel: value })}
+          onBlur={() => save(settings)}
+          placeholder="例如：gpt-5.5"
+        />
+        <AppText variant="small" tone="faint">
+          修改后离开输入框即自动保存
+        </AppText>
       </SectionCard>
 
       <SectionCard title="提醒设置">

@@ -77,6 +77,7 @@ type RewardRow = {
   status: "active" | "archived";
   virtual_kind: "theme" | "celebration" | "title" | "badge" | "card_skin" | "none";
   inventory_limit: number | null;
+  image_uri: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -289,8 +290,9 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
         status: params[5] as RewardRow["status"],
         virtual_kind: params[6] as RewardRow["virtual_kind"],
         inventory_limit: params[7] === null ? null : Number(params[7]),
-        created_at: String(params[8]),
-        updated_at: String(params[9])
+        image_uri: params[8] === null ? null : String(params[8]),
+        created_at: String(params[9]),
+        updated_at: String(params[10])
       };
       this.rewards = this.rewards.filter((reward) => reward.id !== row.id);
       this.rewards.push(row);
@@ -299,7 +301,7 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
 
     if (sql.includes("UPDATE rewards SET")) {
       this.rewards = this.rewards.map((reward) => {
-        if (reward.id !== params[8]) {
+        if (reward.id !== params[9]) {
           return reward;
         }
         return {
@@ -311,7 +313,8 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
           status: params[4] as RewardRow["status"],
           virtual_kind: params[5] as RewardRow["virtual_kind"],
           inventory_limit: params[6] === null ? null : Number(params[6]),
-          updated_at: String(params[7])
+          image_uri: params[7] === null ? null : String(params[7]),
+          updated_at: String(params[8])
         };
       });
       return;

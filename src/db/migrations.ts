@@ -90,6 +90,7 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       status TEXT NOT NULL,
       virtual_kind TEXT NOT NULL,
       inventory_limit INTEGER,
+      image_uri TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -110,7 +111,13 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS local_settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
   `);
 
   await db.execAsync("ALTER TABLE habits ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;").catch(() => undefined);
+  await db.execAsync("ALTER TABLE rewards ADD COLUMN image_uri TEXT;").catch(() => undefined);
 }

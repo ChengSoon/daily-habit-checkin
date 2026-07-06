@@ -33,7 +33,14 @@
           "imageWidth": 76
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许访问相册，用于为奖励商品选择图片。",
+          "cameraPermission": "允许使用相机，用于为奖励商品拍摄图片。"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

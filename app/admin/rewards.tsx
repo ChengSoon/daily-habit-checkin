@@ -2,6 +2,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { createReward, listRewards, updateReward } from "../../src/rewards/rewardRepository";
+import { deleteRewardImage } from "../../src/rewards/rewardImage";
 import { Reward, RewardType, VirtualRewardKind } from "../../src/rewards/types";
 import {
   AppButton,
@@ -13,6 +14,7 @@ import {
   SegmentedControl,
   TextField
 } from "../../src/ui/Controls";
+import { ImagePickerField, RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
 
@@ -24,6 +26,7 @@ export default function AdminRewardsScreen() {
   const [type, setType] = useState<RewardType>("real_world");
   const [priceXp, setPriceXp] = useState("300");
   const [virtualKind, setVirtualKind] = useState<VirtualRewardKind>("none");
+  const [imageUri, setImageUri] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -39,6 +42,7 @@ export default function AdminRewardsScreen() {
     setType(reward.type);
     setPriceXp(String(reward.priceXp));
     setVirtualKind(reward.virtualKind);
+    setImageUri(reward.imageUri);
     setMessage(null);
   }
 
@@ -49,9 +53,15 @@ export default function AdminRewardsScreen() {
     setType("real_world");
     setPriceXp("300");
     setVirtualKind("none");
+    setImageUri(null);
   }
 
   async function save() {
+    // 编辑时若换掉或移除了图片，清理旧的持久化文件，避免残留。
+    if (editing && editing.imageUri && editing.imageUri !== imageUri) {
+      await deleteRewardImage(editing.imageUri);
+    }
+
     const input = {
       title,
       description: description || null,
@@ -59,7 +69,8 @@ export default function AdminRewardsScreen() {
       priceXp: Number(priceXp),
       status: editing?.status ?? "active",
       virtualKind: type === "virtual" ? virtualKind : "none",
-      inventoryLimit: null
+      inventoryLimit: null,
+      imageUri
     } as const;
 
     if (editing) {
@@ -81,7 +92,8 @@ export default function AdminRewardsScreen() {
       priceXp: reward.priceXp,
       status: reward.status === "active" ? "archived" : "active",
       virtualKind: reward.virtualKind,
-      inventoryLimit: reward.inventoryLimit
+      inventoryLimit: reward.inventoryLimit,
+      imageUri: reward.imageUri
     });
     load();
   }
@@ -91,12 +103,13 @@ export default function AdminRewardsScreen() {
       <View style={{ gap: spacing.xs }}>
         <AppText variant="display">奖励管理</AppText>
         <AppText variant="body" tone="muted">
-          普通使用者不会看到新增和编辑入口
+          在这里新增、编辑、上下架商品。普通使用者只能浏览和兑换，看不到这个页面。
         </AppText>
       </View>
 
       <Card>
-        <AppText variant="section">{editing ? "编辑奖励" : "新增奖励"}</AppText>
+        <AppText variant="section">{editing ? "编辑商品" : "新增商品"}</AppText>
+        <ImagePickerField type={type} value={imageUri} onChange={setImageUri} />
         <TextField label="名称" value={title} onChangeText={setTitle} placeholder="例如：奶茶一杯" />
         <TextField label="描述" value={description} onChangeText={setDescription} placeholder="例如：周末兑现" />
         <View style={{ gap: spacing.sm }}>
@@ -124,23 +137,28 @@ export default function AdminRewardsScreen() {
             />
           </View>
         ) : null}
-        <TextField label="价格 XP" value={priceXp} onChangeText={setPriceXp} keyboardType="numeric" />
+        <TextField label="价格（积分）" value={priceXp} onChangeText={setPriceXp} keyboardType="numeric" />
         {message ? <HelperText tone="success">{message}</HelperText> : null}
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <AppButton title="保存" onPress={save} disabled={!title || Number(priceXp) <= 0} style={{ flex: 1 }} />
-          <AppButton
-            title="兑现管理"
-            variant="secondary"
-            onPress={() => router.push("/admin/redemptions")}
-            style={{ flex: 1 }}
-          />
+          {editing ? (
+            <AppButton title="取消编辑" variant="ghost" onPress={resetForm} style={{ flex: 1 }} />
+          ) : (
+            <AppButton
+              title="兑现管理"
+              variant="secondary"
+              onPress={() => router.push("/admin/redemptions")}
+              style={{ flex: 1 }}
+            />
+          )}
         </View>
       </Card>
 
       <View style={{ gap: spacing.sm }}>
         {rewards.map((reward) => (
           <Card key={reward.id}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.md }}>
+            <View style={{ flexDirection: "row", gap: spacing.md }}>
+              <RewardThumb uri={reward.imageUri} type={reward.type} size={56} />
               <View style={{ flex: 1, gap: spacing.xs }}>
                 <Badge
                   label={reward.status === "active" ? "上架中" : "已下架"}
@@ -148,7 +166,7 @@ export default function AdminRewardsScreen() {
                 />
                 <AppText variant="bodyStrong">{reward.title}</AppText>
                 <AppText variant="small" tone="muted">
-                  {reward.type === "virtual" ? "虚拟奖励" : "现实奖励"} · {reward.priceXp} XP
+                  {reward.type === "virtual" ? "虚拟奖励" : "现实奖励"} · {reward.priceXp} 积分
                 </AppText>
               </View>
             </View>

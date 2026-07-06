@@ -9,6 +9,9 @@ export type AppSettings = {
   isQuietHoursEnabled: boolean;
   quietHoursStart: string;
   quietHoursEnd: string;
+  aiBaseUrl: string;
+  aiApiKey: string;
+  aiModel: string;
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -17,7 +20,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   themeMode: "system",
   isQuietHoursEnabled: false,
   quietHoursStart: "22:00",
-  quietHoursEnd: "08:00"
+  quietHoursEnd: "08:00",
+  aiBaseUrl: "",
+  aiApiKey: "",
+  aiModel: ""
 };
 
 function parseThemeMode(value: string | undefined): ThemeMode {
@@ -35,7 +41,10 @@ export async function getAppSettings(): Promise<AppSettings> {
     themeMode: parseThemeMode(values.get("themeMode")),
     isQuietHoursEnabled: values.get("isQuietHoursEnabled") === "true",
     quietHoursStart: values.get("quietHoursStart") ?? DEFAULT_SETTINGS.quietHoursStart,
-    quietHoursEnd: values.get("quietHoursEnd") ?? DEFAULT_SETTINGS.quietHoursEnd
+    quietHoursEnd: values.get("quietHoursEnd") ?? DEFAULT_SETTINGS.quietHoursEnd,
+    aiBaseUrl: values.get("aiBaseUrl") ?? DEFAULT_SETTINGS.aiBaseUrl,
+    aiApiKey: values.get("aiApiKey") ?? DEFAULT_SETTINGS.aiApiKey,
+    aiModel: values.get("aiModel") ?? DEFAULT_SETTINGS.aiModel
   };
 }
 
@@ -65,5 +74,17 @@ export async function saveAppSettings(settings: AppSettings): Promise<void> {
   await db.runAsync(
     "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     ["quietHoursEnd", settings.quietHoursEnd]
+  );
+  await db.runAsync(
+    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ["aiBaseUrl", settings.aiBaseUrl]
+  );
+  await db.runAsync(
+    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ["aiApiKey", settings.aiApiKey]
+  );
+  await db.runAsync(
+    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+    ["aiModel", settings.aiModel]
   );
 }

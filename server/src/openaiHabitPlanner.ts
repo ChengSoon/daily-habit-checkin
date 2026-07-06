@@ -11,7 +11,7 @@ export async function generateHabitPlan(rawInput: unknown): Promise<HabitPlanRes
   }
 
   const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL ?? "gpt-5.5",
+    model: input.model ?? process.env.OPENAI_MODEL ?? "gpt-5.5",
     instructions:
       "你是习惯计划助手。只生成温和、可执行、低压力的习惯入门计划。输出的 durationDays 必须等于用户输入的 durationDays。必须输出 JSON，不要输出 Markdown。",
     input: JSON.stringify(input),

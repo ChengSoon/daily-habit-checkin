@@ -127,14 +127,14 @@ export default function TodayScreen() {
 
         <Card tone="tint" onPress={() => router.push("/shop")}>
           <AppText variant="caption" tone="primary">
-            XP 余额
+            积分余额
           </AppText>
           <AppText variant="title" tone="primary">
-            {xpBalance} XP
+            {xpBalance} 积分
           </AppText>
           {lastXpResult && lastXpResult.insertedTransactions.length > 0 ? (
             <AppText variant="small" tone="soft">
-              本次 +{lastXpResult.insertedTransactions.reduce((sum, item) => sum + Math.max(item.amount, 0), 0)} XP ·{" "}
+              本次 +{lastXpResult.insertedTransactions.reduce((sum, item) => sum + Math.max(item.amount, 0), 0)} 积分 ·{" "}
               {lastXpResult.awards
                 .filter((award) => lastXpResult.insertedTransactions.some((item) => item.reason === award.reason))
                 .map((award) => award.label)

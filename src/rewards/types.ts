@@ -12,6 +12,7 @@ export type Reward = {
   status: RewardStatus;
   virtualKind: VirtualRewardKind;
   inventoryLimit: number | null;
+  imageUri: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -35,4 +36,5 @@ export type CreateRewardInput = {
   status: RewardStatus;
   virtualKind: VirtualRewardKind;
   inventoryLimit: number | null;
+  imageUri: string | null;
 };

@@ -37,7 +37,7 @@ export default function AdminRedemptionsScreen() {
 
   async function cancel(id: string) {
     await cancelRedemption(id);
-    setMessage("已取消兑换并退回 XP");
+    setMessage("已取消兑换并退回积分");
     await load();
   }
 
@@ -63,11 +63,11 @@ export default function AdminRedemptionsScreen() {
                 <Badge label="待兑现" tone="primary" />
                 <AppText variant="bodyStrong">{reward?.title ?? "奖励已不存在"}</AppText>
                 <AppText variant="small" tone="muted">
-                  {item.priceXp} XP · {new Date(item.createdAt).toLocaleString()}
+                  {item.priceXp} 积分 · {new Date(item.createdAt).toLocaleString()}
                 </AppText>
                 <View style={{ flexDirection: "row", gap: spacing.sm }}>
                   <AppButton title="确认已兑现" compact onPress={() => fulfill(item.id)} style={{ flex: 1 }} />
-                  <AppButton title="取消并退回 XP" compact variant="ghost" onPress={() => cancel(item.id)} style={{ flex: 1 }} />
+                  <AppButton title="取消并退回积分" compact variant="ghost" onPress={() => cancel(item.id)} style={{ flex: 1 }} />
                 </View>
               </Card>
             );

@@ -31,7 +31,8 @@ describe("reward service", () => {
       priceXp: 300,
       status: "active",
       virtualKind: "none",
-      inventoryLimit: null
+      inventoryLimit: null,
+      imageUri: null
     });
 
     const redemption = await redeemReward(reward.id);
@@ -61,7 +62,8 @@ describe("reward service", () => {
       priceXp: 100,
       status: "active",
       virtualKind: "theme",
-      inventoryLimit: null
+      inventoryLimit: null,
+      imageUri: null
     });
 
     const redemption = await redeemReward(reward.id);
@@ -77,10 +79,11 @@ describe("reward service", () => {
       priceXp: 1000,
       status: "active",
       virtualKind: "none",
-      inventoryLimit: null
+      inventoryLimit: null,
+      imageUri: null
     });
 
-    await expect(redeemReward(reward.id)).rejects.toThrow("XP 不足，还差 1000 XP");
+    await expect(redeemReward(reward.id)).rejects.toThrow("积分不足，还差 1000 积分");
   });
 
   it("fulfills and cancels pending redemptions", async () => {
@@ -104,7 +107,8 @@ describe("reward service", () => {
       priceXp: 200,
       status: "active",
       virtualKind: "none",
-      inventoryLimit: null
+      inventoryLimit: null,
+      imageUri: null
     });
     const first = await redeemReward(reward.id);
     const fulfilled = await fulfillRedemption(first.id);
@@ -125,7 +129,8 @@ describe("reward service", () => {
       priceXp: 100,
       status: "active",
       virtualKind: "title",
-      inventoryLimit: null
+      inventoryLimit: null,
+      imageUri: null
     });
 
     expect((await listRewards({ includeArchived: false })).map((item) => item.id)).toEqual([reward.id]);

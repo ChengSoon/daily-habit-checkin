@@ -5,6 +5,7 @@ import { getRewardById, listRedemptions } from "../../src/rewards/rewardReposito
 import { Reward, RewardRedemption } from "../../src/rewards/types";
 import { AppText, Badge, Card } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
+import { RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
 
@@ -55,7 +56,8 @@ export default function RedemptionsScreen() {
           const reward = rewards[item.rewardId];
           return (
             <Card key={item.id}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.md }}>
+              <View style={{ flexDirection: "row", gap: spacing.md }}>
+                <RewardThumb uri={reward?.imageUri ?? null} type={reward?.type ?? "real_world"} />
                 <View style={{ flex: 1, gap: spacing.xs }}>
                   <Badge label={STATUS_LABEL[item.status]} tone={item.status === "cancelled" ? "muted" : "primary"} />
                   <AppText variant="bodyStrong">{reward?.title ?? "奖励已不存在"}</AppText>
@@ -64,7 +66,7 @@ export default function RedemptionsScreen() {
                   </AppText>
                 </View>
                 <AppText variant="bodyStrong" tone="primary">
-                  {item.priceXp} XP
+                  {item.priceXp} 积分
                 </AppText>
               </View>
             </Card>
@@ -78,7 +80,7 @@ export default function RedemptionsScreen() {
     <Screen>
       <AppText variant="display">兑换记录</AppText>
       {redemptions.length === 0 ? (
-        <EmptyState title="还没有兑换记录" body="攒够 XP 后，可以在奖励商城兑换喜欢的奖励。" />
+        <EmptyState title="还没有兑换记录" body="攒够积分后，可以在奖励商城兑换喜欢的奖励。" />
       ) : (
         <View style={{ gap: spacing.lg }}>
           {renderGroup("pending_fulfillment", groups.pending_fulfillment)}

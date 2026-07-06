@@ -11,6 +11,7 @@ type RewardRow = {
   status: Reward["status"];
   virtual_kind: Reward["virtualKind"];
   inventory_limit: number | null;
+  image_uri: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,6 +37,7 @@ function mapReward(row: RewardRow): Reward {
     status: row.status,
     virtualKind: row.virtual_kind,
     inventoryLimit: row.inventory_limit,
+    imageUri: row.image_uri,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
@@ -66,6 +68,7 @@ export async function createReward(input: CreateRewardInput): Promise<Reward> {
     status: input.status,
     virtualKind: input.virtualKind,
     inventoryLimit: input.inventoryLimit,
+    imageUri: input.imageUri,
     createdAt: now,
     updatedAt: now
   };
@@ -73,8 +76,8 @@ export async function createReward(input: CreateRewardInput): Promise<Reward> {
   await db.runAsync(
     `INSERT INTO rewards (
       id, title, description, type, price_xp, status, virtual_kind,
-      inventory_limit, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      inventory_limit, image_uri, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       reward.id,
       reward.title,
@@ -84,6 +87,7 @@ export async function createReward(input: CreateRewardInput): Promise<Reward> {
       reward.status,
       reward.virtualKind,
       reward.inventoryLimit,
+      reward.imageUri,
       reward.createdAt,
       reward.updatedAt
     ]
@@ -104,6 +108,7 @@ export async function updateReward(id: string, input: CreateRewardInput): Promis
       status = ?,
       virtual_kind = ?,
       inventory_limit = ?,
+      image_uri = ?,
       updated_at = ?
     WHERE id = ?`,
     [
@@ -114,6 +119,7 @@ export async function updateReward(id: string, input: CreateRewardInput): Promis
       input.status,
       input.virtualKind,
       input.inventoryLimit,
+      input.imageUri,
       new Date().toISOString(),
       id
     ]
