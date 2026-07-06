@@ -55,6 +55,8 @@ class SyncBackend {
   };
   /** 已见过的 xp 交易 uniqueKey，用于幂等。 */
   private seenTxKeys = new Set<string>();
+  /** 当前空间成员（情侣双方），供 space-members 接口返回。 */
+  private members: Array<{ id: string; displayName: string; role: string; avatarData?: string | null; avatarMime?: string | null }> = [];
 
   reset(): void {
     for (const name of RESOURCES) {
@@ -64,6 +66,12 @@ class SyncBackend {
     this.settings.admin.clear();
     this.wallet = { balance: 0, lifetimeEarned: 0, lifetimeSpent: 0, updatedAt: new Date().toISOString() };
     this.seenTxKeys.clear();
+    this.members = [];
+  }
+
+  /** 测试辅助：设置空间成员，供双人 UI 相关测试使用。 */
+  setMembers(members: Array<{ id: string; displayName: string; role: string; avatarData?: string | null; avatarMime?: string | null }>): void {
+    this.members = members.map((member) => ({ ...member }));
   }
 
   private listResource(resource: ResourceName): Row[] {
@@ -191,6 +199,29 @@ class SyncBackend {
       return this.postTransactions(transactions);
     }
 
+    if (path === "/api/auth/space-members" && method === "GET") {
+      return {
+        members: this.members.map((member) => ({
+          avatarData: null,
+          avatarMime: null,
+          ...member
+        }))
+      };
+    }
+
+    if (path === "/api/auth/me/avatar" && method === "PUT") {
+      // 只做忠实搬运：更新第一个成员的头像（测试通常只关心「能存能读」）。
+      const input = (body ?? {}) as { avatarData?: string | null; avatarMime?: string | null };
+      if (this.members.length > 0) {
+        this.members[0] = {
+          ...this.members[0],
+          avatarData: input.avatarData ?? null,
+          avatarMime: input.avatarMime ?? null
+        };
+      }
+      return { ok: true };
+    }
+
     const settingsMatch = /^\/api\/settings\/([^/]+)$/.exec(path);
     if (settingsMatch) {
       const scope = settingsMatch[1];
@@ -212,4 +243,9 @@ export const syncBackend = new SyncBackend();
 
 export function resetSyncBackend(): void {
   syncBackend.reset();
+}
+
+/** 测试辅助：设置当前空间成员，供 space-members 接口返回。 */
+export function setSyncMembers(members: Array<{ id: string; displayName: string; role: string; avatarData?: string | null; avatarMime?: string | null }>): void {
+  syncBackend.setMembers(members);
 }

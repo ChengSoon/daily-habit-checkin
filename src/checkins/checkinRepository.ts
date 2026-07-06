@@ -10,6 +10,7 @@ type CheckInDto = {
   value: number | null;
   note: string | null;
   createdAt: string;
+  createdBy: string | null;
 };
 
 function mapDto(dto: CheckInDto): CheckIn {
@@ -20,7 +21,8 @@ function mapDto(dto: CheckInDto): CheckIn {
     status: dto.status,
     value: dto.value === null ? null : Number(dto.value),
     note: dto.note,
-    createdAt: dto.createdAt
+    createdAt: dto.createdAt,
+    createdBy: dto.createdBy ?? null
   };
 }
 
@@ -31,7 +33,10 @@ function toFields(checkIn: CheckIn): Record<string, unknown> {
     status: checkIn.status,
     value: checkIn.value,
     note: checkIn.note,
-    createdAt: checkIn.createdAt
+    createdAt: checkIn.createdAt,
+    // 新建时留空，交给服务端按当前登录账号盖章（谁打的卡自动记录，不信任客户端自报）；
+    // 更新已有记录时带上原归属，避免被服务端重新盖章成「最后操作者」。
+    createdBy: checkIn.createdBy
   };
 }
 
@@ -58,7 +63,8 @@ export async function completeCheckIn(input: {
     status: "completed",
     value: input.value,
     note: input.note,
-    createdAt: existing?.createdAt ?? new Date().toISOString()
+    createdAt: existing?.createdAt ?? new Date().toISOString(),
+    createdBy: existing?.createdBy ?? null
   };
 
   await upsertResource<CheckInDto>("check_ins", checkIn.id, toFields(checkIn));

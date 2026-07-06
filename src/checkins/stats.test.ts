@@ -9,7 +9,8 @@ const completed = (date: string): CheckIn => ({
   status: "completed",
   value: null,
   note: null,
-  createdAt: `${date}T10:00:00.000Z`
+  createdAt: `${date}T10:00:00.000Z`,
+  createdBy: null
 });
 
 describe("check-in stats", () => {

@@ -134,3 +134,52 @@ export async function getSpaceInviteCode(spaceId: string): Promise<string | null
   const rows = await query<{ invite_code: string }>("SELECT invite_code FROM spaces WHERE id = $1", [spaceId]);
   return rows[0]?.invite_code ?? null;
 }
+
+export type SpaceMember = {
+  id: string;
+  displayName: string;
+  role: AccountRole;
+  /** 自定义头像的 base64 数据（不含 data: 前缀）；未上传为 null。 */
+  avatarData: string | null;
+  /** 头像 MIME 类型，如 image/jpeg；未上传为 null。 */
+  avatarMime: string | null;
+};
+
+/**
+ * 列出一个空间里的全部成员（情侣场景通常是 1~2 人），按注册时间升序。
+ * 供客户端渲染「你 + TA」的成对头像与打卡归属。不含邮箱等敏感信息。
+ */
+export async function listSpaceMembers(spaceId: string): Promise<SpaceMember[]> {
+  const rows = await query<{
+    id: string;
+    display_name: string;
+    role: AccountRole;
+    avatar_data: string | null;
+    avatar_mime: string | null;
+  }>(
+    `SELECT id, display_name, role, avatar_data, avatar_mime
+     FROM accounts WHERE space_id = $1 ORDER BY created_at ASC`,
+    [spaceId]
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    displayName: row.display_name,
+    role: row.role,
+    avatarData: row.avatar_data,
+    avatarMime: row.avatar_mime
+  }));
+}
+
+/**
+ * 更新指定账号自己的头像。传 null 清除头像（回退到字母头像）。
+ * 只改自己那一行，不涉及权限——每个人管理自己的头像。
+ */
+export async function updateAvatar(
+  accountId: string,
+  avatar: { data: string; mime: string } | null
+): Promise<void> {
+  await query(
+    "UPDATE accounts SET avatar_data = $2, avatar_mime = $3 WHERE id = $1",
+    [accountId, avatar?.data ?? null, avatar?.mime ?? null]
+  );
+}

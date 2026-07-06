@@ -1,5 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Habit } from "../habits/types";
+import { Avatar, AvatarTone } from "./Avatar";
 import { CheckButton } from "./CheckButton";
 import { AppText, Badge } from "./Controls";
 import { radius, spacing } from "./theme";
@@ -22,7 +23,9 @@ export function HabitRow({
   onCelebrate,
   onOpen,
   streak,
-  showCheck = true
+  showCheck = true,
+  completedByName,
+  completedByTone
 }: {
   habit: Habit;
   isCompleted: boolean;
@@ -31,6 +34,10 @@ export function HabitRow({
   onOpen: () => void;
   streak?: number;
   showCheck?: boolean;
+  /** 完成者昵称，用于已完成项标注是谁打的卡。 */
+  completedByName?: string;
+  /** 完成者分色（you=粉 / partner=紫）。 */
+  completedByTone?: AvatarTone;
 }) {
   const { colors } = useTheme();
   const dimmed = isCompleted || habit.isPaused;
@@ -85,6 +92,14 @@ export function HabitRow({
       </View>
 
       <View style={{ alignItems: "flex-end", gap: 4 }}>
+        {isCompleted && completedByName && completedByTone ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <Avatar name={completedByName} tone={completedByTone} size={20} />
+            <AppText variant="small" tone="muted" numberOfLines={1}>
+              {completedByName}
+            </AppText>
+          </View>
+        ) : null}
         {habit.isPaused ? (
           <Badge label="已暂停" tone="muted" />
         ) : typeof streak === "number" && streak > 0 ? (

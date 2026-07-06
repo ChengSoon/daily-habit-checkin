@@ -8,9 +8,14 @@ import {
   login,
   logout,
   refreshAccount,
-  register
+  register,
+  updateMyAvatar
 } from "../src/sync/authService";
+import { PickedImage } from "../src/rewards/rewardImage";
 import { AppButton, AppText, Badge, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
+import { CoupleAvatars } from "../src/ui/Avatar";
+import { AvatarPicker } from "../src/ui/AvatarPicker";
+import { useCouple } from "../src/ui/useCouple";
 import { Screen } from "../src/ui/Screen";
 import { spacing } from "../src/ui/theme";
 
@@ -27,6 +32,8 @@ export default function AccountScreen() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const couple = useCouple();
+
   const load = useCallback(async () => {
     const current = await getCurrentAccount();
     setAccount(current);
@@ -38,7 +45,8 @@ export default function AccountScreen() {
         }
       });
     }
-  }, []);
+    couple.reload();
+  }, [couple.reload]);
 
   useFocusEffect(
     useCallback(() => {
@@ -87,6 +95,21 @@ export default function AccountScreen() {
     setMessage("已退出登录");
   }
 
+  async function handleAvatarChange(image: PickedImage | null) {
+    setError(null);
+    setMessage(null);
+    try {
+      await updateMyAvatar(image);
+      couple.reload();
+      setMessage(image ? "头像已更新" : "已移除头像");
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "更新头像失败");
+    }
+  }
+
+  // couple.you 携带当前账号的头像数据（来自成员接口）。
+  const myTone = couple.you?.tone ?? "you";
+
   if (account) {
     return (
       <Screen>
@@ -98,12 +121,37 @@ export default function AccountScreen() {
         </View>
 
         <SectionCard title="当前账号">
-          <View style={{ gap: spacing.xs }}>
-            <AppText variant="bodyStrong">{account.displayName}</AppText>
-            <AppText variant="small" tone="muted">
-              {account.email}
-            </AppText>
+          <AvatarPicker
+            name={account.displayName}
+            tone={myTone}
+            imageData={couple.you?.avatarData}
+            imageMime={couple.you?.avatarMime}
+            onChange={handleAvatarChange}
+          />
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
+            <View style={{ gap: spacing.xs, flex: 1 }}>
+              <AppText variant="bodyStrong">{account.displayName}</AppText>
+              <AppText variant="small" tone="muted">
+                {account.email}
+              </AppText>
+            </View>
+            {couple.people.length > 0 ? (
+              <CoupleAvatars
+                people={couple.people.map((person) => ({
+                  name: person.name,
+                  tone: person.tone,
+                  imageData: person.avatarData,
+                  imageMime: person.avatarMime
+                }))}
+                size={40}
+              />
+            ) : null}
           </View>
+          <AppText variant="small" tone="muted">
+            {couple.partner
+              ? `你和 ${couple.partner.name} 正在共享同一个空间 💞`
+              : "还差另一半 —— 把下面的邀请码发给 TA。"}
+          </AppText>
           <View style={{ gap: spacing.xs }}>
             <Label>邀请码（发给另一半，让 TA 加入你们的空间）</Label>
             <Badge label={account.inviteCode ?? "—"} tone="primary" />

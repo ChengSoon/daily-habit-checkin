@@ -12,6 +12,16 @@ export type Account = {
   role: AccountRole;
 };
 
+/** 空间成员的公开信息，用于渲染「你 + TA」的成对头像与打卡归属。 */
+export type SpaceMember = {
+  id: string;
+  displayName: string;
+  role: AccountRole;
+  /** 自定义头像（base64），未设置时为 null，回退到字母头像。 */
+  avatarData: string | null;
+  avatarMime: string | null;
+};
+
 type AuthResponse = {
   token: string;
   account: Account;
@@ -78,4 +88,30 @@ export async function refreshAccount(): Promise<Account | null> {
 
 export async function logout(): Promise<void> {
   await clearAuthToken();
+}
+
+/**
+ * 列出当前空间的成员（情侣双方）。未登录或出错返回空数组，
+ * 让双人 UI 优雅降级为「邀请另一半」引导。
+ */
+export async function listSpaceMembers(): Promise<SpaceMember[]> {
+  try {
+    const result = await apiRequest<{ members: SpaceMember[] }>("/api/auth/space-members");
+    return result.members;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * 更新当前登录账号的头像。传入压缩后的图片（base64 + mime），
+ * 传 null 则清空头像、回退到字母头像。
+ */
+export async function updateMyAvatar(avatar: { data: string; mime: string } | null): Promise<void> {
+  await apiRequest<void>("/api/auth/me/avatar", {
+    method: "PUT",
+    body: avatar
+      ? { avatarData: avatar.data, avatarMime: avatar.mime }
+      : { avatarData: null, avatarMime: null }
+  });
 }

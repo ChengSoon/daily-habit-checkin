@@ -7,7 +7,9 @@ import {
   getAccountById,
   getSpaceInviteCode,
   joinSpaceByInviteCode,
-  registerAccount
+  listSpaceMembers,
+  registerAccount,
+  updateAvatar
 } from "./accountRepository.js";
 import { requireAuth } from "./authMiddleware.js";
 
@@ -88,4 +90,41 @@ authRouter.get("/me", requireAuth, async (request, response) => {
     return;
   }
   response.json({ account: await withInviteCode(account) });
+});
+
+/**
+ * 列出当前空间的成员（情侣双方）。用于客户端展示成对头像/昵称与打卡归属。
+ * 只返回展示所需的公开字段，不含邮箱/密码等敏感信息。
+ */
+authRouter.get("/space-members", requireAuth, async (request, response) => {
+  const members = await listSpaceMembers(request.spaceId!);
+  response.json({ members });
+});
+
+// base64 头像上限约 3MB（客户端已压缩到最长边 512px），防止撞请求体上限。
+const AvatarSchema = z.object({
+  avatarData: z.string().min(1).max(4_000_000).nullable(),
+  avatarMime: z.string().min(1).max(64).nullable()
+});
+
+/**
+ * 更新当前登录账号的头像（存 accounts.avatar_data/avatar_mime）。
+ * 传 { avatarData: null, avatarMime: null } 即删除头像，回退到字母头像。
+ */
+authRouter.put("/me/avatar", requireAuth, async (request, response) => {
+  try {
+    const input = AvatarSchema.parse(request.body);
+    // 要么都有、要么都为 null，避免半截数据。
+    if ((input.avatarData === null) !== (input.avatarMime === null)) {
+      response.status(400).json({ error: "头像数据与类型必须同时提供或同时清空" });
+      return;
+    }
+    await updateAvatar(
+      request.accountId!,
+      input.avatarData && input.avatarMime ? { data: input.avatarData, mime: input.avatarMime } : null
+    );
+    response.status(204).end();
+  } catch (error) {
+    response.status(400).json({ error: error instanceof Error ? error.message : "更新头像失败" });
+  }
 });

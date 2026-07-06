@@ -18,11 +18,16 @@ CREATE TABLE IF NOT EXISTS accounts (
   display_name TEXT NOT NULL,
   space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
   role TEXT NOT NULL DEFAULT 'member',
+  avatar_data TEXT,
+  avatar_mime TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_space ON accounts(space_id);
 -- 兼容已有部署：老库没有 role 列时补上
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'member';
+-- 兼容已有部署：老库没有头像列时补上（base64 存库，与奖励图片同模式）
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS avatar_data TEXT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS avatar_mime TEXT;
 
 CREATE TABLE IF NOT EXISTS habits (
   id TEXT PRIMARY KEY,
@@ -48,10 +53,13 @@ CREATE TABLE IF NOT EXISTS check_ins (
   status TEXT NOT NULL,
   value REAL,
   note TEXT,
+  created_by TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(habit_id, date)
 );
 CREATE INDEX IF NOT EXISTS idx_checkins_space ON check_ins(space_id);
+-- 兼容已有部署：老库没有 created_by 列时补上（记录是谁打的卡，用于情侣双人归属显示）
+ALTER TABLE check_ins ADD COLUMN IF NOT EXISTS created_by TEXT;
 
 CREATE TABLE IF NOT EXISTS habit_plans (
   id TEXT PRIMARY KEY,

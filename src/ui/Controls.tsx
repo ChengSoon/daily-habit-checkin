@@ -115,6 +115,7 @@ export function AppButton({
     ghost: "default",
     danger: "danger"
   };
+  // 禁用态统一走中性底色 + 可读文字，避免在主题色上叠低透明度导致文字糊成一片。
   const iconColor = disabled ? colors.muted : toneColor(colors, textTone[variant]);
 
   return (
@@ -133,12 +134,11 @@ export function AppButton({
           gap: spacing.sm,
           paddingHorizontal: compact ? spacing.md : spacing.lg,
           paddingVertical: compact ? spacing.sm : spacing.md,
-          backgroundColor: background[variant],
+          backgroundColor: disabled ? colors.surfaceMuted : background[variant],
           borderWidth: 1,
-          borderColor: border[variant]
+          borderColor: disabled ? colors.lineStrong : border[variant]
         },
         fullWidth ? { alignSelf: "stretch" } : null,
-        disabled ? { opacity: 0.4 } : null,
         pressed && !disabled ? { opacity: 0.85, transform: [{ scale: 0.99 }] } : null,
         style
       ]}

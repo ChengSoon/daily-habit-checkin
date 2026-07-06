@@ -1,6 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Linking, Share, View } from "react-native";
+import { Linking, Pressable, Share, View } from "react-native";
 import { buildExportJson } from "../../src/export/exportData";
 import {
   getReminderPermissionStatus,
@@ -12,16 +13,19 @@ import { getCurrentAccount } from "../../src/sync/authService";
 import type { Account } from "../../src/sync/authService";
 import { AppButton, AppText, Badge, Divider, HelperText, SectionCard, SegmentedControl, SwitchRow, TextField } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
-import { spacing } from "../../src/ui/theme";
+import { radius, spacing, themeOptions } from "../../src/ui/theme";
 import { ThemeMode, useTheme } from "../../src/ui/ThemeContext";
+import { AvatarWithName, CoupleAvatars } from "../../src/ui/Avatar";
+import { useCouple } from "../../src/ui/useCouple";
 import { getWallet } from "../../src/xp/xpRepository";
 
 export default function ProfileScreen() {
-  const { mode, setMode } = useTheme();
+  const { mode, setMode, themeName, setThemeName, colors } = useTheme();
   const [settings, setSettings] = useState<AppSettings>({
     isEveningSummaryEnabled: false,
     eveningSummaryTime: "21:30",
     themeMode: "system",
+    themeName: "romance",
     isQuietHoursEnabled: false,
     quietHoursStart: "22:00",
     quietHoursEnd: "08:00",
@@ -33,6 +37,7 @@ export default function ProfileScreen() {
   const [xpBalance, setXpBalance] = useState(0);
   const [lifetimeEarned, setLifetimeEarned] = useState(0);
   const [account, setAccount] = useState<Account | null>(null);
+  const couple = useCouple();
 
   useFocusEffect(
     useCallback(() => {
@@ -52,7 +57,8 @@ export default function ProfileScreen() {
       getCurrentAccount()
         .then(setAccount)
         .catch(() => setAccount(null));
-    }, [])
+      couple.reload();
+    }, [couple.reload])
   );
 
   const isOwner = account?.role === "owner";
@@ -88,15 +94,33 @@ export default function ProfileScreen() {
         </AppText>
       </View>
 
-      <SectionCard title="账号与同步">
+      <SectionCard title="我们的空间">
         {account ? (
           <>
-            <View style={{ gap: spacing.xs }}>
-              <AppText variant="bodyStrong">{account.displayName}</AppText>
-              <AppText variant="small" tone="muted">
-                {account.email}
-              </AppText>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
+              <View style={{ gap: spacing.xs, flex: 1 }}>
+                <AppText variant="bodyStrong">{account.displayName}</AppText>
+                <AppText variant="small" tone="muted">
+                  {account.email}
+                </AppText>
+              </View>
+              {couple.people.length > 0 ? (
+                <CoupleAvatars
+                  people={couple.people.map((person) => ({
+                    name: person.name,
+                    tone: person.tone,
+                    imageData: person.avatarData,
+                    imageMime: person.avatarMime
+                  }))}
+                  size={40}
+                />
+              ) : null}
             </View>
+            <AppText variant="small" tone="muted">
+              {couple.partner
+                ? `你和 ${couple.partner.name} 正在共享同一个空间 💞`
+                : "还差另一半 —— 把邀请码发给 TA，一起打卡吧。"}
+            </AppText>
             <AppButton title="管理账号" variant="secondary" icon="person-outline" onPress={() => router.push("/account")} />
           </>
         ) : (
@@ -140,15 +164,84 @@ export default function ProfileScreen() {
       </SectionCard>
 
       <SectionCard title="外观">
-        <SegmentedControl<ThemeMode>
-          value={mode}
-          onChange={setMode}
-          options={[
-            { label: "跟随系统", value: "system" },
-            { label: "浅色", value: "light" },
-            { label: "深色", value: "dark" }
-          ]}
-        />
+        <View style={{ gap: spacing.sm }}>
+          <AppText variant="small" tone="soft" style={{ fontWeight: "600" }}>
+            主题配色
+          </AppText>
+          <View style={{ gap: spacing.sm }}>
+            {themeOptions.map((option) => {
+              const active = option.name === themeName;
+              return (
+                <Pressable
+                  key={option.name}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => setThemeName(option.name)}
+                  style={({ pressed }) => [
+                    {
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: spacing.md,
+                      borderRadius: radius.md,
+                      borderWidth: active ? 2 : 1,
+                      borderColor: active ? colors.primary : colors.line,
+                      backgroundColor: active ? colors.surfaceTint : colors.surface,
+                      paddingHorizontal: spacing.md,
+                      paddingVertical: spacing.md
+                    },
+                    pressed ? { opacity: 0.85 } : null
+                  ]}
+                >
+                  <View style={{ flexDirection: "row" }}>
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: radius.pill,
+                        backgroundColor: option.swatch[0],
+                        borderWidth: 2,
+                        borderColor: colors.surface
+                      }}
+                    />
+                    <View
+                      style={{
+                        width: 24,
+                        height: 24,
+                        borderRadius: radius.pill,
+                        backgroundColor: option.swatch[1],
+                        borderWidth: 2,
+                        borderColor: colors.surface,
+                        marginLeft: -8
+                      }}
+                    />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <AppText variant="bodyStrong">{option.label}</AppText>
+                    <AppText variant="small" tone="muted">
+                      {option.description}
+                    </AppText>
+                  </View>
+                  {active ? <Ionicons name="checkmark-circle" size={22} color={colors.primary} /> : null}
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        <Divider />
+        <View style={{ gap: spacing.sm }}>
+          <AppText variant="small" tone="soft" style={{ fontWeight: "600" }}>
+            明暗模式
+          </AppText>
+          <SegmentedControl<ThemeMode>
+            value={mode}
+            onChange={setMode}
+            options={[
+              { label: "跟随系统", value: "system" },
+              { label: "浅色", value: "light" },
+              { label: "深色", value: "dark" }
+            ]}
+          />
+        </View>
       </SectionCard>
 
       <SectionCard title="AI 服务配置">

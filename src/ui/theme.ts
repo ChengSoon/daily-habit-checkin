@@ -18,6 +18,11 @@ export type Palette = {
   primary: string;
   primaryInk: string;
   onPrimary: string;
+  // 情侣双人分色：primary/partner 分别代表「你」和「TA」
+  partner: string;
+  partnerInk: string;
+  partnerSurface: string;
+  onPartner: string;
   accent: string;
   danger: string;
   dangerSurface: string;
@@ -28,53 +33,197 @@ export type Palette = {
   overlay: string;
 };
 
-const light: Palette = {
-  background: "#F6F7F5",
+// 恋恋粉紫（默认）：珊瑚粉 × 薰衣草紫
+const romanceLight: Palette = {
+  background: "#FDF6FA",
   surface: "#FFFFFF",
-  surfaceMuted: "#EFF1EE",
-  surfaceTint: "#E8F0EB",
-  ink: "#16201B",
-  inkSoft: "#3A453F",
-  muted: "#6B7770",
-  faint: "#9AA39D",
-  line: "#E4E8E4",
-  lineStrong: "#D2D8D3",
-  primary: "#2F6B4F",
-  primaryInk: "#1E4D38",
+  surfaceMuted: "#F6EDF3",
+  surfaceTint: "#FBE7EF",
+  ink: "#2A1B24",
+  inkSoft: "#5A4650",
+  muted: "#8B7681",
+  faint: "#B7A6B0",
+  line: "#F0E2EA",
+  lineStrong: "#E4D0DC",
+  primary: "#E86A92",
+  primaryInk: "#C24A73",
   onPrimary: "#FFFFFF",
-  accent: "#2C6BC9",
-  danger: "#B3261E",
-  dangerSurface: "#F7E7E4",
-  success: "#2F6B4F",
-  successSurface: "#DEEFDD",
+  partner: "#8B7BD8",
+  partnerInk: "#6A57BF",
+  partnerSurface: "#EDE8FA",
+  onPartner: "#FFFFFF",
+  accent: "#8B7BD8",
+  danger: "#C2453F",
+  dangerSurface: "#F9E3E1",
+  success: "#3F9E7A",
+  successSurface: "#DDF1E8",
   inputBackground: "#FFFFFF",
-  overlay: "rgba(20, 32, 27, 0.35)"
+  overlay: "rgba(42, 27, 36, 0.35)"
 };
 
-const dark: Palette = {
-  background: "#101512",
-  surface: "#1A211D",
-  surfaceMuted: "#232B26",
-  surfaceTint: "#1F2E26",
-  ink: "#ECF1ED",
-  inkSoft: "#C4CDC7",
-  muted: "#8C968F",
-  faint: "#6A736D",
-  line: "#2C342E",
-  lineStrong: "#3A443D",
-  primary: "#5BAE85",
-  primaryInk: "#8FD3AE",
-  onPrimary: "#0C130F",
-  accent: "#6EA8F0",
+const romanceDark: Palette = {
+  background: "#171014",
+  surface: "#221A1F",
+  surfaceMuted: "#2C222A",
+  surfaceTint: "#33222C",
+  ink: "#F3ECF0",
+  inkSoft: "#D2C4CD",
+  muted: "#9C8B96",
+  faint: "#6F6069",
+  line: "#352A31",
+  lineStrong: "#463844",
+  primary: "#F08DAD",
+  primaryInk: "#F5A9C2",
+  onPrimary: "#2A1019",
+  partner: "#A99BE6",
+  partnerInk: "#C0B4F0",
+  partnerSurface: "#2E2740",
+  onPartner: "#1A1330",
+  accent: "#A99BE6",
   danger: "#F0857C",
   dangerSurface: "#3A2523",
-  success: "#5BAE85",
+  success: "#5FB68F",
   successSurface: "#1E3227",
-  inputBackground: "#232B26",
+  inputBackground: "#2C222A",
   overlay: "rgba(0, 0, 0, 0.55)"
 };
 
-export const palettes: Record<ColorScheme, Palette> = { light, dark };
+// 海盐薄荷：清新青绿 × 天空蓝
+const mintLight: Palette = {
+  background: "#F2FAF9",
+  surface: "#FFFFFF",
+  surfaceMuted: "#E8F4F2",
+  surfaceTint: "#DBF0ED",
+  ink: "#10302E",
+  inkSoft: "#3E5B58",
+  muted: "#6E8683",
+  faint: "#A3B8B5",
+  line: "#DDEEEB",
+  lineStrong: "#C7E2DD",
+  primary: "#1FA39A",
+  primaryInk: "#147F78",
+  onPrimary: "#FFFFFF",
+  partner: "#5B8DEF",
+  partnerInk: "#3E6FD1",
+  partnerSurface: "#E4EDFC",
+  onPartner: "#FFFFFF",
+  accent: "#5B8DEF",
+  danger: "#C2453F",
+  dangerSurface: "#F9E3E1",
+  success: "#3F9E7A",
+  successSurface: "#DDF1E8",
+  inputBackground: "#FFFFFF",
+  overlay: "rgba(16, 48, 46, 0.35)"
+};
+
+const mintDark: Palette = {
+  background: "#0F1817",
+  surface: "#172221",
+  surfaceMuted: "#1F2C2A",
+  surfaceTint: "#1C302D",
+  ink: "#EAF4F2",
+  inkSoft: "#C2D4D1",
+  muted: "#869A96",
+  faint: "#5E706D",
+  line: "#283734",
+  lineStrong: "#374A46",
+  primary: "#4FC7BD",
+  primaryInk: "#6FD9CF",
+  onPrimary: "#06211E",
+  partner: "#7FA8F5",
+  partnerInk: "#9CBEF8",
+  partnerSurface: "#23304A",
+  onPartner: "#0A1428",
+  accent: "#7FA8F5",
+  danger: "#F0857C",
+  dangerSurface: "#3A2523",
+  success: "#5FB68F",
+  successSurface: "#1E3227",
+  inputBackground: "#1F2C2A",
+  overlay: "rgba(0, 0, 0, 0.55)"
+};
+
+// 暮光暖阳：落日橙 × 温柔珊瑚
+const sunsetLight: Palette = {
+  background: "#FFF8F1",
+  surface: "#FFFFFF",
+  surfaceMuted: "#FBEFE2",
+  surfaceTint: "#FCE7D2",
+  ink: "#33241A",
+  inkSoft: "#5E4A3B",
+  muted: "#927A67",
+  faint: "#C0AC9A",
+  line: "#F3E6D8",
+  lineStrong: "#E9D4C0",
+  primary: "#E8823C",
+  primaryInk: "#C56521",
+  onPrimary: "#FFFFFF",
+  partner: "#DE6A6F",
+  partnerInk: "#C24A50",
+  partnerSurface: "#FBE3E1",
+  onPartner: "#FFFFFF",
+  accent: "#DE6A6F",
+  danger: "#C2453F",
+  dangerSurface: "#F9E3E1",
+  success: "#3F9E7A",
+  successSurface: "#DDF1E8",
+  inputBackground: "#FFFFFF",
+  overlay: "rgba(51, 36, 26, 0.35)"
+};
+
+const sunsetDark: Palette = {
+  background: "#1A1310",
+  surface: "#251C16",
+  surfaceMuted: "#2F241C",
+  surfaceTint: "#35271C",
+  ink: "#F5ECE3",
+  inkSoft: "#D9C8B8",
+  muted: "#A08D7B",
+  faint: "#6F6055",
+  line: "#372A20",
+  lineStrong: "#4A382B",
+  primary: "#F0A15E",
+  primaryInk: "#F5B77E",
+  onPrimary: "#2A1808",
+  partner: "#EF8A8E",
+  partnerInk: "#F3A8AB",
+  partnerSurface: "#402426",
+  onPartner: "#2A1011",
+  accent: "#EF8A8E",
+  danger: "#F0857C",
+  dangerSurface: "#3A2523",
+  success: "#5FB68F",
+  successSurface: "#1E3227",
+  inputBackground: "#2F241C",
+  overlay: "rgba(0, 0, 0, 0.55)"
+};
+
+export type ThemeName = "romance" | "mint" | "sunset";
+
+export const themes: Record<ThemeName, Record<ColorScheme, Palette>> = {
+  romance: { light: romanceLight, dark: romanceDark },
+  mint: { light: mintLight, dark: mintDark },
+  sunset: { light: sunsetLight, dark: sunsetDark }
+};
+
+export const DEFAULT_THEME: ThemeName = "romance";
+
+export type ThemeOption = {
+  name: ThemeName;
+  label: string;
+  description: string;
+  // [primary, partner]，用于设置页色卡预览
+  swatch: [string, string];
+};
+
+export const themeOptions: ThemeOption[] = [
+  { name: "romance", label: "恋恋粉紫", description: "珊瑚粉 × 薰衣草紫", swatch: [romanceLight.primary, romanceLight.partner] },
+  { name: "mint", label: "海盐薄荷", description: "清新青绿 × 天空蓝", swatch: [mintLight.primary, mintLight.partner] },
+  { name: "sunset", label: "暮光暖阳", description: "落日橙 × 温柔珊瑚", swatch: [sunsetLight.primary, sunsetLight.partner] }
+];
+
+// 兼容旧引用：默认主题的双 scheme palette
+export const palettes: Record<ColorScheme, Palette> = themes[DEFAULT_THEME];
 
 export const spacing = {
   xs: 4,

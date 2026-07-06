@@ -1,4 +1,5 @@
 import { fetchSettings, saveSettings } from "../sync/settingsClient";
+import { DEFAULT_THEME, ThemeName } from "../ui/theme";
 
 export type ThemeMode = "system" | "light" | "dark";
 
@@ -6,6 +7,7 @@ export type AppSettings = {
   isEveningSummaryEnabled: boolean;
   eveningSummaryTime: string;
   themeMode: ThemeMode;
+  themeName: ThemeName;
   isQuietHoursEnabled: boolean;
   quietHoursStart: string;
   quietHoursEnd: string;
@@ -18,6 +20,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   isEveningSummaryEnabled: false,
   eveningSummaryTime: "21:30",
   themeMode: "system",
+  themeName: DEFAULT_THEME,
   isQuietHoursEnabled: false,
   quietHoursStart: "22:00",
   quietHoursEnd: "08:00",
@@ -30,6 +33,10 @@ function parseThemeMode(value: string | undefined): ThemeMode {
   return value === "light" || value === "dark" || value === "system" ? value : DEFAULT_SETTINGS.themeMode;
 }
 
+function parseThemeName(value: string | undefined): ThemeName {
+  return value === "romance" || value === "mint" || value === "sunset" ? value : DEFAULT_SETTINGS.themeName;
+}
+
 export async function getAppSettings(): Promise<AppSettings> {
   const values = await fetchSettings("app");
 
@@ -37,6 +44,7 @@ export async function getAppSettings(): Promise<AppSettings> {
     isEveningSummaryEnabled: values.isEveningSummaryEnabled === "true",
     eveningSummaryTime: values.eveningSummaryTime ?? DEFAULT_SETTINGS.eveningSummaryTime,
     themeMode: parseThemeMode(values.themeMode),
+    themeName: parseThemeName(values.themeName),
     isQuietHoursEnabled: values.isQuietHoursEnabled === "true",
     quietHoursStart: values.quietHoursStart ?? DEFAULT_SETTINGS.quietHoursStart,
     quietHoursEnd: values.quietHoursEnd ?? DEFAULT_SETTINGS.quietHoursEnd,
@@ -51,6 +59,7 @@ export async function saveAppSettings(settings: AppSettings): Promise<void> {
     isEveningSummaryEnabled: String(settings.isEveningSummaryEnabled),
     eveningSummaryTime: settings.eveningSummaryTime,
     themeMode: settings.themeMode,
+    themeName: settings.themeName,
     isQuietHoursEnabled: String(settings.isQuietHoursEnabled),
     quietHoursStart: settings.quietHoursStart,
     quietHoursEnd: settings.quietHoursEnd,

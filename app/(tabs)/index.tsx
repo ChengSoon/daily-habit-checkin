@@ -16,6 +16,7 @@ import { HabitRow } from "../../src/ui/HabitRow";
 import { ProgressHeader } from "../../src/ui/ProgressHeader";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
+import { useCouple } from "../../src/ui/useCouple";
 import { spacing } from "../../src/ui/theme";
 import { eachDateKey, todayKey } from "../../src/utils/date";
 import { getWallet } from "../../src/xp/xpRepository";
@@ -86,6 +87,7 @@ export default function TodayScreen() {
   }, [today]);
 
   const { status, errorMessage, reload } = useSyncScreen(load);
+  const couple = useCouple();
 
   async function complete(habit: Habit, value: number | null, shouldCelebrate = false) {
     if (shouldCelebrate) {
@@ -117,6 +119,18 @@ export default function TodayScreen() {
   const remaining = habits.filter((habit) => !completedIds.has(habit.id));
   const done = habits.filter((habit) => completedIds.has(habit.id));
 
+  // 已完成项标注是谁打的卡：checkIn.createdBy → couple 里的人。
+  const completerByHabit: Record<string, { name: string; tone: "you" | "partner" }> = {};
+  for (const checkIn of checkIns) {
+    if (checkIn.status !== "completed" || !checkIn.createdBy) {
+      continue;
+    }
+    const person = couple.byId[checkIn.createdBy];
+    if (person) {
+      completerByHabit[checkIn.habitId] = { name: person.name, tone: person.tone };
+    }
+  }
+
   if (status !== "ready") {
     return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
   }
@@ -124,7 +138,12 @@ export default function TodayScreen() {
   return (
     <>
       <Screen>
-        <ProgressHeader completed={completedIds.size} total={habits.length} />
+        <ProgressHeader
+          completed={completedIds.size}
+          total={habits.length}
+          people={couple.people.map((person) => ({ name: person.name, tone: person.tone }))}
+          hasPartner={couple.partner !== null}
+        />
 
         <Card tone="tint" onPress={() => router.push("/shop")}>
           <AppText variant="caption" tone="primary">

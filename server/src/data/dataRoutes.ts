@@ -24,6 +24,11 @@ type Column = {
   field: string;
   kind: ColumnKind;
   nullable?: boolean;
+  /**
+   * 为 true 时，若客户端未提供该字段值，则用鉴权中间件解析出的 accountId 兜底写入。
+   * 用于 check_ins.created_by 这类「谁操作的」归属列，避免信任客户端自报身份。
+   */
+  stampAccount?: boolean;
 };
 
 type ResourceConfig = {
@@ -66,6 +71,8 @@ const RESOURCES: Record<string, ResourceConfig> = {
       { column: "status", field: "status", kind: "text" },
       { column: "value", field: "value", kind: "real", nullable: true },
       { column: "note", field: "note", kind: "text", nullable: true },
+      // 记录是谁打的卡（情侣双人归属）。客户端不传时用鉴权账号兜底，见 PUT 处理。
+      { column: "created_by", field: "createdBy", kind: "text", nullable: true, stampAccount: true },
       { column: "created_at", field: "createdAt", kind: "text" }
     ]
   },
@@ -190,6 +197,12 @@ export function createDataRouter(): Router {
     const columns = ["id", "space_id", ...config.columns.map((c) => c.column)];
     const values: unknown[] = [id, request.spaceId];
     for (const col of config.columns) {
+      // 归属列（如 created_by）以服务端解析出的 accountId 为准，不信任客户端自报。
+      // 仅在客户端未提供时兜底盖章，避免更新已有记录时把归属抹掉。
+      if (col.stampAccount && (body[col.field] === undefined || body[col.field] === null)) {
+        values.push(request.accountId ?? null);
+        continue;
+      }
       if (!col.nullable && (body[col.field] === undefined || body[col.field] === null)) {
         response.status(400).json({ error: `缺少字段：${col.field}` });
         return;
