@@ -1,13 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { initializeDatabase, resetDatabaseForTests } from "../db/database";
+import { resetSyncBackend } from "../../test/fakes/syncBackend";
 import { applyXpTransactions, getWallet } from "../xp/xpRepository";
 import { createReward, getRewardById, listRewards } from "./rewardRepository";
 import { cancelRedemption, fulfillRedemption, redeemReward } from "./rewardService";
 
 describe("reward service", () => {
-  beforeEach(async () => {
-    await initializeDatabase();
-    await resetDatabaseForTests();
+  beforeEach(() => {
+    resetSyncBackend();
   });
 
   it("redeems a real-world reward as pending fulfillment", async () => {
@@ -32,7 +31,8 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "none",
       inventoryLimit: null,
-      imageUri: null
+      imageData: null,
+      imageMime: null
     });
 
     const redemption = await redeemReward(reward.id);
@@ -63,7 +63,8 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "theme",
       inventoryLimit: null,
-      imageUri: null
+      imageData: null,
+      imageMime: null
     });
 
     const redemption = await redeemReward(reward.id);
@@ -80,7 +81,8 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "none",
       inventoryLimit: null,
-      imageUri: null
+      imageData: null,
+      imageMime: null
     });
 
     await expect(redeemReward(reward.id)).rejects.toThrow("积分不足，还差 1000 积分");
@@ -108,7 +110,8 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "none",
       inventoryLimit: null,
-      imageUri: null
+      imageData: null,
+      imageMime: null
     });
     const first = await redeemReward(reward.id);
     const fulfilled = await fulfillRedemption(first.id);
@@ -130,7 +133,8 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "title",
       inventoryLimit: null,
-      imageUri: null
+      imageData: null,
+      imageMime: null
     });
 
     expect((await listRewards({ includeArchived: false })).map((item) => item.id)).toEqual([reward.id]);

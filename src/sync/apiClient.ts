@@ -1,8 +1,10 @@
-import { getAuthToken, getSyncServerUrl } from "./localSettings";
+import Constants from "expo-constants";
+import { getAuthToken } from "./localSettings";
 
 /**
- * 与自建同步服务器通信的底层 HTTP 客户端。
- * 匹配「云端直连、在线才能用」：未配置服务器或未登录时直接抛出明确错误。
+ * 与统一后端通信的底层 HTTP 客户端。
+ * 服务器地址内置在 app 构建配置（app.json 的 extra.apiBaseUrl）里，
+ * 所有用户连同一个后端；匹配「云端直连、在线才能用」，未登录时抛出明确错误。
  */
 
 export class SyncError extends Error {
@@ -20,12 +22,13 @@ export class UnauthorizedError extends SyncError {
   }
 }
 
-async function baseUrl(): Promise<string> {
-  const url = await getSyncServerUrl();
-  if (!url) {
-    throw new SyncError("尚未配置同步服务器地址，请到「我的 → 账号与同步」设置。");
+const BASE_URL = ((Constants.expoConfig?.extra?.apiBaseUrl as string | undefined) ?? "").replace(/\/+$/, "");
+
+function baseUrl(): string {
+  if (!BASE_URL) {
+    throw new SyncError("应用未正确配置后端地址，请联系开发者。");
   }
-  return url;
+  return BASE_URL;
 }
 
 type RequestOptions = {
@@ -36,7 +39,7 @@ type RequestOptions = {
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const url = `${await baseUrl()}${path}`;
+  const url = `${baseUrl()}${path}`;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
   if (!options.anonymous) {
@@ -55,7 +58,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       body: options.body === undefined ? undefined : JSON.stringify(options.body)
     });
   } catch {
-    throw new SyncError("无法连接同步服务器，请检查网络或服务器地址。");
+    throw new SyncError("无法连接服务器，请检查网络连接。");
   }
 
   if (response.status === 401) {

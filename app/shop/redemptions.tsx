@@ -1,12 +1,13 @@
-import { useFocusEffect } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { getRewardById, listRedemptions } from "../../src/rewards/rewardRepository";
+import { toDataUri } from "../../src/rewards/rewardImage";
 import { Reward, RewardRedemption } from "../../src/rewards/types";
 import { AppText, Badge, Card } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
+import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { spacing } from "../../src/ui/theme";
 
 const STATUS_LABEL = {
@@ -19,20 +20,16 @@ export default function RedemptionsScreen() {
   const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
   const [rewards, setRewards] = useState<Record<string, Reward>>({});
 
-  useFocusEffect(
-    useCallback(() => {
-      async function load() {
-        const items = await listRedemptions();
-        const pairs = await Promise.all(
-          items.map(async (item) => [item.rewardId, await getRewardById(item.rewardId)] as const)
-        );
-        setRedemptions(items);
-        setRewards(Object.fromEntries(pairs.flatMap(([id, reward]) => (reward ? [[id, reward]] : []))));
-      }
+  const load = useCallback(async () => {
+    const items = await listRedemptions();
+    const pairs = await Promise.all(
+      items.map(async (item) => [item.rewardId, await getRewardById(item.rewardId)] as const)
+    );
+    setRedemptions(items);
+    setRewards(Object.fromEntries(pairs.flatMap(([id, reward]) => (reward ? [[id, reward]] : []))));
+  }, []);
 
-      load();
-    }, [])
-  );
+  const { status, errorMessage, reload } = useSyncScreen(load);
 
   const groups = useMemo(() => {
     return {
@@ -57,7 +54,7 @@ export default function RedemptionsScreen() {
           return (
             <Card key={item.id}>
               <View style={{ flexDirection: "row", gap: spacing.md }}>
-                <RewardThumb uri={reward?.imageUri ?? null} type={reward?.type ?? "real_world"} />
+                <RewardThumb uri={toDataUri(reward?.imageData ?? null, reward?.imageMime ?? null)} type={reward?.type ?? "real_world"} />
                 <View style={{ flex: 1, gap: spacing.xs }}>
                   <Badge label={STATUS_LABEL[item.status]} tone={item.status === "cancelled" ? "muted" : "primary"} />
                   <AppText variant="bodyStrong">{reward?.title ?? "奖励已不存在"}</AppText>
@@ -74,6 +71,10 @@ export default function RedemptionsScreen() {
         })}
       </View>
     );
+  }
+
+  if (status !== "ready") {
+    return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
   }
 
   return (

@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { listHabits, moveHabit } from "../../src/habits/habitRepository";
@@ -6,6 +6,7 @@ import { Habit } from "../../src/habits/types";
 import { AppButton, AppText, Badge, HelperText, IconButton } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
+import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 
@@ -29,18 +30,22 @@ export default function HabitsScreen() {
   const { colors } = useTheme();
   const [habits, setHabits] = useState<Habit[]>([]);
 
-  const load = useCallback(() => {
-    listHabits().then(setHabits);
+  const load = useCallback(async () => {
+    setHabits(await listHabits());
   }, []);
 
-  useFocusEffect(load);
+  const { status, errorMessage, reload } = useSyncScreen(load);
 
   async function move(id: string, direction: "up" | "down") {
     await moveHabit(id, direction);
-    load();
+    reload();
   }
 
   const activeCount = habits.filter((habit) => !habit.isPaused).length;
+
+  if (status !== "ready") {
+    return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
+  }
 
   return (
     <Screen>

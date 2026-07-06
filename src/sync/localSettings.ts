@@ -2,10 +2,10 @@ import { getDatabase } from "../db/database";
 
 /**
  * 本地专用设置，永不参与云同步。
- * 用于保存同步服务器地址与登录令牌 —— 这些绝不能上传到服务器。
+ * 用于保存登录令牌与账号缓存 —— 这些绝不能上传到服务器。
+ * 服务器地址内置在 app 构建配置（app.json 的 extra.apiBaseUrl），不再本地存储。
  */
 
-const SYNC_SERVER_URL_KEY = "syncServerUrl";
 const AUTH_TOKEN_KEY = "authToken";
 const ACCOUNT_KEY = "account";
 
@@ -28,14 +28,6 @@ async function setLocal(key: string, value: string | null): Promise<void> {
     "INSERT INTO local_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
     [key, value]
   );
-}
-
-export async function getSyncServerUrl(): Promise<string | null> {
-  return getLocal(SYNC_SERVER_URL_KEY);
-}
-
-export async function setSyncServerUrl(url: string | null): Promise<void> {
-  await setLocal(SYNC_SERVER_URL_KEY, url ? url.replace(/\/+$/, "") : null);
 }
 
 export async function getAuthToken(): Promise<string | null> {

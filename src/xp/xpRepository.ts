@@ -1,8 +1,16 @@
-import { getDatabase } from "../db/database";
-import { createId } from "../utils/id";
+import { fetchWallet, postTransactions, TransactionInput } from "../sync/walletClient";
+import { listResource } from "../sync/dataClient";
 import { XpReason, XpTransaction, XpTransactionType, XpWallet } from "./types";
 
-const DEFAULT_WALLET_ID = "default";
+/**
+ * XP 钱包与交易仓储，走云端同步。
+ *
+ * 余额由服务端权威计算：客户端只上报交易，服务端在单事务里幂等插入交易
+ * 并原子更新钱包（见 server walletMath / dataRoutes）。因此这里不再本地累加余额，
+ * 只负责上报交易、读取钱包与交易流水。
+ *
+ * XpWallet.id 在类型上固定为 "default"（单空间单钱包），服务端钱包无 id，映射时补上。
+ */
 
 type XpTransactionInput = {
   uniqueKey: string;
@@ -16,164 +24,76 @@ type XpTransactionInput = {
   dateKey: string | null;
 };
 
-type XpWalletRow = {
-  id: "default";
-  balance: number;
-  lifetime_earned: number;
-  lifetime_spent: number;
-  updated_at: string;
-};
-
-type XpTransactionRow = {
+type XpTransactionDto = {
   id: string;
-  unique_key: string;
+  uniqueKey: string;
   amount: number;
-  type: XpTransactionType;
-  reason: XpReason;
-  habit_id: string | null;
-  check_in_id: string | null;
-  reward_id: string | null;
-  redemption_id: string | null;
-  date_key: string | null;
-  created_at: string;
+  type: string;
+  reason: string;
+  habitId: string | null;
+  checkInId: string | null;
+  rewardId: string | null;
+  redemptionId: string | null;
+  dateKey: string | null;
+  createdAt: string;
 };
 
-function mapWallet(row: XpWalletRow): XpWallet {
+function mapTransaction(dto: XpTransactionDto): XpTransaction {
   return {
-    id: row.id,
-    balance: row.balance,
-    lifetimeEarned: row.lifetime_earned,
-    lifetimeSpent: row.lifetime_spent,
-    updatedAt: row.updated_at
+    id: dto.id,
+    uniqueKey: dto.uniqueKey,
+    amount: Number(dto.amount),
+    type: dto.type as XpTransactionType,
+    reason: dto.reason as XpReason,
+    habitId: dto.habitId,
+    checkInId: dto.checkInId,
+    rewardId: dto.rewardId,
+    redemptionId: dto.redemptionId,
+    dateKey: dto.dateKey,
+    createdAt: dto.createdAt
   };
 }
 
-function mapTransaction(row: XpTransactionRow): XpTransaction {
+function toTransactionInput(input: XpTransactionInput): TransactionInput {
   return {
-    id: row.id,
-    uniqueKey: row.unique_key,
-    amount: row.amount,
-    type: row.type,
-    reason: row.reason,
-    habitId: row.habit_id,
-    checkInId: row.check_in_id,
-    rewardId: row.reward_id,
-    redemptionId: row.redemption_id,
-    dateKey: row.date_key,
-    createdAt: row.created_at
+    uniqueKey: input.uniqueKey,
+    amount: input.amount,
+    type: input.type,
+    reason: input.reason,
+    habitId: input.habitId,
+    checkInId: input.checkInId,
+    rewardId: input.rewardId,
+    redemptionId: input.redemptionId,
+    dateKey: input.dateKey
   };
-}
-
-async function ensureWallet(): Promise<void> {
-  const db = getDatabase();
-  const existing = await db.getFirstAsync<XpWalletRow>("SELECT * FROM xp_wallet WHERE id = ?", [DEFAULT_WALLET_ID]);
-
-  if (existing) {
-    return;
-  }
-
-  await db.runAsync(
-    `INSERT INTO xp_wallet (id, balance, lifetime_earned, lifetime_spent, updated_at)
-     VALUES (?, ?, ?, ?, ?)`,
-    [DEFAULT_WALLET_ID, 0, 0, 0, new Date().toISOString()]
-  );
-}
-
-function walletDeltas(input: XpTransactionInput): { earned: number; spent: number } {
-  if (input.type === "earn") {
-    return { earned: input.amount, spent: 0 };
-  }
-  if (input.type === "spend") {
-    return { earned: 0, spent: Math.abs(input.amount) };
-  }
-  if (input.type === "refund") {
-    return { earned: 0, spent: -Math.abs(input.amount) };
-  }
-  return { earned: Math.max(input.amount, 0), spent: Math.max(-input.amount, 0) };
 }
 
 export async function getWallet(): Promise<XpWallet> {
-  const db = getDatabase();
-  await ensureWallet();
-  const row = await db.getFirstAsync<XpWalletRow>("SELECT * FROM xp_wallet WHERE id = ?", [DEFAULT_WALLET_ID]);
-
-  if (!row) {
-    throw new Error("XP 钱包初始化失败");
-  }
-
-  return mapWallet(row);
+  const wallet = await fetchWallet();
+  return {
+    id: "default",
+    balance: Number(wallet.balance),
+    lifetimeEarned: Number(wallet.lifetimeEarned),
+    lifetimeSpent: Number(wallet.lifetimeSpent),
+    updatedAt: wallet.updatedAt
+  };
 }
 
 export async function listXpTransactions(): Promise<XpTransaction[]> {
-  const db = getDatabase();
-  const rows = await db.getAllAsync<XpTransactionRow>("SELECT * FROM xp_transactions ORDER BY created_at ASC");
-
-  return rows.map(mapTransaction);
+  const rows = await listResource<XpTransactionDto>("xp_transactions");
+  return rows
+    .map(mapTransaction)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 }
 
+/**
+ * 上报一批交易。服务端按 uniqueKey 幂等：已存在的不重复计入余额。
+ * 返回本次实际新插入的交易（与旧本地实现语义一致）。
+ */
 export async function applyXpTransactions(inputs: XpTransactionInput[]): Promise<XpTransaction[]> {
-  const db = getDatabase();
-  await ensureWallet();
-  const inserted: XpTransaction[] = [];
-
-  for (const input of inputs) {
-    const existing = await db.getFirstAsync<XpTransactionRow>(
-      "SELECT * FROM xp_transactions WHERE unique_key = ?",
-      [input.uniqueKey]
-    );
-
-    if (existing) {
-      continue;
-    }
-
-    const now = new Date().toISOString();
-    const id = createId("xp");
-
-    await db.runAsync(
-      `INSERT INTO xp_transactions (
-        id, unique_key, amount, type, reason, habit_id, check_in_id,
-        reward_id, redemption_id, date_key, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        id,
-        input.uniqueKey,
-        input.amount,
-        input.type,
-        input.reason,
-        input.habitId,
-        input.checkInId,
-        input.rewardId,
-        input.redemptionId,
-        input.dateKey,
-        now
-      ]
-    );
-
-    const deltas = walletDeltas(input);
-    await db.runAsync(
-      `UPDATE xp_wallet SET
-        balance = balance + ?,
-        lifetime_earned = lifetime_earned + ?,
-        lifetime_spent = lifetime_spent + ?,
-        updated_at = ?
-      WHERE id = ?`,
-      [input.amount, deltas.earned, deltas.spent, now, DEFAULT_WALLET_ID]
-    );
-
-    inserted.push({
-      id,
-      uniqueKey: input.uniqueKey,
-      amount: input.amount,
-      type: input.type,
-      reason: input.reason,
-      habitId: input.habitId,
-      checkInId: input.checkInId,
-      rewardId: input.rewardId,
-      redemptionId: input.redemptionId,
-      dateKey: input.dateKey,
-      createdAt: now
-    });
+  if (inputs.length === 0) {
+    return [];
   }
-
-  return inserted;
+  const { inserted } = await postTransactions(inputs.map(toTransactionInput));
+  return inserted.map(mapTransaction);
 }

@@ -1,4 +1,4 @@
-import { getDatabase } from "../db/database";
+import { fetchSettings, saveSettings } from "../sync/settingsClient";
 
 export type ThemeMode = "system" | "light" | "dark";
 
@@ -31,60 +31,31 @@ function parseThemeMode(value: string | undefined): ThemeMode {
 }
 
 export async function getAppSettings(): Promise<AppSettings> {
-  const db = getDatabase();
-  const rows = await db.getAllAsync<{ key: string; value: string }>("SELECT key, value FROM app_settings");
-  const values = new Map(rows.map((row) => [row.key, row.value]));
+  const values = await fetchSettings("app");
 
   return {
-    isEveningSummaryEnabled: values.get("isEveningSummaryEnabled") === "true",
-    eveningSummaryTime: values.get("eveningSummaryTime") ?? DEFAULT_SETTINGS.eveningSummaryTime,
-    themeMode: parseThemeMode(values.get("themeMode")),
-    isQuietHoursEnabled: values.get("isQuietHoursEnabled") === "true",
-    quietHoursStart: values.get("quietHoursStart") ?? DEFAULT_SETTINGS.quietHoursStart,
-    quietHoursEnd: values.get("quietHoursEnd") ?? DEFAULT_SETTINGS.quietHoursEnd,
-    aiBaseUrl: values.get("aiBaseUrl") ?? DEFAULT_SETTINGS.aiBaseUrl,
-    aiApiKey: values.get("aiApiKey") ?? DEFAULT_SETTINGS.aiApiKey,
-    aiModel: values.get("aiModel") ?? DEFAULT_SETTINGS.aiModel
+    isEveningSummaryEnabled: values.isEveningSummaryEnabled === "true",
+    eveningSummaryTime: values.eveningSummaryTime ?? DEFAULT_SETTINGS.eveningSummaryTime,
+    themeMode: parseThemeMode(values.themeMode),
+    isQuietHoursEnabled: values.isQuietHoursEnabled === "true",
+    quietHoursStart: values.quietHoursStart ?? DEFAULT_SETTINGS.quietHoursStart,
+    quietHoursEnd: values.quietHoursEnd ?? DEFAULT_SETTINGS.quietHoursEnd,
+    aiBaseUrl: values.aiBaseUrl ?? DEFAULT_SETTINGS.aiBaseUrl,
+    aiApiKey: values.aiApiKey ?? DEFAULT_SETTINGS.aiApiKey,
+    aiModel: values.aiModel ?? DEFAULT_SETTINGS.aiModel
   };
 }
 
 export async function saveAppSettings(settings: AppSettings): Promise<void> {
-  const db = getDatabase();
-
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["isEveningSummaryEnabled", String(settings.isEveningSummaryEnabled)]
-  );
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["eveningSummaryTime", settings.eveningSummaryTime]
-  );
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["themeMode", settings.themeMode]
-  );
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["isQuietHoursEnabled", String(settings.isQuietHoursEnabled)]
-  );
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["quietHoursStart", settings.quietHoursStart]
-  );
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["quietHoursEnd", settings.quietHoursEnd]
-  );
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["aiBaseUrl", settings.aiBaseUrl]
-  );
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["aiApiKey", settings.aiApiKey]
-  );
-  await db.runAsync(
-    "INSERT INTO app_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    ["aiModel", settings.aiModel]
-  );
+  await saveSettings("app", {
+    isEveningSummaryEnabled: String(settings.isEveningSummaryEnabled),
+    eveningSummaryTime: settings.eveningSummaryTime,
+    themeMode: settings.themeMode,
+    isQuietHoursEnabled: String(settings.isQuietHoursEnabled),
+    quietHoursStart: settings.quietHoursStart,
+    quietHoursEnd: settings.quietHoursEnd,
+    aiBaseUrl: settings.aiBaseUrl,
+    aiApiKey: settings.aiApiKey,
+    aiModel: settings.aiModel
+  });
 }

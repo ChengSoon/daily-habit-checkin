@@ -1,13 +1,14 @@
-import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { listRewards } from "../../src/rewards/rewardRepository";
 import { ensureDefaultRewards, redeemReward } from "../../src/rewards/rewardService";
+import { toDataUri } from "../../src/rewards/rewardImage";
 import { Reward } from "../../src/rewards/types";
 import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { RewardImage } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
+import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { radius, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { getWallet } from "../../src/xp/xpRepository";
@@ -30,11 +31,7 @@ export default function ShopScreen() {
     setRewards(await listRewards({ includeArchived: false }));
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  const { status, errorMessage, reload } = useSyncScreen(load);
 
   async function redeem(reward: Reward) {
     setError(null);
@@ -43,10 +40,14 @@ export default function ShopScreen() {
     try {
       const redemption = await redeemReward(reward.id);
       setMessage(redemption.status === "fulfilled" ? "已解锁奖励" : "已提交兑换，等待兑现");
-      await load();
+      await reload();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "兑换失败");
     }
+  }
+
+  if (status !== "ready") {
+    return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
   }
 
   return (
@@ -82,7 +83,7 @@ export default function ShopScreen() {
             const canRedeem = balance >= reward.priceXp;
             return (
               <Card key={reward.id} style={{ padding: 0, overflow: "hidden", gap: 0 }}>
-                <RewardImage uri={reward.imageUri} type={reward.type} height={160} radiusToken={0} />
+                <RewardImage uri={toDataUri(reward.imageData, reward.imageMime)} type={reward.type} height={160} radiusToken={0} />
                 <View style={{ padding: spacing.lg, gap: spacing.md }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.md }}>
                     <View style={{ flex: 1, gap: spacing.xs }}>

@@ -4,8 +4,10 @@ import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import {
   captureRewardImage,
+  PickedImage,
   pickRewardImageFromLibrary,
-  PickResult
+  PickResult,
+  toDataUri
 } from "../rewards/rewardImage";
 import { RewardType } from "../rewards/types";
 import { AppText, Label } from "./Controls";
@@ -113,18 +115,19 @@ export function ImagePickerField({
 }: {
   label?: string;
   type: RewardType;
-  value: string | null;
-  onChange: (uri: string | null) => void;
+  value: PickedImage | null;
+  onChange: (image: PickedImage | null) => void;
 }) {
   const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
+  const previewUri = value ? toDataUri(value.data, value.mime) : null;
 
   async function run(picker: () => Promise<PickResult>) {
     setBusy(true);
     try {
       const result = await picker();
       if (result.status === "picked") {
-        onChange(result.uri);
+        onChange(result.image);
       } else if (result.status === "denied") {
         Alert.alert("需要权限", "请在系统设置中允许访问相册或相机后再试。");
       }
@@ -148,7 +151,7 @@ export function ImagePickerField({
       <Label>{label}</Label>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={value ? "更换图片" : "添加图片"}
+        accessibilityLabel={previewUri ? "更换图片" : "添加图片"}
         onPress={choose}
         disabled={busy}
         style={({ pressed }) => [
@@ -165,8 +168,8 @@ export function ImagePickerField({
           pressed && !busy ? { opacity: 0.85 } : null
         ]}
       >
-        {value ? (
-          <Image source={{ uri: value }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
+        {previewUri ? (
+          <Image source={{ uri: previewUri }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
         ) : (
           <View style={{ alignItems: "center", gap: spacing.xs }}>
             <Ionicons name="image-outline" size={30} color={colors.muted} />

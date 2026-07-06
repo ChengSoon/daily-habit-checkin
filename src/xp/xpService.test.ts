@@ -1,14 +1,13 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { completeCheckIn } from "../checkins/checkinRepository";
-import { initializeDatabase, resetDatabaseForTests } from "../db/database";
+import { resetSyncBackend } from "../../test/fakes/syncBackend";
 import { createHabit } from "../habits/habitRepository";
 import { getWallet, listXpTransactions } from "./xpRepository";
 import { awardXpForCheckIn } from "./xpService";
 
 describe("xp service", () => {
-  beforeEach(async () => {
-    await initializeDatabase();
-    await resetDatabaseForTests();
+  beforeEach(() => {
+    resetSyncBackend();
   });
 
   it("awards XP once for a completed check-in", async () => {

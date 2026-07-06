@@ -2,7 +2,7 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { createReward, listRewards, updateReward } from "../../src/rewards/rewardRepository";
-import { deleteRewardImage } from "../../src/rewards/rewardImage";
+import { PickedImage, toDataUri } from "../../src/rewards/rewardImage";
 import { Reward, RewardType, VirtualRewardKind } from "../../src/rewards/types";
 import {
   AppButton,
@@ -14,11 +14,20 @@ import {
   SegmentedControl,
   TextField
 } from "../../src/ui/Controls";
+import { OwnerGate } from "../../src/ui/OwnerGate";
 import { ImagePickerField, RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
 
 export default function AdminRewardsScreen() {
+  return (
+    <OwnerGate>
+      <AdminRewardsContent />
+    </OwnerGate>
+  );
+}
+
+function AdminRewardsContent() {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [editing, setEditing] = useState<Reward | null>(null);
   const [title, setTitle] = useState("");
@@ -26,7 +35,7 @@ export default function AdminRewardsScreen() {
   const [type, setType] = useState<RewardType>("real_world");
   const [priceXp, setPriceXp] = useState("300");
   const [virtualKind, setVirtualKind] = useState<VirtualRewardKind>("none");
-  const [imageUri, setImageUri] = useState<string | null>(null);
+  const [image, setImage] = useState<PickedImage | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = useCallback(() => {
@@ -42,7 +51,7 @@ export default function AdminRewardsScreen() {
     setType(reward.type);
     setPriceXp(String(reward.priceXp));
     setVirtualKind(reward.virtualKind);
-    setImageUri(reward.imageUri);
+    setImage(reward.imageData ? { data: reward.imageData, mime: reward.imageMime ?? "image/jpeg" } : null);
     setMessage(null);
   }
 
@@ -53,15 +62,11 @@ export default function AdminRewardsScreen() {
     setType("real_world");
     setPriceXp("300");
     setVirtualKind("none");
-    setImageUri(null);
+    setImage(null);
   }
 
   async function save() {
-    // 编辑时若换掉或移除了图片，清理旧的持久化文件，避免残留。
-    if (editing && editing.imageUri && editing.imageUri !== imageUri) {
-      await deleteRewardImage(editing.imageUri);
-    }
-
+    // 图片以 base64 存库，换图/移除直接覆盖字段，无本地文件需要清理。
     const input = {
       title,
       description: description || null,
@@ -70,7 +75,8 @@ export default function AdminRewardsScreen() {
       status: editing?.status ?? "active",
       virtualKind: type === "virtual" ? virtualKind : "none",
       inventoryLimit: null,
-      imageUri
+      imageData: image?.data ?? null,
+      imageMime: image?.mime ?? null
     } as const;
 
     if (editing) {
@@ -93,7 +99,8 @@ export default function AdminRewardsScreen() {
       status: reward.status === "active" ? "archived" : "active",
       virtualKind: reward.virtualKind,
       inventoryLimit: reward.inventoryLimit,
-      imageUri: reward.imageUri
+      imageData: reward.imageData,
+      imageMime: reward.imageMime
     });
     load();
   }
@@ -109,7 +116,7 @@ export default function AdminRewardsScreen() {
 
       <Card>
         <AppText variant="section">{editing ? "编辑商品" : "新增商品"}</AppText>
-        <ImagePickerField type={type} value={imageUri} onChange={setImageUri} />
+        <ImagePickerField type={type} value={image} onChange={setImage} />
         <TextField label="名称" value={title} onChangeText={setTitle} placeholder="例如：奶茶一杯" />
         <TextField label="描述" value={description} onChangeText={setDescription} placeholder="例如：周末兑现" />
         <View style={{ gap: spacing.sm }}>
@@ -158,7 +165,7 @@ export default function AdminRewardsScreen() {
         {rewards.map((reward) => (
           <Card key={reward.id}>
             <View style={{ flexDirection: "row", gap: spacing.md }}>
-              <RewardThumb uri={reward.imageUri} type={reward.type} size={56} />
+              <RewardThumb uri={toDataUri(reward.imageData, reward.imageMime)} type={reward.type} size={56} />
               <View style={{ flex: 1, gap: spacing.xs }}>
                 <Badge
                   label={reward.status === "active" ? "上架中" : "已下架"}

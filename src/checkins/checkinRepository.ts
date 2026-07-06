@@ -1,27 +1,43 @@
-import { getDatabase } from "../db/database";
+import { listResource, upsertResource } from "../sync/dataClient";
 import { createId } from "../utils/id";
 import { CheckIn } from "./types";
 
-type CheckInRow = {
+type CheckInDto = {
   id: string;
-  habit_id: string;
+  habitId: string;
   date: string;
   status: CheckIn["status"];
   value: number | null;
   note: string | null;
-  created_at: string;
+  createdAt: string;
 };
 
-function mapRow(row: CheckInRow): CheckIn {
+function mapDto(dto: CheckInDto): CheckIn {
   return {
-    id: row.id,
-    habitId: row.habit_id,
-    date: row.date,
-    status: row.status,
-    value: row.value,
-    note: row.note,
-    createdAt: row.created_at
+    id: dto.id,
+    habitId: dto.habitId,
+    date: dto.date,
+    status: dto.status,
+    value: dto.value === null ? null : Number(dto.value),
+    note: dto.note,
+    createdAt: dto.createdAt
   };
+}
+
+function toFields(checkIn: CheckIn): Record<string, unknown> {
+  return {
+    habitId: checkIn.habitId,
+    date: checkIn.date,
+    status: checkIn.status,
+    value: checkIn.value,
+    note: checkIn.note,
+    createdAt: checkIn.createdAt
+  };
+}
+
+async function fetchAll(): Promise<CheckIn[]> {
+  const rows = await listResource<CheckInDto>("check_ins");
+  return rows.map(mapDto);
 }
 
 export async function completeCheckIn(input: {
@@ -30,56 +46,39 @@ export async function completeCheckIn(input: {
   value: number | null;
   note: string | null;
 }): Promise<CheckIn> {
-  const db = getDatabase();
+  // 服务端 check_ins 有 UNIQUE(habit_id, date)，而按 id upsert 不会命中这个约束，
+  // 因此先查当天已有记录复用其 id，实现「同一天再次打卡即更新」。
+  const all = await fetchAll();
+  const existing = all.find((checkIn) => checkIn.habitId === input.habitId && checkIn.date === input.date);
+
   const checkIn: CheckIn = {
-    id: createId("checkin"),
+    id: existing?.id ?? createId("checkin"),
     habitId: input.habitId,
     date: input.date,
     status: "completed",
     value: input.value,
     note: input.note,
-    createdAt: new Date().toISOString()
+    createdAt: existing?.createdAt ?? new Date().toISOString()
   };
 
-  await db.runAsync(
-    `INSERT INTO check_ins (id, habit_id, date, status, value, note, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON CONFLICT(habit_id, date) DO UPDATE SET
-       status = excluded.status,
-       value = excluded.value,
-       note = excluded.note,
-       created_at = excluded.created_at`,
-    [checkIn.id, checkIn.habitId, checkIn.date, checkIn.status, checkIn.value, checkIn.note, checkIn.createdAt]
-  );
-
+  await upsertResource<CheckInDto>("check_ins", checkIn.id, toFields(checkIn));
   return checkIn;
 }
 
 export async function listCheckInsForHabit(habitId: string): Promise<CheckIn[]> {
-  const db = getDatabase();
-  const rows = await db.getAllAsync<CheckInRow>(
-    "SELECT * FROM check_ins WHERE habit_id = ? ORDER BY date ASC",
-    [habitId]
-  );
-
-  return rows.map(mapRow);
+  const all = await fetchAll();
+  return all
+    .filter((checkIn) => checkIn.habitId === habitId)
+    .sort((left, right) => left.date.localeCompare(right.date));
 }
 
 export async function isHabitCompletedOn(habitId: string, date: string): Promise<boolean> {
-  const db = getDatabase();
-  const row = await db.getFirstAsync<{ status: CheckIn["status"] }>(
-    "SELECT status FROM check_ins WHERE habit_id = ? AND date = ?",
-    [habitId, date]
-  );
-
+  const all = await fetchAll();
+  const row = all.find((checkIn) => checkIn.habitId === habitId && checkIn.date === date);
   return row?.status === "completed";
 }
 
 export async function listAllCheckIns(): Promise<CheckIn[]> {
-  const db = getDatabase();
-  const rows = await db.getAllAsync<CheckInRow>(
-    "SELECT * FROM check_ins ORDER BY date ASC"
-  );
-
-  return rows.map(mapRow);
+  const all = await fetchAll();
+  return all.sort((left, right) => left.date.localeCompare(right.date));
 }

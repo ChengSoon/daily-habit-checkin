@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { getAdjustmentSuggestion } from "../../src/ai/adjustmentRules";
@@ -25,7 +25,9 @@ import {
   WeekdayPicker
 } from "../../src/ui/Controls";
 import { CalendarLegend, MonthCalendar } from "../../src/ui/MonthCalendar";
+import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
+import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, startOfMonthKey, todayKey } from "../../src/utils/date";
@@ -84,20 +86,19 @@ export default function HabitDetailScreen() {
     }
   }, [id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  const { status, errorMessage, reload } = useSyncScreen(load);
 
-  if (!habit) {
-    return (
-      <Screen>
-        <AppText variant="body" tone="muted">
-          加载中...
-        </AppText>
-      </Screen>
-    );
+  if (status !== "ready" || !habit) {
+    if (status === "ready") {
+      // 已登录且加载成功，但该习惯不存在（可能已被删除）
+      return (
+        <Screen>
+          <EmptyState icon="search-outline" title="习惯不存在" body="这个习惯可能已经被删除了。" />
+          <AppButton title="返回" variant="secondary" onPress={() => router.back()} />
+        </Screen>
+      );
+    }
+    return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
   }
 
   async function save() {
@@ -121,7 +122,7 @@ export default function HabitDetailScreen() {
     }
 
     setMessage("已保存修改");
-    await load();
+    await reload();
   }
 
   async function togglePaused() {
@@ -130,7 +131,7 @@ export default function HabitDetailScreen() {
     }
 
     await setHabitPaused(habit.id, !habit.isPaused);
-    await load();
+    await reload();
   }
 
   async function remove() {
@@ -162,7 +163,7 @@ export default function HabitDetailScreen() {
         numericUnit: habit.numericUnit
       });
       setMessage("已应用调整建议");
-      await load();
+      await reload();
       return;
     }
 

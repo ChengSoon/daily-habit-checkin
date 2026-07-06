@@ -19,12 +19,18 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const [mode, setModeState] = useState<ThemeMode>("system");
 
   useEffect(() => {
-    getAppSettings().then((settings) => setModeState(settings.themeMode));
+    // 主题在根布局启动时加载，早于登录。未登录时 getAppSettings 会抛
+    // UnauthorizedError，这里降级为系统默认主题，不能让它变成未处理的 rejection。
+    getAppSettings()
+      .then((settings) => setModeState(settings.themeMode))
+      .catch(() => undefined);
   }, []);
 
   const setMode = useCallback((next: ThemeMode) => {
     setModeState(next);
-    getAppSettings().then((settings) => saveAppSettings({ ...settings, themeMode: next }));
+    getAppSettings()
+      .then((settings) => saveAppSettings({ ...settings, themeMode: next }))
+      .catch(() => undefined);
   }, []);
 
   const scheme: ColorScheme = mode === "system" ? (systemScheme === "dark" ? "dark" : "light") : mode;

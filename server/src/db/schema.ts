@@ -17,9 +17,12 @@ CREATE TABLE IF NOT EXISTS accounts (
   password_hash TEXT NOT NULL,
   display_name TEXT NOT NULL,
   space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  role TEXT NOT NULL DEFAULT 'member',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_space ON accounts(space_id);
+-- 兼容已有部署：老库没有 role 列时补上
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'member';
 
 CREATE TABLE IF NOT EXISTS habits (
   id TEXT PRIMARY KEY,

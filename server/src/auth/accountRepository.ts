@@ -1,11 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { query, withTransaction } from "../db/pool.js";
 
+export type AccountRole = "owner" | "member";
+
 export type Account = {
   id: string;
   email: string;
   displayName: string;
   spaceId: string;
+  role: AccountRole;
   createdAt: string;
 };
 
@@ -15,6 +18,7 @@ type AccountRow = {
   display_name: string;
   password_hash: string;
   space_id: string;
+  role: AccountRole;
   created_at: string;
 };
 
@@ -24,6 +28,7 @@ function mapAccount(row: AccountRow): Account {
     email: row.email,
     displayName: row.display_name,
     spaceId: row.space_id,
+    role: row.role,
     createdAt: row.created_at
   };
 }
@@ -82,9 +87,10 @@ export async function registerAccount(input: {
       "INSERT INTO spaces (id, invite_code, created_at) VALUES ($1, $2, $3)",
       [spaceId, inviteCode, now]
     );
+    // 注册即创建空间，注册者是空间的 owner（拥有奖励管理权限）。
     await client.query(
-      `INSERT INTO accounts (id, email, display_name, password_hash, space_id, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
+      `INSERT INTO accounts (id, email, display_name, password_hash, space_id, role, created_at)
+       VALUES ($1, $2, $3, $4, $5, 'owner', $6)`,
       [accountId, input.email.toLowerCase(), input.displayName, input.passwordHash, spaceId, now]
     );
 
@@ -93,6 +99,7 @@ export async function registerAccount(input: {
       email: input.email.toLowerCase(),
       displayName: input.displayName,
       spaceId,
+      role: "owner",
       createdAt: now
     };
   });
@@ -110,7 +117,8 @@ export async function joinSpaceByInviteCode(accountId: string, inviteCode: strin
       throw new Error("邀请码无效");
     }
 
-    await client.query("UPDATE accounts SET space_id = $1 WHERE id = $2", [space.id, accountId]);
+    // 加入别人的空间即成为该空间的成员（member），不具备奖励管理权限。
+    await client.query("UPDATE accounts SET space_id = $1, role = 'member' WHERE id = $2", [space.id, accountId]);
 
     const accountResult = await client.query<AccountRow>("SELECT * FROM accounts WHERE id = $1", [accountId]);
     const row = accountResult.rows[0];

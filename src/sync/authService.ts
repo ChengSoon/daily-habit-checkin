@@ -1,12 +1,15 @@
 import { apiRequest } from "./apiClient";
 import { clearAuthToken, getAuthToken, saveAuthToken } from "./localSettings";
 
+export type AccountRole = "owner" | "member";
+
 export type Account = {
   id: string;
   email: string;
   displayName: string;
   spaceId: string;
   inviteCode: string | null;
+  role: AccountRole;
 };
 
 type AuthResponse = {

@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { initializeDatabase, resetDatabaseForTests } from "../db/database";
+import { resetSyncBackend } from "../../test/fakes/syncBackend";
 import { createHabit, deleteHabit, getHabitById, listActiveHabits, moveHabit, setHabitPaused, updateHabit } from "./habitRepository";
 
 describe("habit repository", () => {
-  beforeEach(async () => {
-    await initializeDatabase();
-    await resetDatabaseForTests();
+  beforeEach(() => {
+    resetSyncBackend();
   });
 
   it("creates and lists active habits", async () => {

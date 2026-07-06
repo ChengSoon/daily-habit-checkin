@@ -10,7 +10,6 @@ import {
   refreshAccount,
   register
 } from "../src/sync/authService";
-import { getSyncServerUrl, setSyncServerUrl } from "../src/sync/localSettings";
 import { AppButton, AppText, Badge, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
 import { Screen } from "../src/ui/Screen";
 import { spacing } from "../src/ui/theme";
@@ -19,7 +18,6 @@ type Mode = "login" | "register";
 
 export default function AccountScreen() {
   const [account, setAccount] = useState<Account | null>(null);
-  const [serverUrl, setServerUrl] = useState("");
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -30,7 +28,6 @@ export default function AccountScreen() {
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
-    setServerUrl((await getSyncServerUrl()) ?? "");
     const current = await getCurrentAccount();
     setAccount(current);
     if (current) {
@@ -49,19 +46,11 @@ export default function AccountScreen() {
     }, [load])
   );
 
-  async function saveServer() {
-    await setSyncServerUrl(serverUrl.trim() || null);
-    setMessage("同步服务器地址已保存");
-    setError(null);
-  }
-
   async function submit() {
     setError(null);
     setMessage(null);
     setBusy(true);
     try {
-      // 提交前确保服务器地址已保存
-      await setSyncServerUrl(serverUrl.trim() || null);
       const result =
         mode === "register"
           ? await register({ email: email.trim(), displayName: displayName.trim(), password })
@@ -146,19 +135,6 @@ export default function AccountScreen() {
         </AppText>
       </View>
 
-      <SectionCard title="同步服务器">
-        <TextField
-          label="服务器地址"
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          placeholder="https://your-server.com:8787"
-          onBlur={saveServer}
-        />
-        <AppText variant="small" tone="faint">
-          填你自己部署的服务器地址，离开输入框即保存
-        </AppText>
-      </SectionCard>
-
       <SectionCard title={mode === "register" ? "注册" : "登录"}>
         <SegmentedControl<Mode>
           value={mode}
@@ -178,7 +154,7 @@ export default function AccountScreen() {
         <AppButton
           title={mode === "register" ? "注册并创建空间" : "登录"}
           onPress={submit}
-          disabled={busy || !serverUrl.trim() || !email.trim() || password.length < 6 || (mode === "register" && !displayName.trim())}
+          disabled={busy || !email.trim() || password.length < 6 || (mode === "register" && !displayName.trim())}
         />
       </SectionCard>
     </Screen>

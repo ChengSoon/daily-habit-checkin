@@ -1,63 +1,100 @@
-import { getDatabase } from "../db/database";
 import { createId } from "../utils/id";
+import { listResource, upsertResource } from "../sync/dataClient";
 import { CreateRewardInput, RedemptionStatus, Reward, RewardRedemption } from "./types";
 
-type RewardRow = {
+/**
+ * 奖励与兑换记录仓储，走云端同步（/api/data/rewards、/api/data/reward_redemptions）。
+ * 服务端返回 camelCase 字段，这里做一次规范化映射，保证类型稳定。
+ *
+ * 服务端 upsert 要求携带全部非空字段（含 createdAt），因此更新类操作
+ * 会先取回原记录再合并，避免丢失 createdAt 等不可为空字段。
+ */
+
+type RewardDto = {
   id: string;
   title: string;
   description: string | null;
   type: Reward["type"];
-  price_xp: number;
+  priceXp: number;
   status: Reward["status"];
-  virtual_kind: Reward["virtualKind"];
-  inventory_limit: number | null;
-  image_uri: string | null;
-  created_at: string;
-  updated_at: string;
+  virtualKind: Reward["virtualKind"];
+  inventoryLimit: number | null;
+  imageData: string | null;
+  imageMime: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
-type RewardRedemptionRow = {
+type RedemptionDto = {
   id: string;
-  reward_id: string;
-  price_xp: number;
+  rewardId: string;
+  priceXp: number;
   status: RedemptionStatus;
-  created_at: string;
-  fulfilled_at: string | null;
-  cancelled_at: string | null;
+  createdAt: string;
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
   note: string | null;
 };
 
-function mapReward(row: RewardRow): Reward {
+function mapReward(dto: RewardDto): Reward {
   return {
-    id: row.id,
-    title: row.title,
-    description: row.description,
-    type: row.type,
-    priceXp: row.price_xp,
-    status: row.status,
-    virtualKind: row.virtual_kind,
-    inventoryLimit: row.inventory_limit,
-    imageUri: row.image_uri,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    id: dto.id,
+    title: dto.title,
+    description: dto.description,
+    type: dto.type,
+    priceXp: Number(dto.priceXp),
+    status: dto.status,
+    virtualKind: dto.virtualKind,
+    inventoryLimit: dto.inventoryLimit === null ? null : Number(dto.inventoryLimit),
+    imageData: dto.imageData,
+    imageMime: dto.imageMime,
+    createdAt: dto.createdAt,
+    updatedAt: dto.updatedAt
   };
 }
 
-function mapRedemption(row: RewardRedemptionRow): RewardRedemption {
+function mapRedemption(dto: RedemptionDto): RewardRedemption {
   return {
-    id: row.id,
-    rewardId: row.reward_id,
-    priceXp: row.price_xp,
-    status: row.status,
-    createdAt: row.created_at,
-    fulfilledAt: row.fulfilled_at,
-    cancelledAt: row.cancelled_at,
-    note: row.note
+    id: dto.id,
+    rewardId: dto.rewardId,
+    priceXp: Number(dto.priceXp),
+    status: dto.status,
+    createdAt: dto.createdAt,
+    fulfilledAt: dto.fulfilledAt,
+    cancelledAt: dto.cancelledAt,
+    note: dto.note
+  };
+}
+
+function rewardFields(reward: Reward): Record<string, unknown> {
+  return {
+    title: reward.title,
+    description: reward.description,
+    type: reward.type,
+    priceXp: reward.priceXp,
+    status: reward.status,
+    virtualKind: reward.virtualKind,
+    inventoryLimit: reward.inventoryLimit,
+    imageData: reward.imageData,
+    imageMime: reward.imageMime,
+    createdAt: reward.createdAt,
+    updatedAt: reward.updatedAt
+  };
+}
+
+function redemptionFields(redemption: RewardRedemption): Record<string, unknown> {
+  return {
+    rewardId: redemption.rewardId,
+    priceXp: redemption.priceXp,
+    status: redemption.status,
+    createdAt: redemption.createdAt,
+    fulfilledAt: redemption.fulfilledAt,
+    cancelledAt: redemption.cancelledAt,
+    note: redemption.note
   };
 }
 
 export async function createReward(input: CreateRewardInput): Promise<Reward> {
-  const db = getDatabase();
   const now = new Date().toISOString();
   const reward: Reward = {
     id: createId("reward"),
@@ -68,76 +105,50 @@ export async function createReward(input: CreateRewardInput): Promise<Reward> {
     status: input.status,
     virtualKind: input.virtualKind,
     inventoryLimit: input.inventoryLimit,
-    imageUri: input.imageUri,
+    imageData: input.imageData,
+    imageMime: input.imageMime,
     createdAt: now,
     updatedAt: now
   };
 
-  await db.runAsync(
-    `INSERT INTO rewards (
-      id, title, description, type, price_xp, status, virtual_kind,
-      inventory_limit, image_uri, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      reward.id,
-      reward.title,
-      reward.description,
-      reward.type,
-      reward.priceXp,
-      reward.status,
-      reward.virtualKind,
-      reward.inventoryLimit,
-      reward.imageUri,
-      reward.createdAt,
-      reward.updatedAt
-    ]
-  );
-
-  return reward;
+  const saved = await upsertResource<RewardDto>("rewards", reward.id, rewardFields(reward));
+  return mapReward(saved);
 }
 
 export async function updateReward(id: string, input: CreateRewardInput): Promise<void> {
-  const db = getDatabase();
+  const existing = await getRewardById(id);
+  const createdAt = existing?.createdAt ?? new Date().toISOString();
 
-  await db.runAsync(
-    `UPDATE rewards SET
-      title = ?,
-      description = ?,
-      type = ?,
-      price_xp = ?,
-      status = ?,
-      virtual_kind = ?,
-      inventory_limit = ?,
-      image_uri = ?,
-      updated_at = ?
-    WHERE id = ?`,
-    [
-      input.title,
-      input.description,
-      input.type,
-      input.priceXp,
-      input.status,
-      input.virtualKind,
-      input.inventoryLimit,
-      input.imageUri,
-      new Date().toISOString(),
-      id
-    ]
-  );
+  const reward: Reward = {
+    id,
+    title: input.title,
+    description: input.description,
+    type: input.type,
+    priceXp: input.priceXp,
+    status: input.status,
+    virtualKind: input.virtualKind,
+    inventoryLimit: input.inventoryLimit,
+    imageData: input.imageData,
+    imageMime: input.imageMime,
+    createdAt,
+    updatedAt: new Date().toISOString()
+  };
+
+  await upsertResource<RewardDto>("rewards", id, rewardFields(reward));
 }
 
 export async function listRewards(input: { includeArchived: boolean }): Promise<Reward[]> {
-  const db = getDatabase();
-  const rows = input.includeArchived
-    ? await db.getAllAsync<RewardRow>("SELECT * FROM rewards ORDER BY created_at ASC")
-    : await db.getAllAsync<RewardRow>("SELECT * FROM rewards WHERE status = 'active' ORDER BY created_at ASC");
+  const rows = await listResource<RewardDto>("rewards");
+  const rewards = rows
+    .map(mapReward)
+    .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
 
-  return rows.map(mapReward);
+  return input.includeArchived ? rewards : rewards.filter((reward) => reward.status === "active");
 }
 
 export async function getRewardById(id: string): Promise<Reward | null> {
-  const db = getDatabase();
-  const row = await db.getFirstAsync<RewardRow>("SELECT * FROM rewards WHERE id = ?", [id]);
+  const rows = await listResource<RewardDto>("rewards");
+  const row = rows.find((reward) => reward.id === id);
 
   return row ? mapReward(row) : null;
 }
@@ -148,7 +159,6 @@ export async function createRedemption(input: {
   status: RedemptionStatus;
   note: string | null;
 }): Promise<RewardRedemption> {
-  const db = getDatabase();
   const now = new Date().toISOString();
   const redemption: RewardRedemption = {
     id: createId("redemption"),
@@ -161,52 +171,49 @@ export async function createRedemption(input: {
     note: input.note
   };
 
-  await db.runAsync(
-    `INSERT INTO reward_redemptions (
-      id, reward_id, price_xp, status, created_at, fulfilled_at, cancelled_at, note
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      redemption.id,
-      redemption.rewardId,
-      redemption.priceXp,
-      redemption.status,
-      redemption.createdAt,
-      redemption.fulfilledAt,
-      redemption.cancelledAt,
-      redemption.note
-    ]
+  const saved = await upsertResource<RedemptionDto>(
+    "reward_redemptions",
+    redemption.id,
+    redemptionFields(redemption)
   );
-
-  return redemption;
+  return mapRedemption(saved);
 }
 
 export async function updateRedemptionStatus(
   id: string,
   status: RedemptionStatus
 ): Promise<RewardRedemption | null> {
-  const db = getDatabase();
+  const existing = await getRedemptionById(id);
+  if (!existing) {
+    return null;
+  }
+
   const now = new Date().toISOString();
+  const updated: RewardRedemption = {
+    ...existing,
+    status,
+    fulfilledAt: status === "fulfilled" ? now : null,
+    cancelledAt: status === "cancelled" ? now : null
+  };
 
-  await db.runAsync(
-    `UPDATE reward_redemptions SET status = ?, fulfilled_at = ?, cancelled_at = ? WHERE id = ?`,
-    [status, status === "fulfilled" ? now : null, status === "cancelled" ? now : null, id]
+  const saved = await upsertResource<RedemptionDto>(
+    "reward_redemptions",
+    id,
+    redemptionFields(updated)
   );
-
-  return getRedemptionById(id);
+  return mapRedemption(saved);
 }
 
 export async function getRedemptionById(id: string): Promise<RewardRedemption | null> {
-  const db = getDatabase();
-  const row = await db.getFirstAsync<RewardRedemptionRow>("SELECT * FROM reward_redemptions WHERE id = ?", [id]);
+  const rows = await listResource<RedemptionDto>("reward_redemptions");
+  const row = rows.find((redemption) => redemption.id === id);
 
   return row ? mapRedemption(row) : null;
 }
 
 export async function listRedemptions(): Promise<RewardRedemption[]> {
-  const db = getDatabase();
-  const rows = await db.getAllAsync<RewardRedemptionRow>(
-    "SELECT * FROM reward_redemptions ORDER BY created_at DESC"
-  );
-
-  return rows.map(mapRedemption);
+  const rows = await listResource<RedemptionDto>("reward_redemptions");
+  return rows
+    .map(mapRedemption)
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }

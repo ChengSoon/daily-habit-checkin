@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { initializeDatabase, resetDatabaseForTests } from "../db/database";
+import { resetSyncBackend } from "../../test/fakes/syncBackend";
 import { applyXpTransactions, getWallet, listXpTransactions } from "./xpRepository";
 
 describe("xp repository", () => {
-  beforeEach(async () => {
-    await initializeDatabase();
-    await resetDatabaseForTests();
+  beforeEach(() => {
+    resetSyncBackend();
   });
 
   it("creates a default wallet on first read", async () => {

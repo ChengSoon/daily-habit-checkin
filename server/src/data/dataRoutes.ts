@@ -1,6 +1,8 @@
+import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import type { PoolClient } from "pg";
-import { getPool } from "../db/pool.js";
+import { getPool, withTransaction } from "../db/pool.js";
+import { walletDelta, WalletTxType } from "./walletMath.js";
 
 /**
  * 同步数据路由。
@@ -27,6 +29,14 @@ type Column = {
 type ResourceConfig = {
   table: string;
   columns: Column[];
+  /**
+   * 写操作的 owner 权限要求：
+   * - "always"：所有写（PUT/DELETE）都要求 owner，用于奖励目录管理。
+   * - "onUpdate"：仅更新已有记录时要求 owner，新建放行。用于兑换记录：
+   *   任何人可创建兑换（花积分兑换），但兑现/取消（改已有记录状态）仅 owner。
+   * 不设则任何登录用户都能写（情侣共享的习惯/打卡/计划等）。
+   */
+  ownerWrite?: "always" | "onUpdate";
 };
 
 /**
@@ -74,6 +84,8 @@ const RESOURCES: Record<string, ResourceConfig> = {
   },
   rewards: {
     table: "rewards",
+    // 奖励目录的增删改仅 owner；兑换记录见下方 onUpdate 规则
+    ownerWrite: "always",
     columns: [
       { column: "title", field: "title", kind: "text" },
       { column: "description", field: "description", kind: "text", nullable: true },
@@ -90,6 +102,8 @@ const RESOURCES: Record<string, ResourceConfig> = {
   },
   reward_redemptions: {
     table: "reward_redemptions",
+    // 新建（member 兑换）任何登录用户可做；更新已有记录（兑现/取消）仅 owner
+    ownerWrite: "onUpdate",
     columns: [
       { column: "reward_id", field: "rewardId", kind: "text" },
       { column: "price_xp", field: "priceXp", kind: "int" },
@@ -224,6 +238,12 @@ export function createDataRouter(): Router {
 
 /**
  * XP 钱包是每个空间一条的单例记录，单独处理。
+ *
+ * - GET  /api/wallet               读取当前空间钱包
+ * - POST /api/wallet/transactions  批量提交 XP 交易，服务端在单事务里
+ *   幂等插入 xp_transactions 并原子更新 xp_wallet，返回最新钱包
+ *
+ * 余额由服务端计算，客户端只上报交易，避免两台设备各算各的导致钱包不一致。
  */
 export function createWalletRouter(): Router {
   const router = Router();
@@ -231,20 +251,164 @@ export function createWalletRouter(): Router {
   router.get("/", async (request, response) => {
     const pool = getPool();
     await ensureWallet(pool, request.spaceId!);
-    const { rows } = await pool.query(
-      `SELECT balance, lifetime_earned AS "lifetimeEarned",
-              lifetime_spent AS "lifetimeSpent", updated_at AS "updatedAt"
-       FROM xp_wallet WHERE space_id = $1`,
-      [request.spaceId]
-    );
-    response.json(rows[0]);
+    response.json(await readWallet(pool, request.spaceId!));
+  });
+
+  router.post("/transactions", async (request, response) => {
+    const body = request.body as { transactions?: unknown };
+    const rawList = Array.isArray(body?.transactions) ? body.transactions : null;
+    if (!rawList) {
+      response.status(400).json({ error: "缺少 transactions 数组" });
+      return;
+    }
+
+    let inputs: WalletTransactionInput[];
+    try {
+      inputs = rawList.map(parseTransactionInput);
+    } catch (error) {
+      response.status(400).json({ error: error instanceof Error ? error.message : "交易格式不正确" });
+      return;
+    }
+
+    const spaceId = request.spaceId!;
+    const result = await withTransaction(async (client) => {
+      await ensureWallet(client, spaceId);
+
+      const inserted: Record<string, unknown>[] = [];
+      let balanceDelta = 0;
+      let earnedDelta = 0;
+      let spentDelta = 0;
+
+      for (const input of inputs) {
+        const id = randomUUID();
+        const insertResult = await client.query(
+          `INSERT INTO xp_transactions (
+             id, space_id, unique_key, amount, type, reason,
+             habit_id, check_in_id, reward_id, redemption_id, date_key, created_at
+           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
+           ON CONFLICT (space_id, unique_key) DO NOTHING
+           RETURNING id, unique_key AS "uniqueKey", amount, type, reason,
+                     habit_id AS "habitId", check_in_id AS "checkInId",
+                     reward_id AS "rewardId", redemption_id AS "redemptionId",
+                     date_key AS "dateKey", created_at AS "createdAt"`,
+          [
+            id,
+            spaceId,
+            input.uniqueKey,
+            input.amount,
+            input.type,
+            input.reason,
+            input.habitId,
+            input.checkInId,
+            input.rewardId,
+            input.redemptionId,
+            input.dateKey
+          ]
+        );
+
+        // 已存在（幂等命中）时不重复计入余额
+        if (insertResult.rows.length === 0) {
+          continue;
+        }
+
+        const delta = walletDelta(input.type, input.amount);
+        balanceDelta += delta.balance;
+        earnedDelta += delta.earned;
+        spentDelta += delta.spent;
+        inserted.push(insertResult.rows[0] as Record<string, unknown>);
+      }
+
+      if (inserted.length > 0) {
+        await client.query(
+          `UPDATE xp_wallet SET
+             balance = balance + $2,
+             lifetime_earned = lifetime_earned + $3,
+             lifetime_spent = lifetime_spent + $4,
+             updated_at = now()
+           WHERE space_id = $1`,
+          [spaceId, balanceDelta, earnedDelta, spentDelta]
+        );
+      }
+
+      const wallet = await readWalletWith(client, spaceId);
+      return { inserted, wallet };
+    });
+
+    response.json(result);
   });
 
   return router;
 }
 
-async function ensureWallet(pool: { query: PoolClient["query"] }, spaceId: string): Promise<void> {
-  await pool.query(
+type WalletTransactionInput = {
+  uniqueKey: string;
+  amount: number;
+  type: WalletTxType;
+  reason: string;
+  habitId: string | null;
+  checkInId: string | null;
+  rewardId: string | null;
+  redemptionId: string | null;
+  dateKey: string | null;
+};
+
+const TRANSACTION_TYPES: WalletTxType[] = ["earn", "spend", "refund", "adjust"];
+
+function parseTransactionInput(raw: unknown): WalletTransactionInput {
+  const record = (raw ?? {}) as Record<string, unknown>;
+  const uniqueKey = record.uniqueKey;
+  const amount = record.amount;
+  const type = record.type;
+  const reason = record.reason;
+
+  if (typeof uniqueKey !== "string" || uniqueKey.length === 0) {
+    throw new Error("交易缺少 uniqueKey");
+  }
+  if (typeof amount !== "number" || !Number.isFinite(amount)) {
+    throw new Error("交易 amount 必须是数字");
+  }
+  if (typeof type !== "string" || !TRANSACTION_TYPES.includes(type as WalletTxType)) {
+    throw new Error("交易 type 不合法");
+  }
+  if (typeof reason !== "string" || reason.length === 0) {
+    throw new Error("交易缺少 reason");
+  }
+
+  const optionalText = (value: unknown): string | null =>
+    typeof value === "string" && value.length > 0 ? value : null;
+
+  return {
+    uniqueKey,
+    amount: Math.trunc(amount),
+    type: type as WalletTxType,
+    reason,
+    habitId: optionalText(record.habitId),
+    checkInId: optionalText(record.checkInId),
+    rewardId: optionalText(record.rewardId),
+    redemptionId: optionalText(record.redemptionId),
+    dateKey: optionalText(record.dateKey)
+  };
+}
+
+async function readWallet(pool: { query: PoolClient["query"] }, spaceId: string): Promise<unknown> {
+  return readWalletWith(pool, spaceId);
+}
+
+async function readWalletWith(
+  client: { query: PoolClient["query"] },
+  spaceId: string
+): Promise<Record<string, unknown> | undefined> {
+  const { rows } = await client.query(
+    `SELECT balance, lifetime_earned AS "lifetimeEarned",
+            lifetime_spent AS "lifetimeSpent", updated_at AS "updatedAt"
+     FROM xp_wallet WHERE space_id = $1`,
+    [spaceId]
+  );
+  return rows[0] as Record<string, unknown> | undefined;
+}
+
+async function ensureWallet(client: { query: PoolClient["query"] }, spaceId: string): Promise<void> {
+  await client.query(
     `INSERT INTO xp_wallet (space_id, balance, lifetime_earned, lifetime_spent, updated_at)
      VALUES ($1, 0, 0, 0, now())
      ON CONFLICT (space_id) DO NOTHING`,

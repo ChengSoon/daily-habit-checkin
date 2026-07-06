@@ -1,7 +1,6 @@
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Linking, Pressable, Share, View } from "react-native";
-import { hasAdminPin, setAdminPin, verifyAdminPin } from "../../src/admin/adminSettingsRepository";
+import { Linking, Share, View } from "react-native";
 import { buildExportJson } from "../../src/export/exportData";
 import {
   getReminderPermissionStatus,
@@ -9,6 +8,8 @@ import {
   requestReminderPermission
 } from "../../src/reminders/reminderService";
 import { AppSettings, getAppSettings, saveAppSettings } from "../../src/settings/settingsRepository";
+import { getCurrentAccount } from "../../src/sync/authService";
+import type { Account } from "../../src/sync/authService";
 import { AppButton, AppText, Badge, Divider, HelperText, SectionCard, SegmentedControl, SwitchRow, TextField } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
@@ -31,48 +32,30 @@ export default function ProfileScreen() {
   const [permission, setPermission] = useState<ReminderPermissionStatus>("undetermined");
   const [xpBalance, setXpBalance] = useState(0);
   const [lifetimeEarned, setLifetimeEarned] = useState(0);
-  const [adminTapCount, setAdminTapCount] = useState(0);
-  const [showAdminEntry, setShowAdminEntry] = useState(false);
-  const [adminPin, setAdminPinInput] = useState("");
-  const [adminMessage, setAdminMessage] = useState<string | null>(null);
+  const [account, setAccount] = useState<Account | null>(null);
 
   useFocusEffect(
     useCallback(() => {
-      getAppSettings().then(setSettings);
+      // profile 是登录入口本身，不能整页门禁。未登录时各请求单独降级为默认值，
+      // 让「账号与同步」卡片仍能显示登录按钮。
+      getAppSettings().then(setSettings).catch(() => undefined);
       getReminderPermissionStatus().then(setPermission);
-      getWallet().then((wallet) => {
-        setXpBalance(wallet.balance);
-        setLifetimeEarned(wallet.lifetimeEarned);
-      });
+      getWallet()
+        .then((wallet) => {
+          setXpBalance(wallet.balance);
+          setLifetimeEarned(wallet.lifetimeEarned);
+        })
+        .catch(() => {
+          setXpBalance(0);
+          setLifetimeEarned(0);
+        });
+      getCurrentAccount()
+        .then(setAccount)
+        .catch(() => setAccount(null));
     }, [])
   );
 
-  function revealAdminEntry() {
-    const next = adminTapCount + 1;
-    setAdminTapCount(next);
-    if (next >= 5) {
-      setShowAdminEntry(true);
-    }
-  }
-
-  async function enterAdminMode() {
-    const exists = await hasAdminPin();
-
-    if (!exists) {
-      await setAdminPin(adminPin);
-      setAdminMessage("管理 PIN 已设置");
-      router.push("/admin/rewards");
-      return;
-    }
-
-    const ok = await verifyAdminPin(adminPin);
-    if (!ok) {
-      setAdminMessage("管理 PIN 不正确");
-      return;
-    }
-
-    router.push("/admin/rewards");
-  }
+  const isOwner = account?.role === "owner";
 
   async function save(next: AppSettings) {
     setSettings(next);
@@ -101,12 +84,33 @@ export default function ProfileScreen() {
       <View style={{ gap: spacing.xs }}>
         <AppText variant="display">我的</AppText>
         <AppText variant="body" tone="muted">
-          提醒、外观与隐私说明
+          提醒与外观设置
         </AppText>
       </View>
 
+      <SectionCard title="账号与同步">
+        {account ? (
+          <>
+            <View style={{ gap: spacing.xs }}>
+              <AppText variant="bodyStrong">{account.displayName}</AppText>
+              <AppText variant="small" tone="muted">
+                {account.email}
+              </AppText>
+            </View>
+            <AppButton title="管理账号" variant="secondary" icon="person-outline" onPress={() => router.push("/account")} />
+          </>
+        ) : (
+          <>
+            <AppText variant="body" tone="soft">
+              登录后，你和另一半可以在两台设备共享习惯、积分和奖励。
+            </AppText>
+            <AppButton title="登录 / 注册" icon="log-in-outline" onPress={() => router.push("/account")} />
+          </>
+        )}
+      </SectionCard>
+
       <SectionCard title="奖励">
-        <Pressable onPress={revealAdminEntry} style={{ gap: spacing.xs }}>
+        <View style={{ gap: spacing.xs }}>
           <AppText variant="caption" tone="primary">
             当前积分
           </AppText>
@@ -116,7 +120,7 @@ export default function ProfileScreen() {
           <AppText variant="small" tone="muted">
             累计获得 {lifetimeEarned} 积分
           </AppText>
-        </Pressable>
+        </View>
         <Divider />
         <AppButton title="打开奖励商城" icon="gift-outline" onPress={() => router.push("/shop")} />
         <AppButton
@@ -125,26 +129,13 @@ export default function ProfileScreen() {
           icon="receipt-outline"
           onPress={() => router.push("/shop/redemptions")}
         />
-        {showAdminEntry ? (
-          <>
-            <Divider />
-            <TextField
-              label="管理 PIN"
-              value={adminPin}
-              onChangeText={setAdminPinInput}
-              keyboardType="number-pad"
-              placeholder="输入或设置 PIN"
-            />
-            {adminMessage ? (
-              <HelperText tone={adminMessage.includes("不正确") ? "danger" : "success"}>{adminMessage}</HelperText>
-            ) : null}
-            <AppButton
-              title="进入奖励管理"
-              variant="secondary"
-              onPress={enterAdminMode}
-              disabled={adminPin.length < 4}
-            />
-          </>
+        {isOwner ? (
+          <AppButton
+            title="奖励管理"
+            variant="secondary"
+            icon="construct-outline"
+            onPress={() => router.push("/admin/rewards")}
+          />
         ) : null}
       </SectionCard>
 
@@ -286,21 +277,6 @@ export default function ProfileScreen() {
         </AppText>
         {exportError ? <HelperText tone="danger">{exportError}</HelperText> : null}
         <AppButton title="导出数据" variant="secondary" onPress={exportData} />
-      </SectionCard>
-
-      <SectionCard title="AI 数据使用说明">
-        <AppText variant="body" tone="soft">
-          制定计划时，AI 只接收你填写的目标、当前基础、可投入时间、频率与提醒偏好，以及必要的完成情况统计。
-        </AppText>
-        <AppText variant="body" tone="soft">
-          完整的打卡日志不会发送给 AI。AI 只提供建议，不会自动修改你的习惯，所有调整都需要你确认后才会生效。
-        </AppText>
-      </SectionCard>
-
-      <SectionCard title="隐私策略">
-        <AppText variant="body" tone="soft">
-          首版数据优先保存在本机，不强制登录，也不做多设备同步。
-        </AppText>
       </SectionCard>
     </Screen>
   );

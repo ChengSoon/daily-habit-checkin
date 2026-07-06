@@ -1,12 +1,7 @@
-import { getDatabase } from "../db/database";
+import { fetchSettings, saveSettings } from "../sync/settingsClient";
 
 const ADMIN_PIN_KEY = "admin_pin_hash";
 const ADMIN_PIN_SALT = "couple-reward-shop-v1";
-
-type AdminSettingRow = {
-  key: string;
-  value: string;
-};
 
 function hashPin(pin: string): string {
   let hash = 2166136261;
@@ -21,19 +16,12 @@ function hashPin(pin: string): string {
 }
 
 async function getSetting(key: string): Promise<string | null> {
-  const db = getDatabase();
-  const row = await db.getFirstAsync<AdminSettingRow>("SELECT * FROM admin_settings WHERE key = ?", [key]);
-
-  return row?.value ?? null;
+  const values = await fetchSettings("admin");
+  return values[key] ?? null;
 }
 
 async function saveSetting(key: string, value: string): Promise<void> {
-  const db = getDatabase();
-
-  await db.runAsync(
-    "INSERT INTO admin_settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-    [key, value]
-  );
+  await saveSettings("admin", { [key]: value });
 }
 
 export async function hasAdminPin(): Promise<boolean> {
