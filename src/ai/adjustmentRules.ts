@@ -8,6 +8,7 @@ export function getAdjustmentSuggestion(input: {
   completionRate7Days: number;
   currentStreak: number;
   planEnded: boolean;
+  manualRequested?: boolean;
 }): AdjustmentSuggestion | null {
   if (input.completionRate7Days < 40) {
     return {
@@ -30,6 +31,15 @@ export function getAdjustmentSuggestion(input: {
       title: "计划结束了",
       body: "可以基于这段时间的完成情况，生成下一阶段计划。",
       actionLabel: "生成下一阶段"
+    };
+  }
+
+  // 用户主动点「调整计划」时，即使未触发自动条件，也给一条温和的调整建议。
+  if (input.manualRequested) {
+    return {
+      title: "想调整一下节奏？",
+      body: "可以缩短单次任务、换个更合适的提醒时间，或先保持当前节奏。",
+      actionLabel: "调整计划"
     };
   }
 

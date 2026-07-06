@@ -6,10 +6,16 @@ const apiBaseUrl =
   Constants.expoConfig?.extra?.apiBaseUrl ??
   "http://localhost:8787";
 
+const apiKey =
+  process.env.EXPO_PUBLIC_API_KEY ?? Constants.expoConfig?.extra?.apiKey ?? null;
+
 export async function requestAIHabitPlan(input: AIPlanRequest): Promise<AIPlanPreview> {
   const response = await fetch(`${apiBaseUrl}/api/ai/habit-plan`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { "x-api-key": apiKey } : {})
+    },
     body: JSON.stringify(input)
   });
 

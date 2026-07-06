@@ -1,0 +1,75 @@
+import { XpAward } from "./types";
+
+type CheckInXpInput = {
+  habitId: string;
+  dateKey: string;
+  scheduledDates: string[];
+  completedDates: string[];
+  hasAnyEarlierCompletion: boolean;
+  planCompleted: boolean;
+};
+
+const AWARD_LABELS = {
+  checkin: "完成打卡",
+  streak_3: "连续 3 天",
+  streak_7: "连续 7 天",
+  plan_complete: "完成阶段计划",
+  return_bonus: "回来就好"
+} as const;
+
+function currentStreak(dateKey: string, scheduledDates: string[], completedDates: Set<string>): number {
+  const scheduled = scheduledDates.filter((date) => date <= dateKey).sort();
+  let streak = 0;
+
+  for (let index = scheduled.length - 1; index >= 0; index -= 1) {
+    const date = scheduled[index];
+
+    if (!completedDates.has(date)) {
+      break;
+    }
+
+    streak += 1;
+  }
+
+  return streak;
+}
+
+function missedPreviousScheduledDay(dateKey: string, scheduledDates: string[], completedDates: Set<string>): boolean {
+  const previousDates = scheduledDates.filter((date) => date < dateKey).sort();
+  const previous = previousDates[previousDates.length - 1];
+
+  return Boolean(previous && !completedDates.has(previous));
+}
+
+function award(habitId: string, dateKey: string, reason: XpAward["reason"], amount: number): XpAward {
+  return {
+    reason,
+    amount,
+    label: AWARD_LABELS[reason],
+    uniqueKey: `${reason}:${habitId}:${dateKey}`
+  };
+}
+
+export function calculateCheckInXpAwards(input: CheckInXpInput): XpAward[] {
+  const completedDates = new Set(input.completedDates);
+  const awards: XpAward[] = [award(input.habitId, input.dateKey, "checkin", 10)];
+  const streak = currentStreak(input.dateKey, input.scheduledDates, completedDates);
+
+  if (streak === 3) {
+    awards.push(award(input.habitId, input.dateKey, "streak_3", 20));
+  }
+
+  if (streak === 7) {
+    awards.push(award(input.habitId, input.dateKey, "streak_7", 50));
+  }
+
+  if (input.hasAnyEarlierCompletion && missedPreviousScheduledDay(input.dateKey, input.scheduledDates, completedDates)) {
+    awards.push(award(input.habitId, input.dateKey, "return_bonus", 15));
+  }
+
+  if (input.planCompleted) {
+    awards.push(award(input.habitId, input.dateKey, "plan_complete", 100));
+  }
+
+  return awards;
+}

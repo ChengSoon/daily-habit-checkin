@@ -65,6 +65,16 @@ export async function listCheckInsForHabit(habitId: string): Promise<CheckIn[]> 
   return rows.map(mapRow);
 }
 
+export async function isHabitCompletedOn(habitId: string, date: string): Promise<boolean> {
+  const db = getDatabase();
+  const row = await db.getFirstAsync<{ status: CheckIn["status"] }>(
+    "SELECT status FROM check_ins WHERE habit_id = ? AND date = ?",
+    [habitId, date]
+  );
+
+  return row?.status === "completed";
+}
+
 export async function listAllCheckIns(): Promise<CheckIn[]> {
   const db = getDatabase();
   const rows = await db.getAllAsync<CheckInRow>(

@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { PropsWithChildren, ReactNode } from "react";
 import {
   KeyboardTypeOptions,
@@ -13,6 +14,8 @@ import {
 } from "react-native";
 import { Palette, radius, spacing, type as typeScale } from "./theme";
 import { useTheme } from "./ThemeContext";
+
+type IoniconName = keyof typeof Ionicons.glyphMap;
 
 type TextVariant = "display" | "title" | "section" | "body" | "bodyStrong" | "small" | "caption";
 type TextTone = "default" | "soft" | "muted" | "faint" | "primary" | "danger" | "onPrimary";
@@ -80,6 +83,7 @@ export function AppButton({
   disabled = false,
   compact = false,
   fullWidth = false,
+  icon,
   style
 }: {
   title: string;
@@ -88,6 +92,7 @@ export function AppButton({
   disabled?: boolean;
   compact?: boolean;
   fullWidth?: boolean;
+  icon?: IoniconName;
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
@@ -110,6 +115,7 @@ export function AppButton({
     ghost: "default",
     danger: "danger"
   };
+  const iconColor = disabled ? colors.muted : toneColor(colors, textTone[variant]);
 
   return (
     <Pressable
@@ -121,8 +127,10 @@ export function AppButton({
         {
           minHeight: compact ? 38 : 50,
           borderRadius: radius.md,
+          flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
+          gap: spacing.sm,
           paddingHorizontal: compact ? spacing.md : spacing.lg,
           paddingVertical: compact ? spacing.sm : spacing.md,
           backgroundColor: background[variant],
@@ -135,9 +143,54 @@ export function AppButton({
         style
       ]}
     >
+      {icon ? <Ionicons name={icon} size={compact ? 16 : 18} color={iconColor} /> : null}
       <AppText variant="bodyStrong" tone={disabled ? "muted" : textTone[variant]}>
         {title}
       </AppText>
+    </Pressable>
+  );
+}
+
+export function IconButton({
+  name,
+  onPress,
+  disabled = false,
+  accessibilityLabel,
+  tone = "muted"
+}: {
+  name: IoniconName;
+  onPress: () => void;
+  disabled?: boolean;
+  accessibilityLabel: string;
+  tone?: "muted" | "primary";
+}) {
+  const { colors } = useTheme();
+  const color = tone === "primary" ? colors.primaryInk : colors.inkSoft;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      hitSlop={6}
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          width: 38,
+          height: 38,
+          borderRadius: radius.md,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.surfaceMuted,
+          borderWidth: 1,
+          borderColor: colors.line
+        },
+        disabled ? { opacity: 0.35 } : null,
+        pressed && !disabled ? { opacity: 0.7, transform: [{ scale: 0.96 }] } : null
+      ]}
+    >
+      <Ionicons name={name} size={18} color={disabled ? colors.faint : color} />
     </Pressable>
   );
 }
@@ -369,6 +422,67 @@ export function Divider() {
   return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.line }} />;
 }
 
+const WEEKDAY_PICKER_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+
+/**
+ * 选择每周执行的星期几（0=周日 .. 6=周六）。
+ * 用于「每周几天」频率，可多选。
+ */
+export function WeekdayPicker({
+  value,
+  onChange
+}: {
+  value: number[];
+  onChange: (value: number[]) => void;
+}) {
+  const { colors } = useTheme();
+  const selected = new Set(value);
+
+  function toggle(day: number) {
+    const next = new Set(selected);
+    if (next.has(day)) {
+      next.delete(day);
+    } else {
+      next.add(day);
+    }
+    onChange([...next].sort((a, b) => a - b));
+  }
+
+  return (
+    <View style={{ flexDirection: "row", gap: spacing.xs }}>
+      {WEEKDAY_PICKER_LABELS.map((label, day) => {
+        const active = selected.has(day);
+        return (
+          <Pressable
+            key={day}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            accessibilityLabel={`周${label}`}
+            onPress={() => toggle(day)}
+            style={({ pressed }) => [
+              {
+                flex: 1,
+                minHeight: 42,
+                borderRadius: radius.sm,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: active ? colors.primary : colors.surfaceMuted,
+                borderWidth: 1,
+                borderColor: active ? colors.primary : colors.line
+              },
+              pressed ? { opacity: 0.8 } : null
+            ]}
+          >
+            <AppText variant="bodyStrong" tone={active ? "onPrimary" : "muted"}>
+              {label}
+            </AppText>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function SwitchRow({
   label,
   description,
@@ -402,6 +516,7 @@ export function ListRow({
   children,
   right
 }: PropsWithChildren<{ onPress?: () => void; right?: ReactNode }>) {
+  const { colors } = useTheme();
   const body = (
     <View
       style={{
@@ -412,7 +527,7 @@ export function ListRow({
       }}
     >
       <View style={{ flex: 1 }}>{children}</View>
-      {right ?? (onPress ? <AppText variant="body" tone="faint">›</AppText> : null)}
+      {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={colors.faint} /> : null)}
     </View>
   );
 

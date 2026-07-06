@@ -3,11 +3,13 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { listHabits, moveHabit } from "../../src/habits/habitRepository";
 import { Habit } from "../../src/habits/types";
-import { AppButton, AppText, Badge } from "../../src/ui/Controls";
+import { AppButton, AppText, Badge, HelperText, IconButton } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
+
+const WEEKDAY_SHORT = ["日", "一", "二", "三", "四", "五", "六"];
 
 function frequencyLabel(habit: Habit): string {
   if (habit.frequency.type === "daily") {
@@ -16,7 +18,11 @@ function frequencyLabel(habit: Habit): string {
   if (habit.frequency.type === "weekdays") {
     return "工作日";
   }
-  return "每周";
+  const days = [...habit.frequency.daysOfWeek].sort((a, b) => a - b);
+  if (days.length === 0) {
+    return "每周";
+  }
+  return `每周 ${days.map((day) => WEEKDAY_SHORT[day]).join("")}`;
 }
 
 export default function HabitsScreen() {
@@ -34,6 +40,8 @@ export default function HabitsScreen() {
     load();
   }
 
+  const activeCount = habits.filter((habit) => !habit.isPaused).length;
+
   return (
     <Screen>
       <View style={{ gap: spacing.xs }}>
@@ -43,7 +51,13 @@ export default function HabitsScreen() {
         </AppText>
       </View>
 
-      <AppButton title="+ 新增习惯" onPress={() => router.push("/habit/new")} />
+      <AppButton title="新增习惯" icon="add" onPress={() => router.push("/habit/new")} />
+
+      {activeCount > 7 ? (
+        <HelperText tone="muted">
+          你有 {activeCount} 个进行中的习惯。建议同时专注 3 到 7 个，太多反而容易顾不过来。
+        </HelperText>
+      ) : null}
 
       {habits.length === 0 ? (
         <EmptyState title="还没有习惯" body="用 AI 生成一个入门计划，或者手动创建一个。" />
@@ -76,18 +90,22 @@ export default function HabitsScreen() {
                 </AppText>
               </View>
               <View style={{ flexDirection: "row", gap: spacing.xs }}>
-                <AppButton title="↑" variant="ghost" compact onPress={() => move(habit.id, "up")} disabled={index === 0} />
-                <AppButton
-                  title="↓"
-                  variant="ghost"
-                  compact
+                <IconButton
+                  name="chevron-up"
+                  accessibilityLabel={`将 ${habit.name} 上移`}
+                  onPress={() => move(habit.id, "up")}
+                  disabled={index === 0}
+                />
+                <IconButton
+                  name="chevron-down"
+                  accessibilityLabel={`将 ${habit.name} 下移`}
                   onPress={() => move(habit.id, "down")}
                   disabled={index === habits.length - 1}
                 />
-                <AppButton
-                  title="编辑"
-                  variant="secondary"
-                  compact
+                <IconButton
+                  name="create-outline"
+                  tone="primary"
+                  accessibilityLabel={`编辑 ${habit.name}`}
                   onPress={() => router.push({ pathname: "/habit/[id]", params: { id: habit.id } })}
                 />
               </View>

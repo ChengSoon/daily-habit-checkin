@@ -1,5 +1,6 @@
 import { Pressable, View } from "react-native";
 import { Habit } from "../habits/types";
+import { CheckButton } from "./CheckButton";
 import { AppText, Badge } from "./Controls";
 import { radius, spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
@@ -18,6 +19,7 @@ export function HabitRow({
   habit,
   isCompleted,
   onComplete,
+  onCelebrate,
   onOpen,
   streak,
   showCheck = true
@@ -25,6 +27,7 @@ export function HabitRow({
   habit: Habit;
   isCompleted: boolean;
   onComplete: () => void;
+  onCelebrate?: () => void;
   onOpen: () => void;
   streak?: number;
   showCheck?: boolean;
@@ -57,30 +60,14 @@ export function HabitRow({
       ]}
     >
       {showCheck ? (
-        <Pressable
-          accessibilityRole="button"
+        <CheckButton
+          checked={isCompleted}
+          disabled={habit.isPaused}
           accessibilityLabel={isCompleted ? "已完成" : `完成 ${habit.name}`}
-          accessibilityState={{ checked: isCompleted, disabled: habit.isPaused }}
-          disabled={isCompleted || habit.isPaused}
-          hitSlop={8}
-          onPress={onComplete}
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 15,
-            alignItems: "center",
-            justifyContent: "center",
-            borderWidth: 2,
-            borderColor: isCompleted ? colors.primary : colors.lineStrong,
-            backgroundColor: isCompleted ? colors.primary : "transparent"
-          }}
-        >
-          {isCompleted ? (
-            <AppText variant="bodyStrong" tone="onPrimary" style={{ lineHeight: 20 }}>
-              ✓
-            </AppText>
-          ) : null}
-        </Pressable>
+          onComplete={onComplete}
+          onCelebrate={onCelebrate}
+          optimistic={habit.trackType !== "numeric"}
+        />
       ) : null}
 
       <View style={{ flex: 1, gap: 3 }}>

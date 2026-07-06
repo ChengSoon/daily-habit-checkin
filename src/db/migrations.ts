@@ -58,6 +58,58 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       key TEXT PRIMARY KEY NOT NULL,
       value TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS xp_wallet (
+      id TEXT PRIMARY KEY NOT NULL,
+      balance INTEGER NOT NULL,
+      lifetime_earned INTEGER NOT NULL,
+      lifetime_spent INTEGER NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS xp_transactions (
+      id TEXT PRIMARY KEY NOT NULL,
+      unique_key TEXT NOT NULL UNIQUE,
+      amount INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      reason TEXT NOT NULL,
+      habit_id TEXT,
+      check_in_id TEXT,
+      reward_id TEXT,
+      redemption_id TEXT,
+      date_key TEXT,
+      created_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS rewards (
+      id TEXT PRIMARY KEY NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      type TEXT NOT NULL,
+      price_xp INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      virtual_kind TEXT NOT NULL,
+      inventory_limit INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS reward_redemptions (
+      id TEXT PRIMARY KEY NOT NULL,
+      reward_id TEXT NOT NULL,
+      price_xp INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      fulfilled_at TEXT,
+      cancelled_at TEXT,
+      note TEXT,
+      FOREIGN KEY(reward_id) REFERENCES rewards(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_settings (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
   `);
 
   await db.execAsync("ALTER TABLE habits ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;").catch(() => undefined);

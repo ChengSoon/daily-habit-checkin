@@ -439,10 +439,29 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
 
 let database: FakeSQLiteDatabase | null = null;
 
-export function openDatabaseSync(): SQLiteDatabase {
+export function getDatabase(): SQLiteDatabase {
   if (!database) {
     database = new FakeSQLiteDatabase();
   }
 
   return database;
+}
+
+export async function initializeDatabase(): Promise<void> {
+  await getDatabase().execAsync("");
+}
+
+export async function resetDatabaseForTests(): Promise<void> {
+  await getDatabase().execAsync(`
+    DELETE FROM admin_settings;
+    DELETE FROM reward_redemptions;
+    DELETE FROM rewards;
+    DELETE FROM xp_transactions;
+    DELETE FROM xp_wallet;
+    DELETE FROM app_settings;
+    DELETE FROM reminder_settings;
+    DELETE FROM habit_plans;
+    DELETE FROM check_ins;
+    DELETE FROM habits;
+  `);
 }

@@ -1,7 +1,9 @@
 import { listAllCheckIns } from "../checkins/checkinRepository";
 import { getPlanForHabit } from "../ai/habitPlanRepository";
 import { listHabits } from "../habits/habitRepository";
+import { listRedemptions, listRewards } from "../rewards/rewardRepository";
 import { getAppSettings } from "../settings/settingsRepository";
+import { getWallet, listXpTransactions } from "../xp/xpRepository";
 
 export type ExportBundle = {
   version: 1;
@@ -10,6 +12,14 @@ export type ExportBundle = {
   checkIns: unknown[];
   plans: unknown[];
   settings: unknown;
+  xp: {
+    wallet: unknown;
+    transactions: unknown[];
+  };
+  rewards: {
+    items: unknown[];
+    redemptions: unknown[];
+  };
 };
 
 export async function buildExportBundle(): Promise<ExportBundle> {
@@ -19,6 +29,10 @@ export async function buildExportBundle(): Promise<ExportBundle> {
   const plans = (await Promise.all(habits.map((habit) => getPlanForHabit(habit.id)))).filter(
     (plan) => plan !== null
   );
+  const wallet = await getWallet();
+  const xpTransactions = await listXpTransactions();
+  const rewards = await listRewards({ includeArchived: true });
+  const rewardRedemptions = await listRedemptions();
 
   return {
     version: 1,
@@ -26,7 +40,15 @@ export async function buildExportBundle(): Promise<ExportBundle> {
     habits,
     checkIns,
     plans,
-    settings
+    settings,
+    xp: {
+      wallet,
+      transactions: xpTransactions
+    },
+    rewards: {
+      items: rewards,
+      redemptions: rewardRedemptions
+    }
   };
 }
 

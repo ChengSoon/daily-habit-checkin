@@ -11,17 +11,24 @@ import {
   Label,
   SectionCard,
   SegmentedControl,
-  TextField
+  TextField,
+  WeekdayPicker
 } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
 
 type CurrentLevel = "beginner" | "some_experience" | "stable";
 type ReminderPreference = "morning" | "noon" | "evening" | "custom";
-type FrequencyType = "daily" | "weekdays";
+type FrequencyType = "daily" | "weekdays" | "weekly";
 
-function toFrequency(type: FrequencyType): HabitFrequency {
-  return type === "weekdays" ? { type: "weekdays" } : { type: "daily" };
+function toFrequency(type: FrequencyType, weeklyDays: number[]): HabitFrequency {
+  if (type === "weekdays") {
+    return { type: "weekdays" };
+  }
+  if (type === "weekly") {
+    return { type: "weekly", daysOfWeek: [...weeklyDays].sort((a, b) => a - b) };
+  }
+  return { type: "daily" };
 }
 
 export default function NewHabitScreen() {
@@ -32,12 +39,16 @@ export default function NewHabitScreen() {
   const [durationDays, setDurationDays] = useState<7 | 21>(7);
   const [dailyMinutes, setDailyMinutes] = useState("10");
   const [frequencyType, setFrequencyType] = useState<FrequencyType>("daily");
+  const [weeklyDays, setWeeklyDays] = useState<number[]>([1, 3, 5]);
   const [reminderPreference, setReminderPreference] = useState<ReminderPreference>("evening");
   const [customReminderTime, setCustomReminderTime] = useState("21:30");
   const [trackType, setTrackType] = useState<HabitTrackType>("check");
   const [numericUnit, setNumericUnit] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 选了“每周”却没勾任何一天时，频率无效，禁用提交
+  const frequencyInvalid = frequencyType === "weekly" && weeklyDays.length === 0;
 
   async function generatePlan() {
     setIsLoading(true);
@@ -49,7 +60,7 @@ export default function NewHabitScreen() {
         currentLevel,
         durationDays,
         dailyAvailableMinutes: Number(dailyMinutes),
-        expectedFrequency: toFrequency(frequencyType),
+        expectedFrequency: toFrequency(frequencyType, weeklyDays),
         reminderPreference,
         customReminderTime: reminderPreference === "custom" ? customReminderTime : null,
         preferredTrackType: trackType
@@ -57,7 +68,12 @@ export default function NewHabitScreen() {
 
       router.push({
         pathname: "/plan-preview",
-        params: { plan: JSON.stringify(plan), goalText, frequencyType }
+        params: {
+          plan: JSON.stringify(plan),
+          goalText,
+          frequencyType,
+          weeklyDays: weeklyDays.join(",")
+        }
       });
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "生成失败");
@@ -73,7 +89,7 @@ export default function NewHabitScreen() {
       const habit = await createHabit({
         name: goalText,
         description: description || null,
-        frequency: toFrequency(frequencyType),
+        frequency: toFrequency(frequencyType, weeklyDays),
         reminderTime: customReminderTime || null,
         isReminderEnabled: Boolean(customReminderTime),
         trackType,
@@ -158,9 +174,13 @@ export default function NewHabitScreen() {
             onChange={setFrequencyType}
             options={[
               { label: "每天", value: "daily" },
-              { label: "工作日", value: "weekdays" }
+              { label: "工作日", value: "weekdays" },
+              { label: "每周", value: "weekly" }
             ]}
           />
+          {frequencyType === "weekly" ? (
+            <WeekdayPicker value={weeklyDays} onChange={setWeeklyDays} />
+          ) : null}
         </View>
         {mode === "ai" ? (
           <View style={{ gap: spacing.sm }}>
@@ -212,10 +232,10 @@ export default function NewHabitScreen() {
         <AppButton
           title={isLoading ? "生成中..." : "让 AI 制定计划"}
           onPress={generatePlan}
-          disabled={!goalText || isLoading}
+          disabled={!goalText || isLoading || frequencyInvalid}
         />
       ) : (
-        <AppButton title="保存习惯" onPress={saveManualHabit} disabled={!goalText} />
+        <AppButton title="保存习惯" onPress={saveManualHabit} disabled={!goalText || frequencyInvalid} />
       )}
     </Screen>
   );

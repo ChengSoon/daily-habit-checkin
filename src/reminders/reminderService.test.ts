@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isWithinQuietHours, parseReminderTime } from "./reminderService";
+import { isWithinQuietHours, parseReminderTime, scheduleEveningSummary } from "./reminderService";
 
 describe("parseReminderTime", () => {
   it("parses HH:mm time", () => {
@@ -31,5 +31,17 @@ describe("isWithinQuietHours", () => {
 
   it("returns false when start equals end", () => {
     expect(isWithinQuietHours("09:00", "08:00", "08:00")).toBe(false);
+  });
+});
+
+describe("scheduleEveningSummary", () => {
+  it("skips invalid reminder times instead of rejecting", async () => {
+    await expect(
+      scheduleEveningSummary({
+        incompleteCount: 1,
+        incompleteNames: ["读书"],
+        time: "21:3"
+      })
+    ).resolves.toBeNull();
   });
 });

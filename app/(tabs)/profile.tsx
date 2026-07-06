@@ -1,6 +1,7 @@
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Linking, Share, View } from "react-native";
+import { Linking, Pressable, Share, View } from "react-native";
+import { hasAdminPin, setAdminPin, verifyAdminPin } from "../../src/admin/adminSettingsRepository";
 import { buildExportJson } from "../../src/export/exportData";
 import {
   getReminderPermissionStatus,
@@ -8,10 +9,11 @@ import {
   requestReminderPermission
 } from "../../src/reminders/reminderService";
 import { AppSettings, getAppSettings, saveAppSettings } from "../../src/settings/settingsRepository";
-import { AppButton, AppText, Badge, Divider, SectionCard, SegmentedControl, SwitchRow, TextField } from "../../src/ui/Controls";
+import { AppButton, AppText, Badge, Divider, HelperText, SectionCard, SegmentedControl, SwitchRow, TextField } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
 import { ThemeMode, useTheme } from "../../src/ui/ThemeContext";
+import { getWallet } from "../../src/xp/xpRepository";
 
 export default function ProfileScreen() {
   const { mode, setMode } = useTheme();
@@ -24,13 +26,50 @@ export default function ProfileScreen() {
     quietHoursEnd: "08:00"
   });
   const [permission, setPermission] = useState<ReminderPermissionStatus>("undetermined");
+  const [xpBalance, setXpBalance] = useState(0);
+  const [lifetimeEarned, setLifetimeEarned] = useState(0);
+  const [adminTapCount, setAdminTapCount] = useState(0);
+  const [showAdminEntry, setShowAdminEntry] = useState(false);
+  const [adminPin, setAdminPinInput] = useState("");
+  const [adminMessage, setAdminMessage] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       getAppSettings().then(setSettings);
       getReminderPermissionStatus().then(setPermission);
+      getWallet().then((wallet) => {
+        setXpBalance(wallet.balance);
+        setLifetimeEarned(wallet.lifetimeEarned);
+      });
     }, [])
   );
+
+  function revealAdminEntry() {
+    const next = adminTapCount + 1;
+    setAdminTapCount(next);
+    if (next >= 5) {
+      setShowAdminEntry(true);
+    }
+  }
+
+  async function enterAdminMode() {
+    const exists = await hasAdminPin();
+
+    if (!exists) {
+      await setAdminPin(adminPin);
+      setAdminMessage("管理 PIN 已设置");
+      router.push("/admin/rewards");
+      return;
+    }
+
+    const ok = await verifyAdminPin(adminPin);
+    if (!ok) {
+      setAdminMessage("管理 PIN 不正确");
+      return;
+    }
+
+    router.push("/admin/rewards");
+  }
 
   async function save(next: AppSettings) {
     setSettings(next);
@@ -62,6 +101,49 @@ export default function ProfileScreen() {
           提醒、外观与隐私说明
         </AppText>
       </View>
+
+      <SectionCard title="奖励">
+        <Pressable onPress={revealAdminEntry} style={{ gap: spacing.xs }}>
+          <AppText variant="caption" tone="primary">
+            当前 XP
+          </AppText>
+          <AppText variant="title" tone="primary">
+            {xpBalance} XP
+          </AppText>
+          <AppText variant="small" tone="muted">
+            累计获得 {lifetimeEarned} XP
+          </AppText>
+        </Pressable>
+        <Divider />
+        <AppButton title="打开奖励商城" icon="gift-outline" onPress={() => router.push("/shop")} />
+        <AppButton
+          title="查看兑换记录"
+          variant="secondary"
+          icon="receipt-outline"
+          onPress={() => router.push("/shop/redemptions")}
+        />
+        {showAdminEntry ? (
+          <>
+            <Divider />
+            <TextField
+              label="管理 PIN"
+              value={adminPin}
+              onChangeText={setAdminPinInput}
+              keyboardType="number-pad"
+              placeholder="输入或设置 PIN"
+            />
+            {adminMessage ? (
+              <HelperText tone={adminMessage.includes("不正确") ? "danger" : "success"}>{adminMessage}</HelperText>
+            ) : null}
+            <AppButton
+              title="进入奖励管理"
+              variant="secondary"
+              onPress={enterAdminMode}
+              disabled={adminPin.length < 4}
+            />
+          </>
+        ) : null}
+      </SectionCard>
 
       <SectionCard title="外观">
         <SegmentedControl<ThemeMode>
@@ -164,21 +246,21 @@ export default function ProfileScreen() {
         ) : null}
       </SectionCard>
 
-      <SectionCard title="AI 数据使用说明">
-        <AppText variant="body" tone="soft">
-          AI 只接收你输入的目标、基础情况、可投入时间、频率偏好和必要完成统计。
-        </AppText>
-        <AppText variant="body" tone="soft">
-          本地完整打卡日志不会发送给 AI。AI 建议不会自动修改你的习惯设置。
-        </AppText>
-      </SectionCard>
-
       <SectionCard title="数据导出">
         <AppText variant="body" tone="soft">
           导出全部习惯、打卡记录和计划为 JSON，可保存或分享到其他应用。
         </AppText>
         {exportError ? <HelperText tone="danger">{exportError}</HelperText> : null}
         <AppButton title="导出数据" variant="secondary" onPress={exportData} />
+      </SectionCard>
+
+      <SectionCard title="AI 数据使用说明">
+        <AppText variant="body" tone="soft">
+          制定计划时，AI 只接收你填写的目标、当前基础、可投入时间、频率与提醒偏好，以及必要的完成情况统计。
+        </AppText>
+        <AppText variant="body" tone="soft">
+          完整的打卡日志不会发送给 AI。AI 只提供建议，不会自动修改你的习惯，所有调整都需要你确认后才会生效。
+        </AppText>
       </SectionCard>
 
       <SectionCard title="隐私策略">

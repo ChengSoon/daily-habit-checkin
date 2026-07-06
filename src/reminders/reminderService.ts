@@ -1,19 +1,45 @@
 import * as Notifications from "expo-notifications";
+import { isHabitCompletedOn } from "../checkins/checkinRepository";
 import { Habit } from "../habits/types";
+import { todayKey } from "../utils/date";
 
 export function configureNotificationHandler(): void {
   Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList: true,
-      shouldPlaySound: false,
-      shouldSetBadge: false
-    })
+    handleNotification: async (notification) => {
+      // DAILY 重复提醒无法按单日跳过，因此在前台触发时按当天打卡状态抑制：
+      // 习惯提醒带有 habitId，若该习惯今天已完成则不再展示。
+      const habitId = notification.request.content.data?.habitId;
+
+      if (typeof habitId === "string") {
+        const alreadyDone = await isHabitCompletedOn(habitId, todayKey()).catch(() => false);
+        if (alreadyDone) {
+          return {
+            shouldShowBanner: false,
+            shouldShowList: false,
+            shouldPlaySound: false,
+            shouldSetBadge: false
+          };
+        }
+      }
+
+      return {
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false
+      };
+    }
   });
 }
 
+const REMINDER_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+export function isValidReminderTime(time: string): boolean {
+  return REMINDER_TIME_PATTERN.test(time);
+}
+
 export function parseReminderTime(time: string): { hour: number; minute: number } {
-  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(time);
+  const match = REMINDER_TIME_PATTERN.exec(time);
 
   if (!match) {
     throw new Error("Invalid reminder time");
@@ -51,6 +77,7 @@ export function isWithinQuietHours(time: string, start: string, end: string): bo
 
   return targetMinutes >= fromMinutes && targetMinutes < toMinutes;
 }
+
 
 function getNextReminderDate(time: string, now = new Date()): Date {
   const { hour, minute } = parseReminderTime(time);
@@ -102,14 +129,18 @@ export async function scheduleHabitReminder(habit: Habit): Promise<string | null
     return null;
   }
 
+  const { hour, minute } = parseReminderTime(habit.reminderTime);
+
   return Notifications.scheduleNotificationAsync({
     content: {
       title: `该打卡了：${habit.name}`,
-      body: "完成后点一下，今天就算坚持住了。"
+      body: "完成后点一下，今天就算坚持住了。",
+      data: { habitId: habit.id }
     },
     trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: getNextReminderDate(habit.reminderTime)
+      type: Notifications.SchedulableTriggerInputTypes.DAILY,
+      hour,
+      minute
     }
   });
 }
@@ -158,12 +189,19 @@ export async function scheduleEveningSummary(input: {
     return null;
   }
 
+  const reminderTime = input.time.trim();
+  if (!isValidReminderTime(reminderTime)) {
+    return null;
+  }
+
   const hasPermission = await requestReminderPermission();
 
   if (!hasPermission) {
     return null;
   }
 
+  // 晚间汇总内容是「今天」的未完成名单，不能用 DAILY 重复触发（会冻结成过时名单）。
+  // 采用当天一次性触发，由今日页每次加载时重排，保证内容与当前状态一致。
   return Notifications.scheduleNotificationAsync({
     content: {
       title: `今天还有 ${input.incompleteCount} 个习惯未完成`,
@@ -171,7 +209,7 @@ export async function scheduleEveningSummary(input: {
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: getNextReminderDate(input.time)
+      date: getNextReminderDate(reminderTime)
     }
   });
 }

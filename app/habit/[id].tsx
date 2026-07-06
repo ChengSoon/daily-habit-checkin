@@ -21,15 +21,25 @@ import {
   SectionCard,
   SegmentedControl,
   StatTile,
-  TextField
+  TextField,
+  WeekdayPicker
 } from "../../src/ui/Controls";
+import { CalendarLegend, MonthCalendar } from "../../src/ui/MonthCalendar";
 import { Screen } from "../../src/ui/Screen";
-import { radius, spacing } from "../../src/ui/theme";
+import { spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, startOfMonthKey, todayKey } from "../../src/utils/date";
 
-function parseFrequency(value: "daily" | "weekdays"): HabitFrequency {
-  return value === "weekdays" ? { type: "weekdays" } : { type: "daily" };
+type FrequencyType = "daily" | "weekdays" | "weekly";
+
+function parseFrequency(value: FrequencyType, weeklyDays: number[]): HabitFrequency {
+  if (value === "weekdays") {
+    return { type: "weekdays" };
+  }
+  if (value === "weekly") {
+    return { type: "weekly", daysOfWeek: [...weeklyDays].sort((a, b) => a - b) };
+  }
+  return { type: "daily" };
 }
 
 export default function HabitDetailScreen() {
@@ -40,11 +50,13 @@ export default function HabitDetailScreen() {
   const [plan, setPlan] = useState<HabitPlan | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [frequencyType, setFrequencyType] = useState<"daily" | "weekdays">("daily");
+  const [frequencyType, setFrequencyType] = useState<FrequencyType>("daily");
+  const [weeklyDays, setWeeklyDays] = useState<number[]>([1, 3, 5]);
   const [reminderTime, setReminderTime] = useState("");
   const [trackType, setTrackType] = useState<HabitTrackType>("check");
   const [numericUnit, setNumericUnit] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [manualRequested, setManualRequested] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -53,14 +65,19 @@ export default function HabitDetailScreen() {
 
     const loadedHabit = await getHabitById(id);
     const loadedCheckIns = await listCheckInsForHabit(id);
+    const loadedPlan = await getPlanForHabit(id);
 
     setHabit(loadedHabit);
     setCheckIns(loadedCheckIns);
+    setPlan(loadedPlan);
 
     if (loadedHabit) {
       setName(loadedHabit.name);
       setDescription(loadedHabit.description ?? "");
-      setFrequencyType(loadedHabit.frequency.type === "weekdays" ? "weekdays" : "daily");
+      setFrequencyType(loadedHabit.frequency.type);
+      if (loadedHabit.frequency.type === "weekly") {
+        setWeeklyDays(loadedHabit.frequency.daysOfWeek);
+      }
       setReminderTime(loadedHabit.reminderTime ?? "");
       setTrackType(loadedHabit.trackType);
       setNumericUnit(loadedHabit.numericUnit ?? "");
@@ -91,7 +108,7 @@ export default function HabitDetailScreen() {
     await updateHabit(habit.id, {
       name,
       description: description || null,
-      frequency: parseFrequency(frequencyType),
+      frequency: parseFrequency(frequencyType, weeklyDays),
       reminderTime: reminderTime || null,
       isReminderEnabled: Boolean(reminderTime),
       trackType,
@@ -159,20 +176,33 @@ export default function HabitDetailScreen() {
 
   const today = todayKey();
   const habitStartDate = habit.createdAt.slice(0, 10);
+  const isScheduled = (date: string) => shouldRunOnDate(habit.frequency, new Date(`${date}T00:00:00`));
+
+  // 连续天数与最长连续：用完整历史，避免跨月被截断
+  const allScheduledDates = eachDateKey(habitStartDate, today).filter(isScheduled);
+  const currentStreak = calculateCurrentStreak({ today, scheduledDates: allScheduledDates, checkIns });
+  const longestStreak = calculateLongestStreak({ scheduledDates: allScheduledDates, checkIns });
+
+  // 本月完成率与月历：只看本月
   const monthStartDate = startOfMonthKey(today);
-  const monthDates = eachDateKey(habitStartDate > monthStartDate ? habitStartDate : monthStartDate, today);
-  const scheduledDates = monthDates.filter((date) => {
-    return shouldRunOnDate(habit.frequency, new Date(`${date}T00:00:00`));
-  });
-  const currentStreak = calculateCurrentStreak({ today, scheduledDates, checkIns });
-  const longestStreak = calculateLongestStreak({ scheduledDates, checkIns });
-  const completionRate = calculateMonthlyCompletionRate({ scheduledDates, checkIns });
+  const monthScheduledDates = eachDateKey(
+    habitStartDate > monthStartDate ? habitStartDate : monthStartDate,
+    today
+  ).filter(isScheduled);
+  const completionRate = calculateMonthlyCompletionRate({ scheduledDates: monthScheduledDates, checkIns });
+
+  // AI 建议依据最近 7 个应执行日的完成率
+  const recent7ScheduledDates = allScheduledDates.slice(-7);
+  const completionRate7Days = calculateMonthlyCompletionRate({ scheduledDates: recent7ScheduledDates, checkIns });
+
+  const scheduledDates = monthScheduledDates;
   const completedDates = new Set(checkIns.filter((checkIn) => checkIn.status === "completed").map((checkIn) => checkIn.date));
   const planEnded = plan ? today > plan.endDate : false;
   const suggestion = getAdjustmentSuggestion({
-    completionRate7Days: completionRate,
+    completionRate7Days,
     currentStreak,
-    planEnded
+    planEnded,
+    manualRequested
   });
 
   return (
@@ -197,27 +227,20 @@ export default function HabitDetailScreen() {
             本月还没有应执行的日期。
           </AppText>
         ) : (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.xs }}>
-            {scheduledDates.map((date) => {
-              const isDone = completedDates.has(date);
-              return (
-                <View
-                  key={date}
-                  style={{
-                    width: 40,
-                    paddingVertical: spacing.xs,
-                    borderRadius: radius.sm,
-                    alignItems: "center",
-                    backgroundColor: isDone ? colors.primary : colors.surfaceMuted
-                  }}
-                >
-                  <AppText variant="small" tone={isDone ? "onPrimary" : "muted"}>
-                    {date.slice(8)}
-                  </AppText>
-                </View>
-              );
-            })}
-          </View>
+          <>
+            <MonthCalendar
+              monthDateKey={today}
+              scheduledDates={new Set(scheduledDates)}
+              completedDates={completedDates}
+              today={today}
+              startDate={habitStartDate}
+            />
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.xs }}>
+              <CalendarLegend color={colors.primary} label="已完成" filled />
+              <CalendarLegend color={colors.primary} label="今天" />
+              <CalendarLegend color={colors.surfaceMuted} label="未完成" filled />
+            </View>
+          </>
         )}
       </SectionCard>
 
@@ -232,21 +255,27 @@ export default function HabitDetailScreen() {
           </AppText>
           <AppButton title={suggestion.actionLabel} variant="secondary" onPress={applySuggestion} />
         </Card>
-      ) : null}
+      ) : (
+        <AppButton title="调整计划" variant="secondary" onPress={() => setManualRequested(true)} />
+      )}
 
       <SectionCard title="编辑习惯">
         <TextField label="名称" value={name} onChangeText={setName} placeholder="习惯名称" />
         <TextField label="描述" value={description} onChangeText={setDescription} placeholder="描述" />
         <View style={{ gap: spacing.sm }}>
           <Label>频率</Label>
-          <SegmentedControl<"daily" | "weekdays">
+          <SegmentedControl<FrequencyType>
             value={frequencyType}
             onChange={setFrequencyType}
             options={[
               { label: "每天", value: "daily" },
-              { label: "工作日", value: "weekdays" }
+              { label: "工作日", value: "weekdays" },
+              { label: "每周", value: "weekly" }
             ]}
           />
+          {frequencyType === "weekly" ? (
+            <WeekdayPicker value={weeklyDays} onChange={setWeeklyDays} />
+          ) : null}
         </View>
         <TextField label="提醒时间" value={reminderTime} onChangeText={setReminderTime} placeholder="21:30" />
         <View style={{ gap: spacing.sm }}>
@@ -264,7 +293,11 @@ export default function HabitDetailScreen() {
           <TextField label="单位" value={numericUnit} onChangeText={setNumericUnit} placeholder="例如：分钟、页、次" />
         ) : null}
         {message ? <HelperText tone="success">{message}</HelperText> : null}
-        <AppButton title="保存修改" onPress={save} disabled={!name} />
+        <AppButton
+          title="保存修改"
+          onPress={save}
+          disabled={!name || (frequencyType === "weekly" && weeklyDays.length === 0)}
+        />
       </SectionCard>
 
       <View style={{ gap: spacing.sm }}>

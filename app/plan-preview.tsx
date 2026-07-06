@@ -20,12 +20,23 @@ import { Screen } from "../src/ui/Screen";
 import { spacing } from "../src/ui/theme";
 import { todayKey } from "../src/utils/date";
 
-function toFrequency(type: string | undefined): HabitFrequency {
-  return type === "weekdays" ? { type: "weekdays" } : { type: "daily" };
+function toFrequency(type: string | undefined, weeklyDays: number[]): HabitFrequency {
+  if (type === "weekdays") {
+    return { type: "weekdays" };
+  }
+  if (type === "weekly") {
+    return { type: "weekly", daysOfWeek: [...weeklyDays].sort((a, b) => a - b) };
+  }
+  return { type: "daily" };
 }
 
 export default function PlanPreviewScreen() {
-  const params = useLocalSearchParams<{ plan: string; goalText: string; frequencyType?: string }>();
+  const params = useLocalSearchParams<{
+    plan: string;
+    goalText: string;
+    frequencyType?: string;
+    weeklyDays?: string;
+  }>();
   const plan = JSON.parse(params.plan) as AIPlanPreview;
   const [habitName, setHabitName] = useState(plan.habitName);
   const [description, setDescription] = useState(plan.description);
@@ -60,7 +71,10 @@ export default function PlanPreviewScreen() {
       const habit = await createHabit({
         name: editablePlan.habitName,
         description: editablePlan.description,
-        frequency: toFrequency(params.frequencyType),
+        frequency: toFrequency(
+          params.frequencyType,
+          params.weeklyDays ? (JSON.parse(params.weeklyDays) as number[]) : []
+        ),
         reminderTime: editablePlan.recommendedReminderTime,
         isReminderEnabled: Boolean(editablePlan.recommendedReminderTime),
         trackType: editablePlan.recommendedTrackType,
