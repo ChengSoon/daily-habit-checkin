@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Animated, Easing, Pressable, TextInput, View, ViewStyle } from "react-native";
 import {
   Account,
@@ -34,10 +34,10 @@ export default function AccountScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
   const couple = useCouple();
-  const { colors, reloadTheme } = useTheme();
+  const reloadCouple = couple.reload;
+  const { reloadTheme } = useTheme();
 
   const load = useCallback(async () => {
     const current = await getCurrentAccount();
@@ -50,8 +50,8 @@ export default function AccountScreen() {
         }
       });
     }
-    couple.reload();
-  }, [couple.reload]);
+    reloadCouple();
+  }, [reloadCouple]);
 
   useFocusEffect(
     useCallback(() => {
@@ -113,7 +113,7 @@ export default function AccountScreen() {
       // 有图先直传 R2 拿到 key，再把 key 提交给后端；移除则传 null 清空。
       const key = image ? await uploadImage("avatar", image) : null;
       await updateMyAvatar(key);
-      couple.reload();
+      reloadCouple();
       setMessage(image ? "头像已更新" : "已移除头像");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "更新头像失败");
@@ -331,8 +331,8 @@ function ModeCrossfade({
   children: React.ReactNode;
   style?: ViewStyle;
 }) {
-  const opacity = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
+  const [opacity] = useState(() => new Animated.Value(1));
+  const [translateY] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     opacity.setValue(0);
@@ -362,9 +362,9 @@ function ModeCrossfade({
  */
 function HeartBeatBrand() {
   const { colors } = useTheme();
-  const scale = useRef(new Animated.Value(1)).current;
+  const [scale] = useState(() => new Animated.Value(1));
   // 三颗飘心，各自的动画进度 0→1。
-  const hearts = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  const [hearts] = useState(() => [0, 1, 2].map(() => new Animated.Value(0)));
 
   function celebrate() {
     // 头像心跳：快速放大再回弹。

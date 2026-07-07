@@ -1,4 +1,4 @@
-import { router, useFocusEffect } from "expo-router";
+import { router } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { createReward, listRewards, updateReward } from "../../src/rewards/rewardRepository";
@@ -18,6 +18,7 @@ import {
 import { OwnerGate } from "../../src/ui/OwnerGate";
 import { ImagePickerField, RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
+import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { spacing } from "../../src/ui/theme";
 
 export default function AdminRewardsScreen() {
@@ -41,13 +42,14 @@ function AdminRewardsContent() {
   const [imageKey, setImageKey] = useState<string | null>(null);
   const [picked, setPicked] = useState<PickedImage | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(() => {
-    listRewards({ includeArchived: true }).then(setRewards);
+  const load = useCallback(async () => {
+    setRewards(await listRewards({ includeArchived: true }));
   }, []);
 
-  useFocusEffect(load);
+  const { status, errorMessage, reload } = useSyncScreen(load);
 
   // 预览地址：优先显示刚选的本地图，其次是已有远程图，都没有则占位。
   const previewUri = picked ? picked.uri : publicUrl(imageKey);
@@ -62,6 +64,7 @@ function AdminRewardsContent() {
     setImageKey(reward.imageKey);
     setPicked(null);
     setMessage(null);
+    setError(null);
   }
 
   function resetForm() {
@@ -88,6 +91,7 @@ function AdminRewardsContent() {
   async function save() {
     setBusy(true);
     setMessage(null);
+    setError(null);
     try {
       // 有新选的本地图就先直传 R2 拿 key，否则沿用原有 key（可能为 null）。
       const finalKey = picked ? await uploadImage("reward", picked) : imageKey;
@@ -110,26 +114,40 @@ function AdminRewardsContent() {
         setMessage("奖励已新增");
       }
       resetForm();
-      load();
+      await reload();
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "保存失败");
+      setError(error instanceof Error ? error.message : "保存失败");
     } finally {
       setBusy(false);
     }
   }
 
   async function toggleArchived(reward: Reward) {
-    await updateReward(reward.id, {
-      title: reward.title,
-      description: reward.description,
-      type: reward.type,
-      priceXp: reward.priceXp,
-      status: reward.status === "active" ? "archived" : "active",
-      virtualKind: reward.virtualKind,
-      inventoryLimit: reward.inventoryLimit,
-      imageKey: reward.imageKey
-    });
-    load();
+    setBusy(true);
+    setMessage(null);
+    setError(null);
+    try {
+      await updateReward(reward.id, {
+        title: reward.title,
+        description: reward.description,
+        type: reward.type,
+        priceXp: reward.priceXp,
+        status: reward.status === "active" ? "archived" : "active",
+        virtualKind: reward.virtualKind,
+        inventoryLimit: reward.inventoryLimit,
+        imageKey: reward.imageKey
+      });
+      setMessage(reward.status === "active" ? "奖励已下架" : "奖励已重新上架");
+      await reload();
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "操作失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (status !== "ready") {
+    return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
   }
 
   return (
@@ -173,6 +191,7 @@ function AdminRewardsContent() {
         ) : null}
         <TextField label="价格（积分）" value={priceXp} onChangeText={setPriceXp} keyboardType="numeric" />
         {message ? <HelperText tone="success">{message}</HelperText> : null}
+        {error ? <HelperText tone="danger">{error}</HelperText> : null}
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
           <AppButton
             title="保存"
@@ -216,6 +235,7 @@ function AdminRewardsContent() {
                 variant="ghost"
                 compact
                 onPress={() => toggleArchived(reward)}
+                disabled={busy}
                 style={{ flex: 1 }}
               />
             </View>

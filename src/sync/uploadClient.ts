@@ -1,6 +1,7 @@
 import { File, UploadType } from "expo-file-system";
-import { apiRequest, getR2PublicBase } from "./apiClient";
-import { PickedImage } from "../rewards/rewardImage";
+import { apiRequest } from "./apiClient";
+import type { PickedImage } from "../rewards/rewardImage";
+export { publicUrl } from "./publicUrl";
 
 /**
  * 图片上传客户端。走「先要签名、再直传 R2」：
@@ -40,19 +41,4 @@ export async function uploadImage(kind: UploadKind, picked: PickedImage): Promis
   }
 
   return key;
-}
-
-/**
- * 把 R2 对象 key 拼成可直接交给 <Image source={{ uri }}> 的公开地址。
- * key 为 null（没图）或未配置公开域名时返回 null，让组件回退到占位图/字母头像。
- */
-export function publicUrl(key: string | null | undefined): string | null {
-  if (!key) {
-    return null;
-  }
-  const base = getR2PublicBase();
-  if (!base) {
-    return null;
-  }
-  return `${base}/${key}`;
 }

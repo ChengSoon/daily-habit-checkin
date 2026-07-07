@@ -1,6 +1,6 @@
 import { apiRequest } from "./apiClient";
-import { publicUrl } from "./uploadClient";
 import { clearAuthToken, getAuthToken, saveAuthToken } from "./localSettings";
+import { publicUrl } from "./publicUrl";
 
 export type AccountRole = "owner" | "member";
 

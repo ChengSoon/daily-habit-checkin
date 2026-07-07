@@ -15,7 +15,7 @@ import { AppButton, AppText, Badge, Divider, HelperText, SectionCard, SegmentedC
 import { Screen } from "../../src/ui/Screen";
 import { radius, spacing, themeOptions } from "../../src/ui/theme";
 import { ThemeMode, useTheme } from "../../src/ui/ThemeContext";
-import { AvatarWithName, CoupleAvatars } from "../../src/ui/Avatar";
+import { CoupleAvatars } from "../../src/ui/Avatar";
 import { useCouple } from "../../src/ui/useCouple";
 import { normalizeTimeInput } from "../../src/utils/time";
 import { getWallet } from "../../src/xp/xpRepository";
@@ -39,6 +39,7 @@ export default function ProfileScreen() {
   const [lifetimeEarned, setLifetimeEarned] = useState(0);
   const [account, setAccount] = useState<Account | null>(null);
   const couple = useCouple();
+  const reloadCouple = couple.reload;
 
   useFocusEffect(
     useCallback(() => {
@@ -58,8 +59,8 @@ export default function ProfileScreen() {
       getCurrentAccount()
         .then(setAccount)
         .catch(() => setAccount(null));
-      couple.reload();
-    }, [couple.reload])
+      reloadCouple();
+    }, [reloadCouple])
   );
 
   const isOwner = account?.role === "owner";

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { getCurrentAccount, listSpaceMembers, SpaceMember } from "../sync/authService";
-import { publicUrl } from "../sync/uploadClient";
-import { AvatarTone } from "./Avatar";
+import { getCurrentAccount, listSpaceMembers } from "../sync/authService";
+import type { SpaceMember } from "../sync/authService";
+import { publicUrl } from "../sync/publicUrl";
+import type { AvatarTone } from "./Avatar";
 
 export type CoupleMember = {
   id: string;

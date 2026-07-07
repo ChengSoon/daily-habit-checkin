@@ -1,4 +1,3 @@
-import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { getRewardById, listRedemptions } from "../../src/rewards/rewardRepository";
@@ -7,12 +6,15 @@ import { Reward, RewardRedemption } from "../../src/rewards/types";
 import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
+import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { spacing } from "../../src/ui/theme";
 
 export default function AdminRedemptionsScreen() {
   const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
   const [rewards, setRewards] = useState<Record<string, Reward>>({});
   const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const items = await listRedemptions();
@@ -23,25 +25,43 @@ export default function AdminRedemptionsScreen() {
     setRewards(Object.fromEntries(pairs.flatMap(([id, reward]) => (reward ? [[id, reward]] : []))));
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      load();
-    }, [load])
-  );
+  const { status, errorMessage, reload } = useSyncScreen(load);
 
   async function fulfill(id: string) {
-    await fulfillRedemption(id);
-    setMessage("已核销");
-    await load();
+    setBusyId(id);
+    setMessage(null);
+    setError(null);
+    try {
+      await fulfillRedemption(id);
+      setMessage("已核销");
+      await reload();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "核销失败");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   async function cancel(id: string) {
-    await cancelRedemption(id);
-    setMessage("已取消并退回积分");
-    await load();
+    setBusyId(id);
+    setMessage(null);
+    setError(null);
+    try {
+      await cancelRedemption(id);
+      setMessage("已取消并退回积分");
+      await reload();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "取消失败");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   const pending = redemptions.filter((item) => item.status === "pending_fulfillment");
+
+  if (status !== "ready") {
+    return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
+  }
 
   return (
     <Screen>
@@ -52,6 +72,7 @@ export default function AdminRedemptionsScreen() {
         </AppText>
       </View>
       {message ? <HelperText tone="success">{message}</HelperText> : null}
+      {error ? <HelperText tone="danger">{error}</HelperText> : null}
       {pending.length === 0 ? (
         <EmptyState title="没有待核销奖励" body="购买奖励后，会出现在这里等待核销。" />
       ) : (
@@ -66,8 +87,21 @@ export default function AdminRedemptionsScreen() {
                   {item.priceXp} 积分 · {new Date(item.createdAt).toLocaleString()}
                 </AppText>
                 <View style={{ flexDirection: "row", gap: spacing.sm }}>
-                  <AppButton title="核销" compact onPress={() => fulfill(item.id)} style={{ flex: 1 }} />
-                  <AppButton title="取消退回积分" compact variant="ghost" onPress={() => cancel(item.id)} style={{ flex: 1 }} />
+                  <AppButton
+                    title="核销"
+                    compact
+                    onPress={() => fulfill(item.id)}
+                    disabled={busyId === item.id}
+                    style={{ flex: 1 }}
+                  />
+                  <AppButton
+                    title="取消退回积分"
+                    compact
+                    variant="ghost"
+                    onPress={() => cancel(item.id)}
+                    disabled={busyId === item.id}
+                    style={{ flex: 1 }}
+                  />
                 </View>
               </Card>
             );

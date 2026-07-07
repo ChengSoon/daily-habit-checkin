@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { PropsWithChildren, ReactNode, useEffect, useRef, useState } from "react";
+import { PropsWithChildren, ReactNode, useEffect, useState } from "react";
 import {
   Animated,
   KeyboardTypeOptions,
@@ -214,7 +214,7 @@ export function SegmentedControl<T extends string | number>({
     options.findIndex((option) => option.value === value)
   );
   // 滑块随选中项平滑滑动：以 activeIndex 为动画目标，宽度按等分计算。
-  const position = useRef(new Animated.Value(activeIndex)).current;
+  const [position] = useState(() => new Animated.Value(activeIndex));
 
   useEffect(() => {
     Animated.spring(position, {
