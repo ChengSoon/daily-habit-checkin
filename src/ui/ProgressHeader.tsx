@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { View } from "react-native";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import { CoupleAvatars, CouplePerson } from "./Avatar";
 import { AppText } from "./Controls";
 import { radius, spacing } from "./theme";
@@ -30,6 +32,15 @@ export function ProgressHeader({
       : "今天都完成了"
     : `已完成 ${completed}/${total}`;
 
+  // 打卡后进度条平滑推进，而不是跳变
+  const progress = useSharedValue(ratio);
+  useEffect(() => {
+    progress.value = withTiming(ratio, { duration: 450, easing: Easing.out(Easing.cubic) });
+  }, [progress, ratio]);
+  const barStyle = useAnimatedStyle(() => ({
+    width: `${progress.value * 100}%`
+  }));
+
   return (
     <View style={{ gap: spacing.md }}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -60,13 +71,15 @@ export function ProgressHeader({
             overflow: "hidden"
           }}
         >
-          <View
-            style={{
-              width: `${Math.round(ratio * 100)}%`,
-              height: "100%",
-              borderRadius: radius.pill,
-              backgroundColor: colors.primary
-            }}
+          <Animated.View
+            style={[
+              {
+                height: "100%",
+                borderRadius: radius.pill,
+                backgroundColor: colors.primary
+              },
+              barStyle
+            ]}
           />
         </View>
       </View>

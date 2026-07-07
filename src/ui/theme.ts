@@ -24,6 +24,8 @@ export type Palette = {
   partnerSurface: string;
   onPartner: string;
   accent: string;
+  // 庆祝动画的高光金，独立于主题主色，保证「盖章」在任何主题下都醒目
+  celebration: string;
   danger: string;
   dangerSurface: string;
   success: string;
@@ -53,6 +55,7 @@ const romanceLight: Palette = {
   partnerSurface: "#EDE8FA",
   onPartner: "#FFFFFF",
   accent: "#8B7BD8",
+  celebration: "#F6C84C",
   danger: "#C2453F",
   dangerSurface: "#F9E3E1",
   success: "#3F9E7A",
@@ -80,6 +83,7 @@ const romanceDark: Palette = {
   partnerSurface: "#2E2740",
   onPartner: "#1A1330",
   accent: "#A99BE6",
+  celebration: "#F6C84C",
   danger: "#F0857C",
   dangerSurface: "#3A2523",
   success: "#5FB68F",
@@ -108,6 +112,7 @@ const mintLight: Palette = {
   partnerSurface: "#E4EDFC",
   onPartner: "#FFFFFF",
   accent: "#5B8DEF",
+  celebration: "#F6C84C",
   danger: "#C2453F",
   dangerSurface: "#F9E3E1",
   success: "#3F9E7A",
@@ -135,6 +140,7 @@ const mintDark: Palette = {
   partnerSurface: "#23304A",
   onPartner: "#0A1428",
   accent: "#7FA8F5",
+  celebration: "#F6C84C",
   danger: "#F0857C",
   dangerSurface: "#3A2523",
   success: "#5FB68F",
@@ -163,6 +169,7 @@ const sunsetLight: Palette = {
   partnerSurface: "#FBE3E1",
   onPartner: "#FFFFFF",
   accent: "#DE6A6F",
+  celebration: "#F6C84C",
   danger: "#C2453F",
   dangerSurface: "#F9E3E1",
   success: "#3F9E7A",
@@ -190,6 +197,7 @@ const sunsetDark: Palette = {
   partnerSurface: "#402426",
   onPartner: "#2A1011",
   accent: "#EF8A8E",
+  celebration: "#F6C84C",
   danger: "#F0857C",
   dangerSurface: "#3A2523",
   success: "#5FB68F",
@@ -261,5 +269,5 @@ export const type: Record<"display" | "title" | "section" | "body" | "bodyStrong
   body: { fontSize: 16, lineHeight: 22, fontWeight: "400" },
   bodyStrong: { fontSize: 16, lineHeight: 22, fontWeight: "600" },
   small: { fontSize: 13, lineHeight: 18, fontWeight: "400" },
-  caption: { fontSize: 11, lineHeight: 14, fontWeight: "600", letterSpacing: 0.4 }
+  caption: { fontSize: 12, lineHeight: 16, fontWeight: "600", letterSpacing: 0.4 }
 };

@@ -16,6 +16,16 @@ function frequencyLabel(habit: Habit): string {
   return "每周";
 }
 
+export type HabitCompleter = {
+  /** 完成者昵称。 */
+  name: string;
+  /** 完成者分色（you=粉 / partner=紫）。 */
+  tone: AvatarTone;
+  /** 自定义头像 base64；没上传则回退字母头像。 */
+  imageData?: string | null;
+  imageMime?: string | null;
+};
+
 export function HabitRow({
   habit,
   isCompleted,
@@ -24,8 +34,7 @@ export function HabitRow({
   onOpen,
   streak,
   showCheck = true,
-  completedByName,
-  completedByTone
+  completedBy
 }: {
   habit: Habit;
   isCompleted: boolean;
@@ -34,10 +43,8 @@ export function HabitRow({
   onOpen: () => void;
   streak?: number;
   showCheck?: boolean;
-  /** 完成者昵称，用于已完成项标注是谁打的卡。 */
-  completedByName?: string;
-  /** 完成者分色（you=粉 / partner=紫）。 */
-  completedByTone?: AvatarTone;
+  /** 完成者信息，用于已完成项标注是谁打的卡。 */
+  completedBy?: HabitCompleter;
 }) {
   const { colors } = useTheme();
   const dimmed = isCompleted || habit.isPaused;
@@ -92,18 +99,24 @@ export function HabitRow({
       </View>
 
       <View style={{ alignItems: "flex-end", gap: 4 }}>
-        {isCompleted && completedByName && completedByTone ? (
+        {isCompleted && completedBy ? (
           <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Avatar name={completedByName} tone={completedByTone} size={20} />
+            <Avatar
+              name={completedBy.name}
+              tone={completedBy.tone}
+              size={20}
+              imageData={completedBy.imageData}
+              imageMime={completedBy.imageMime}
+            />
             <AppText variant="small" tone="muted" numberOfLines={1}>
-              {completedByName}
+              {completedBy.name}
             </AppText>
           </View>
         ) : null}
         {habit.isPaused ? (
           <Badge label="已暂停" tone="muted" />
         ) : typeof streak === "number" && streak > 0 ? (
-          <Badge label={`连续 ${streak} 天`} tone="success" />
+          <Badge label={`连续 ${streak} 天`} tone="primary" />
         ) : null}
       </View>
     </Pressable>

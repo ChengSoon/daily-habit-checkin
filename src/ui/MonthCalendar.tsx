@@ -7,8 +7,19 @@ const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
 /**
  * 月历下方的图例项：filled 为实心色块，否则为描边（对应「今天」的样式）。
+ * borderColor 可单独指定，用于浅底色块（如「错过」）在白色卡片上仍能辨认。
  */
-export function CalendarLegend({ color, label, filled = false }: { color: string; label: string; filled?: boolean }) {
+export function CalendarLegend({
+  color,
+  label,
+  filled = false,
+  borderColor
+}: {
+  color: string;
+  label: string;
+  filled?: boolean;
+  borderColor?: string;
+}) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
       <View
@@ -18,7 +29,7 @@ export function CalendarLegend({ color, label, filled = false }: { color: string
           borderRadius: radius.pill,
           backgroundColor: filled ? color : "transparent",
           borderWidth: 2,
-          borderColor: color
+          borderColor: borderColor ?? color
         }}
       />
       <AppText variant="small" tone="muted">

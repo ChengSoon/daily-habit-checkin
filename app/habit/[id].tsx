@@ -31,6 +31,7 @@ import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, startOfMonthKey, todayKey } from "../../src/utils/date";
+import { normalizeTimeInput } from "../../src/utils/time";
 
 type FrequencyType = "daily" | "weekdays" | "weekly";
 
@@ -58,6 +59,8 @@ export default function HabitDetailScreen() {
   const [trackType, setTrackType] = useState<HabitTrackType>("check");
   const [numericUnit, setNumericUnit] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+  const [timeError, setTimeError] = useState<string | null>(null);
+  const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [manualRequested, setManualRequested] = useState(false);
 
   const load = useCallback(async () => {
@@ -106,15 +109,29 @@ export default function HabitDetailScreen() {
       return;
     }
 
+    // 提醒时间为空表示不提醒；非空则必须是合法的 24 小时制时间
+    const trimmedReminder = reminderTime.trim();
+    let normalizedReminder: string | null = null;
+    if (trimmedReminder) {
+      normalizedReminder = normalizeTimeInput(trimmedReminder);
+      if (!normalizedReminder) {
+        setTimeError("提醒时间格式不正确，请用 24 小时制，例如 21:30");
+        setMessage(null);
+        return;
+      }
+    }
+    setTimeError(null);
+
     await updateHabit(habit.id, {
       name,
       description: description || null,
       frequency: parseFrequency(frequencyType, weeklyDays),
-      reminderTime: reminderTime || null,
-      isReminderEnabled: Boolean(reminderTime),
+      reminderTime: normalizedReminder,
+      isReminderEnabled: Boolean(normalizedReminder),
       trackType,
       numericUnit: trackType === "numeric" ? numericUnit || "次" : null
     });
+    setReminderTime(normalizedReminder ?? "");
 
     const nextHabit = await getHabitById(habit.id);
     if (nextHabit) {
@@ -239,7 +256,7 @@ export default function HabitDetailScreen() {
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.xs }}>
               <CalendarLegend color={colors.primary} label="已完成" filled />
               <CalendarLegend color={colors.primary} label="今天" />
-              <CalendarLegend color={colors.surfaceMuted} label="未完成" filled />
+              <CalendarLegend color={colors.surfaceMuted} borderColor={colors.lineStrong} label="错过" filled />
             </View>
           </>
         )}
@@ -279,6 +296,7 @@ export default function HabitDetailScreen() {
           ) : null}
         </View>
         <TextField label="提醒时间" value={reminderTime} onChangeText={setReminderTime} placeholder="21:30" />
+        {timeError ? <HelperText tone="danger">{timeError}</HelperText> : null}
         <View style={{ gap: spacing.sm }}>
           <Label>记录方式</Label>
           <SegmentedControl<HabitTrackType>
@@ -307,7 +325,27 @@ export default function HabitDetailScreen() {
           variant="secondary"
           onPress={togglePaused}
         />
-        <AppButton title="删除习惯" variant="danger" onPress={remove} />
+        {isConfirmingDelete ? (
+          <Card tone="muted">
+            <AppText variant="bodyStrong" tone="danger">
+              确定删除「{habit.name}」？
+            </AppText>
+            <AppText variant="small" tone="muted">
+              这个习惯和它的全部打卡记录会一并删除，无法恢复。
+            </AppText>
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <AppButton
+                title="取消"
+                variant="ghost"
+                onPress={() => setIsConfirmingDelete(false)}
+                style={{ flex: 1 }}
+              />
+              <AppButton title="确认删除" variant="danger" onPress={remove} style={{ flex: 1 }} />
+            </View>
+          </Card>
+        ) : (
+          <AppButton title="删除习惯" variant="danger" onPress={() => setIsConfirmingDelete(true)} />
+        )}
       </View>
     </Screen>
   );

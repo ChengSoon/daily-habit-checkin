@@ -41,3 +41,6 @@ example
 # generated native folders
 /ios
 /android
+
+# TLS certs (never commit private keys)
+server/certs/

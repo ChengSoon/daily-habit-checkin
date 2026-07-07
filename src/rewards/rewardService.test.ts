@@ -41,7 +41,7 @@ describe("reward service", () => {
     expect(await getWallet()).toMatchObject({ balance: 200, lifetimeSpent: 300 });
   });
 
-  it("redeems a virtual reward as fulfilled", async () => {
+  it("redeems a virtual reward as pending fulfillment", async () => {
     await applyXpTransactions([
       {
         uniqueKey: "seed",
@@ -69,7 +69,7 @@ describe("reward service", () => {
 
     const redemption = await redeemReward(reward.id);
 
-    expect(redemption.status).toBe("fulfilled");
+    expect(redemption.status).toBe("pending_fulfillment");
   });
 
   it("blocks redemption when XP is insufficient", async () => {

@@ -13,7 +13,8 @@ export function Screen({
   const padding = {
     paddingBottom: spacing.xxl + insets.bottom,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg
+    // 顶部留白叠加安全区，避免标题被状态栏 / 灵动岛遮挡
+    paddingTop: spacing.lg + insets.top
   };
 
   if (!scroll) {

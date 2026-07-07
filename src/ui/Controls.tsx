@@ -260,7 +260,9 @@ export function TextField({
   onBlur,
   placeholder,
   keyboardType,
-  multiline = false
+  multiline = false,
+  autoFocus = false,
+  secureTextEntry = false
 }: {
   label?: string;
   value: string;
@@ -269,6 +271,8 @@ export function TextField({
   placeholder?: string;
   keyboardType?: KeyboardTypeOptions;
   multiline?: boolean;
+  autoFocus?: boolean;
+  secureTextEntry?: boolean;
 }) {
   const { colors } = useTheme();
 
@@ -283,6 +287,8 @@ export function TextField({
         placeholderTextColor={colors.faint}
         keyboardType={keyboardType}
         multiline={multiline}
+        autoFocus={autoFocus}
+        secureTextEntry={secureTextEntry}
         style={{
           minHeight: multiline ? 92 : 50,
           borderRadius: radius.md,

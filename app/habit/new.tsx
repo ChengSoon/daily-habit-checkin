@@ -16,6 +16,7 @@ import {
 } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
+import { normalizeTimeInput } from "../../src/utils/time";
 
 type CurrentLevel = "beginner" | "some_experience" | "stable";
 type ReminderPreference = "morning" | "noon" | "evening" | "custom";
@@ -54,6 +55,16 @@ export default function NewHabitScreen() {
     setIsLoading(true);
     setError(null);
 
+    let normalizedReminder: string | null = null;
+    if (reminderPreference === "custom") {
+      normalizedReminder = normalizeTimeInput(customReminderTime);
+      if (!normalizedReminder) {
+        setError("提醒时间格式不正确，请用 24 小时制，例如 21:30");
+        setIsLoading(false);
+        return;
+      }
+    }
+
     try {
       const plan = await requestAIHabitPlan({
         goalText,
@@ -62,7 +73,7 @@ export default function NewHabitScreen() {
         dailyAvailableMinutes: Number(dailyMinutes),
         expectedFrequency: toFrequency(frequencyType, weeklyDays),
         reminderPreference,
-        customReminderTime: reminderPreference === "custom" ? customReminderTime : null,
+        customReminderTime: normalizedReminder,
         preferredTrackType: trackType
       });
 
@@ -85,13 +96,24 @@ export default function NewHabitScreen() {
   async function saveManualHabit() {
     setError(null);
 
+    // 留空表示不提醒；填了就必须是合法时间
+    const trimmedReminder = customReminderTime.trim();
+    let normalizedReminder: string | null = null;
+    if (trimmedReminder) {
+      normalizedReminder = normalizeTimeInput(trimmedReminder);
+      if (!normalizedReminder) {
+        setError("提醒时间格式不正确，请用 24 小时制，例如 21:30");
+        return;
+      }
+    }
+
     try {
       const habit = await createHabit({
         name: goalText,
         description: description || null,
         frequency: toFrequency(frequencyType, weeklyDays),
-        reminderTime: customReminderTime || null,
-        isReminderEnabled: Boolean(customReminderTime),
+        reminderTime: normalizedReminder,
+        isReminderEnabled: Boolean(normalizedReminder),
         trackType,
         numericUnit: trackType === "numeric" ? numericUnit || "次" : null
       });

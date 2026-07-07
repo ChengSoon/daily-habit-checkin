@@ -31,13 +31,13 @@ export default function AdminRedemptionsScreen() {
 
   async function fulfill(id: string) {
     await fulfillRedemption(id);
-    setMessage("已确认兑现");
+    setMessage("已核销");
     await load();
   }
 
   async function cancel(id: string) {
     await cancelRedemption(id);
-    setMessage("已取消兑换并退回积分");
+    setMessage("已取消并退回积分");
     await load();
   }
 
@@ -46,28 +46,28 @@ export default function AdminRedemptionsScreen() {
   return (
     <Screen>
       <View style={{ gap: spacing.xs }}>
-        <AppText variant="display">兑现管理</AppText>
+        <AppText variant="display">核销管理</AppText>
         <AppText variant="body" tone="muted">
-          现实奖励兑换后在这里确认
+          购买后的奖励在这里核销
         </AppText>
       </View>
       {message ? <HelperText tone="success">{message}</HelperText> : null}
       {pending.length === 0 ? (
-        <EmptyState title="没有待兑现奖励" body="她兑换现实奖励后，会出现在这里。" />
+        <EmptyState title="没有待核销奖励" body="购买奖励后，会出现在这里等待核销。" />
       ) : (
         <View style={{ gap: spacing.sm }}>
           {pending.map((item) => {
             const reward = rewards[item.rewardId];
             return (
               <Card key={item.id}>
-                <Badge label="待兑现" tone="primary" />
+                <Badge label="待核销" tone="primary" />
                 <AppText variant="bodyStrong">{reward?.title ?? "奖励已不存在"}</AppText>
                 <AppText variant="small" tone="muted">
                   {item.priceXp} 积分 · {new Date(item.createdAt).toLocaleString()}
                 </AppText>
                 <View style={{ flexDirection: "row", gap: spacing.sm }}>
-                  <AppButton title="确认已兑现" compact onPress={() => fulfill(item.id)} style={{ flex: 1 }} />
-                  <AppButton title="取消并退回积分" compact variant="ghost" onPress={() => cancel(item.id)} style={{ flex: 1 }} />
+                  <AppButton title="核销" compact onPress={() => fulfill(item.id)} style={{ flex: 1 }} />
+                  <AppButton title="取消退回积分" compact variant="ghost" onPress={() => cancel(item.id)} style={{ flex: 1 }} />
                 </View>
               </Card>
             );

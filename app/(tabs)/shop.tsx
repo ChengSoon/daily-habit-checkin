@@ -38,11 +38,11 @@ export default function ShopScreen() {
     setMessage(null);
 
     try {
-      const redemption = await redeemReward(reward.id);
-      setMessage(redemption.status === "fulfilled" ? "已解锁奖励" : "已提交兑换，等待兑现");
+      await redeemReward(reward.id);
+      setMessage("已购买，去「兑换记录」里核销后即可使用");
       await reload();
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "兑换失败");
+      setError(caughtError instanceof Error ? caughtError.message : "购买失败");
     }
   }
 
@@ -110,7 +110,7 @@ export default function ShopScreen() {
                     </View>
                   </View>
                   <AppButton
-                    title={canRedeem ? "兑换" : `还差 ${reward.priceXp - balance} 积分`}
+                    title={canRedeem ? "购买" : `还差 ${reward.priceXp - balance} 积分`}
                     onPress={() => redeem(reward)}
                     disabled={!canRedeem}
                   />

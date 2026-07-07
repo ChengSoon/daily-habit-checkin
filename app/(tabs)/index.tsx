@@ -1,8 +1,11 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { completeCheckIn, listCheckInsForHabit } from "../../src/checkins/checkinRepository";
 import { CheckIn } from "../../src/checkins/types";
+import { getStreakMilestone } from "../../src/checkins/milestones";
 import { calculateCurrentStreak } from "../../src/checkins/stats";
 import { listActiveHabits } from "../../src/habits/habitRepository";
 import { shouldRunOnDate } from "../../src/habits/habitRules";
@@ -10,36 +13,46 @@ import { Habit } from "../../src/habits/types";
 import { rescheduleHabitReminders, rescheduleTodayEveningSummary } from "../../src/reminders/reminderService";
 import { getAppSettings } from "../../src/settings/settingsRepository";
 import { AppButton, AppText, Card, TextField } from "../../src/ui/Controls";
-import { CheckInCelebration } from "../../src/ui/CheckInCelebration";
+import { CheckInCelebration, FullCelebration, MiniCheckInBurst } from "../../src/ui/CheckInCelebration";
 import { EmptyState } from "../../src/ui/EmptyState";
-import { HabitRow } from "../../src/ui/HabitRow";
+import { HabitCompleter, HabitRow } from "../../src/ui/HabitRow";
 import { ProgressHeader } from "../../src/ui/ProgressHeader";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { useCouple } from "../../src/ui/useCouple";
-import { spacing } from "../../src/ui/theme";
+import { radius, spacing } from "../../src/ui/theme";
+import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, todayKey } from "../../src/utils/date";
 import { getWallet } from "../../src/xp/xpRepository";
 import { awardXpForCheckIn } from "../../src/xp/xpService";
 import { XpAwardResult } from "../../src/xp/types";
 
 export default function TodayScreen() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
   const [streaks, setStreaks] = useState<Record<string, number>>({});
   const [numericHabit, setNumericHabit] = useState<Habit | null>(null);
   const [numericValue, setNumericValue] = useState("");
-  const [celebrationHabitName, setCelebrationHabitName] = useState<string | null>(null);
+  const [miniBurst, setMiniBurst] = useState<{ key: number; habitName: string } | null>(null);
+  const [fullCelebration, setFullCelebration] = useState<FullCelebration | null>(null);
   const [xpBalance, setXpBalance] = useState(0);
   const [lastXpResult, setLastXpResult] = useState<XpAwardResult | null>(null);
+  const miniBurstKey = useRef(0);
   const today = todayKey();
 
-  const showCelebration = useCallback((habitName: string) => {
-    setCelebrationHabitName(habitName);
+  const showMiniBurst = useCallback((habitName: string) => {
+    miniBurstKey.current += 1;
+    setMiniBurst({ key: miniBurstKey.current, habitName });
   }, []);
 
-  const hideCelebration = useCallback(() => {
-    setCelebrationHabitName(null);
+  const hideMiniBurst = useCallback(() => {
+    setMiniBurst(null);
+  }, []);
+
+  const hideFullCelebration = useCallback(() => {
+    setFullCelebration(null);
   }, []);
 
   const load = useCallback(async () => {
@@ -89,19 +102,45 @@ export default function TodayScreen() {
   const { status, errorMessage, reload } = useSyncScreen(load);
   const couple = useCouple();
 
-  async function complete(habit: Habit, value: number | null, shouldCelebrate = false) {
-    if (shouldCelebrate) {
-      showCelebration(habit.name);
+  const completedIds = new Set(
+    checkIns.filter((checkIn) => checkIn.status === "completed").map((checkIn) => checkIn.habitId)
+  );
+  const remaining = habits.filter((habit) => !completedIds.has(habit.id));
+  const done = habits.filter((habit) => completedIds.has(habit.id));
+
+  async function complete(habit: Habit, value: number | null, fromNumeric = false) {
+    // 数值型此刻才真正完成，轻量庆祝在确认时补上（勾选型在按下瞬间已由 onCelebrate 触发）
+    if (fromNumeric) {
+      showMiniBurst(habit.name);
     }
+
+    // 在数据刷新前记住：这次打卡是否清空了今天的待办
+    const wasLastRemaining = remaining.length === 1 && remaining[0].id === habit.id;
 
     const checkIn = await completeCheckIn({ habitId: habit.id, date: today, value, note: null });
     const xpResult = await awardXpForCheckIn({ habitId: habit.id, dateKey: today, checkInId: checkIn.id });
+
+    // 用打卡后的完整记录重算连续天数，判断是否命中里程碑
+    const habitStart = habit.createdAt.slice(0, 10);
+    const scheduledDates = eachDateKey(habitStart, today).filter((date) =>
+      shouldRunOnDate(habit.frequency, new Date(`${date}T00:00:00`))
+    );
+    const habitCheckIns = await listCheckInsForHabit(habit.id);
+    const newStreak = calculateCurrentStreak({ today, scheduledDates, checkIns: habitCheckIns });
+    const milestone = getStreakMilestone(newStreak);
 
     setLastXpResult(xpResult);
     setXpBalance(xpResult.wallet.balance);
     setNumericHabit(null);
     setNumericValue("");
     await reload();
+
+    // 全屏仪式感只留给里程碑和今日全勤；里程碑更稀有，优先展示
+    if (milestone !== null) {
+      setFullCelebration({ kind: "milestone", days: milestone, habitName: habit.name });
+    } else if (wasLastRemaining) {
+      setFullCelebration({ kind: "allDone" });
+    }
   }
 
   function startComplete(habit: Habit) {
@@ -113,21 +152,25 @@ export default function TodayScreen() {
     complete(habit, null);
   }
 
-  const completedIds = new Set(
-    checkIns.filter((checkIn) => checkIn.status === "completed").map((checkIn) => checkIn.habitId)
-  );
-  const remaining = habits.filter((habit) => !completedIds.has(habit.id));
-  const done = habits.filter((habit) => completedIds.has(habit.id));
+  function cancelNumeric() {
+    setNumericHabit(null);
+    setNumericValue("");
+  }
 
-  // 已完成项标注是谁打的卡：checkIn.createdBy → couple 里的人。
-  const completerByHabit: Record<string, { name: string; tone: "you" | "partner" }> = {};
+  // 已完成项标注是谁打的卡：checkIn.createdBy → couple 里的人（含自定义头像）。
+  const completerByHabit: Record<string, HabitCompleter> = {};
   for (const checkIn of checkIns) {
     if (checkIn.status !== "completed" || !checkIn.createdBy) {
       continue;
     }
     const person = couple.byId[checkIn.createdBy];
     if (person) {
-      completerByHabit[checkIn.habitId] = { name: person.name, tone: person.tone };
+      completerByHabit[checkIn.habitId] = {
+        name: person.name,
+        tone: person.tone,
+        imageData: person.avatarData,
+        imageMime: person.avatarMime
+      };
     }
   }
 
@@ -135,51 +178,46 @@ export default function TodayScreen() {
     return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
   }
 
+  const lastGain = lastXpResult
+    ? lastXpResult.insertedTransactions.reduce((sum, item) => sum + Math.max(item.amount, 0), 0)
+    : 0;
+
   return (
     <>
       <Screen>
         <ProgressHeader
           completed={completedIds.size}
           total={habits.length}
-          people={couple.people.map((person) => ({ name: person.name, tone: person.tone }))}
+          people={couple.people.map((person) => ({
+            name: person.name,
+            tone: person.tone,
+            imageData: person.avatarData,
+            imageMime: person.avatarMime
+          }))}
           hasPartner={couple.partner !== null}
         />
 
-        <Card tone="tint" onPress={() => router.push("/shop")}>
-          <AppText variant="caption" tone="primary">
-            积分余额
-          </AppText>
-          <AppText variant="title" tone="primary">
+        <Card
+          onPress={() => router.push("/shop")}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: spacing.sm,
+            paddingVertical: spacing.md
+          }}
+        >
+          <Ionicons name="sparkles" size={16} color={colors.primaryInk} />
+          <AppText variant="bodyStrong" tone="primary">
             {xpBalance} 积分
           </AppText>
-          {lastXpResult && lastXpResult.insertedTransactions.length > 0 ? (
+          <View style={{ flex: 1 }} />
+          {lastGain > 0 ? (
             <AppText variant="small" tone="soft">
-              本次 +{lastXpResult.insertedTransactions.reduce((sum, item) => sum + Math.max(item.amount, 0), 0)} 积分 ·{" "}
-              {lastXpResult.awards
-                .filter((award) => lastXpResult.insertedTransactions.some((item) => item.reason === award.reason))
-                .map((award) => award.label)
-                .join(" / ")}
+              本次 +{lastGain}
             </AppText>
           ) : null}
+          <Ionicons name="chevron-forward" size={16} color={colors.faint} />
         </Card>
-
-        {numericHabit ? (
-          <Card tone="tint">
-            <AppText variant="bodyStrong">
-              {numericHabit.name}：完成了多少{numericHabit.numericUnit ?? ""}？
-            </AppText>
-            <TextField value={numericValue} onChangeText={setNumericValue} keyboardType="numeric" placeholder="输入数值" />
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <AppButton title="取消" variant="ghost" onPress={() => setNumericHabit(null)} style={{ flex: 1 }} />
-              <AppButton
-                title="确认打卡"
-                onPress={() => complete(numericHabit, Number(numericValue), true)}
-                disabled={!numericValue}
-                style={{ flex: 1 }}
-              />
-            </View>
-          </Card>
-        ) : null}
 
         {habits.length === 0 ? (
           <>
@@ -200,7 +238,7 @@ export default function TodayScreen() {
                     isCompleted={false}
                     streak={streaks[habit.id]}
                     onComplete={() => startComplete(habit)}
-                    onCelebrate={() => showCelebration(habit.name)}
+                    onCelebrate={() => showMiniBurst(habit.name)}
                     onOpen={() => router.push({ pathname: "/habit/[id]", params: { id: habit.id } })}
                   />
                 ))}
@@ -224,6 +262,7 @@ export default function TodayScreen() {
                     habit={habit}
                     isCompleted
                     streak={streaks[habit.id]}
+                    completedBy={completerByHabit[habit.id]}
                     onComplete={() => undefined}
                     onOpen={() => router.push({ pathname: "/habit/[id]", params: { id: habit.id } })}
                   />
@@ -233,11 +272,55 @@ export default function TodayScreen() {
           </View>
         )}
       </Screen>
-      <CheckInCelebration
-        visible={celebrationHabitName !== null}
-        habitName={celebrationHabitName ?? undefined}
-        onFinish={hideCelebration}
-      />
+
+      <Modal visible={numericHabit !== null} transparent animationType="slide" onRequestClose={cancelNumeric}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1, justifyContent: "flex-end" }}
+        >
+          <Pressable
+            accessibilityLabel="关闭输入"
+            style={[StyleSheet.absoluteFill, { backgroundColor: colors.overlay }]}
+            onPress={cancelNumeric}
+          />
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderTopLeftRadius: radius.xl,
+              borderTopRightRadius: radius.xl,
+              padding: spacing.lg,
+              paddingBottom: spacing.lg + insets.bottom,
+              gap: spacing.md
+            }}
+          >
+            <View style={{ gap: spacing.xs }}>
+              <AppText variant="section">{numericHabit?.name}</AppText>
+              <AppText variant="small" tone="muted">
+                完成了多少{numericHabit?.numericUnit ?? ""}？
+              </AppText>
+            </View>
+            <TextField
+              value={numericValue}
+              onChangeText={setNumericValue}
+              keyboardType="numeric"
+              placeholder="输入数值"
+              autoFocus
+            />
+            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+              <AppButton title="取消" variant="ghost" onPress={cancelNumeric} style={{ flex: 1 }} />
+              <AppButton
+                title="确认打卡"
+                onPress={() => numericHabit && complete(numericHabit, Number(numericValue), true)}
+                disabled={!numericValue || Number.isNaN(Number(numericValue))}
+                style={{ flex: 1 }}
+              />
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <MiniCheckInBurst trigger={miniBurst} onFinish={hideMiniBurst} />
+      <CheckInCelebration celebration={fullCelebration} onFinish={hideFullCelebration} />
     </>
   );
 }

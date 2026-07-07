@@ -17,6 +17,7 @@ import { radius, spacing, themeOptions } from "../../src/ui/theme";
 import { ThemeMode, useTheme } from "../../src/ui/ThemeContext";
 import { AvatarWithName, CoupleAvatars } from "../../src/ui/Avatar";
 import { useCouple } from "../../src/ui/useCouple";
+import { normalizeTimeInput } from "../../src/utils/time";
 import { getWallet } from "../../src/xp/xpRepository";
 
 export default function ProfileScreen() {
@@ -74,6 +75,29 @@ export default function ProfileScreen() {
   }
 
   const [exportError, setExportError] = useState<string | null>(null);
+  const [summaryTimeError, setSummaryTimeError] = useState<string | null>(null);
+  const [quietHoursError, setQuietHoursError] = useState<string | null>(null);
+
+  function commitSummaryTime() {
+    const normalized = normalizeTimeInput(settings.eveningSummaryTime);
+    if (!normalized) {
+      setSummaryTimeError("时间格式不正确，请用 24 小时制，例如 21:30");
+      return;
+    }
+    setSummaryTimeError(null);
+    save({ ...settings, eveningSummaryTime: normalized });
+  }
+
+  function commitQuietHours() {
+    const start = normalizeTimeInput(settings.quietHoursStart);
+    const end = normalizeTimeInput(settings.quietHoursEnd);
+    if (!start || !end) {
+      setQuietHoursError("时间格式不正确，请用 24 小时制，例如 22:00");
+      return;
+    }
+    setQuietHoursError(null);
+    save({ ...settings, quietHoursStart: start, quietHoursEnd: end });
+  }
 
   async function exportData() {
     setExportError(null);
@@ -90,7 +114,7 @@ export default function ProfileScreen() {
       <View style={{ gap: spacing.xs }}>
         <AppText variant="display">我的</AppText>
         <AppText variant="body" tone="muted">
-          提醒与外观设置
+          账号、奖励与个性化设置
         </AppText>
       </View>
 
@@ -244,37 +268,6 @@ export default function ProfileScreen() {
         </View>
       </SectionCard>
 
-      <SectionCard title="AI 服务配置">
-        <AppText variant="body" tone="soft">
-          填写你自己的 AI 服务地址、访问密钥和模型名。留空则使用默认配置。
-        </AppText>
-        <TextField
-          label="服务地址"
-          value={settings.aiBaseUrl}
-          onChangeText={(value) => setSettings({ ...settings, aiBaseUrl: value })}
-          onBlur={() => save(settings)}
-          placeholder="https://your-server.com"
-          keyboardType="url"
-        />
-        <TextField
-          label="访问密钥"
-          value={settings.aiApiKey}
-          onChangeText={(value) => setSettings({ ...settings, aiApiKey: value })}
-          onBlur={() => save(settings)}
-          placeholder="x-api-key（可留空）"
-        />
-        <TextField
-          label="模型名"
-          value={settings.aiModel}
-          onChangeText={(value) => setSettings({ ...settings, aiModel: value })}
-          onBlur={() => save(settings)}
-          placeholder="例如：gpt-5.5"
-        />
-        <AppText variant="small" tone="faint">
-          修改后离开输入框即自动保存
-        </AppText>
-      </SectionCard>
-
       <SectionCard title="提醒设置">
         {permission === "granted" ? (
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
@@ -317,9 +310,10 @@ export default function ProfileScreen() {
               label="汇总时间"
               value={settings.eveningSummaryTime}
               onChangeText={(value) => setSettings({ ...settings, eveningSummaryTime: value })}
-              onBlur={() => save(settings)}
+              onBlur={commitSummaryTime}
               placeholder="21:30"
             />
+            {summaryTimeError ? <HelperText tone="danger">{summaryTimeError}</HelperText> : null}
             <AppText variant="small" tone="faint">
               修改后离开输入框即自动保存
             </AppText>
@@ -343,7 +337,7 @@ export default function ProfileScreen() {
                   label="开始"
                   value={settings.quietHoursStart}
                   onChangeText={(value) => setSettings({ ...settings, quietHoursStart: value })}
-                  onBlur={() => save(settings)}
+                  onBlur={commitQuietHours}
                   placeholder="22:00"
                 />
               </View>
@@ -352,16 +346,49 @@ export default function ProfileScreen() {
                   label="结束"
                   value={settings.quietHoursEnd}
                   onChangeText={(value) => setSettings({ ...settings, quietHoursEnd: value })}
-                  onBlur={() => save(settings)}
+                  onBlur={commitQuietHours}
                   placeholder="08:00"
                 />
               </View>
             </View>
+            {quietHoursError ? <HelperText tone="danger">{quietHoursError}</HelperText> : null}
             <AppText variant="small" tone="faint">
               跨夜时间段有效，例如 22:00 到次日 08:00
             </AppText>
           </>
         ) : null}
+      </SectionCard>
+
+      <SectionCard title="AI 服务配置">
+        <AppText variant="body" tone="soft">
+          填写你自己的 AI 服务地址、访问密钥和模型名。留空则使用默认配置。
+        </AppText>
+        <TextField
+          label="服务地址"
+          value={settings.aiBaseUrl}
+          onChangeText={(value) => setSettings({ ...settings, aiBaseUrl: value })}
+          onBlur={() => save(settings)}
+          placeholder="https://your-server.com"
+          keyboardType="url"
+        />
+        <TextField
+          label="访问密钥"
+          value={settings.aiApiKey}
+          onChangeText={(value) => setSettings({ ...settings, aiApiKey: value })}
+          onBlur={() => save(settings)}
+          placeholder="x-api-key（可留空）"
+          secureTextEntry
+        />
+        <TextField
+          label="模型名"
+          value={settings.aiModel}
+          onChangeText={(value) => setSettings({ ...settings, aiModel: value })}
+          onBlur={() => save(settings)}
+          placeholder="例如：gpt-5.5"
+        />
+        <AppText variant="small" tone="faint">
+          修改后离开输入框即自动保存
+        </AppText>
       </SectionCard>
 
       <SectionCard title="数据导出">

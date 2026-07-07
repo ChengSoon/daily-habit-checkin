@@ -71,10 +71,11 @@ export async function redeemReward(rewardId: string): Promise<RewardRedemption> 
     throw new Error(`积分不足，还差 ${missing} 积分`);
   }
 
+  // 购买只扣积分并进入「待核销」，实际使用/领取由核销那一步完成。
   const redemption = await createRedemption({
     rewardId: reward.id,
     priceXp: reward.priceXp,
-    status: reward.type === "virtual" ? "fulfilled" : "pending_fulfillment",
+    status: "pending_fulfillment",
     note: null
   });
 

@@ -15,6 +15,15 @@ import { AppText } from "./Controls";
 import { radius, spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 
+/**
+ * 庆祝分级：
+ * - 普通打卡 → MiniCheckInBurst：非阻断的轻量「盖章」，可以继续操作页面
+ * - 今日全勤 / 连续里程碑 → CheckInCelebration：全屏仪式感
+ */
+export type FullCelebration =
+  | { kind: "allDone" }
+  | { kind: "milestone"; days: number; habitName: string };
+
 const ORBIT_DOTS = [
   { angle: -0.2, distance: 118, size: 9, delay: 0 },
   { angle: 0.8, distance: 142, size: 6, delay: 0.1 },
@@ -28,6 +37,13 @@ const SPARKS = Array.from({ length: 18 }, (_, index) => ({
   angle: (index / 18) * Math.PI * 2,
   distance: 116 + (index % 4) * 18,
   length: 18 + (index % 3) * 8
+}));
+
+// 轻量版的迸发线条：数量更少、距离更短，配合小盖章的体量
+const MINI_SPARKS = Array.from({ length: 10 }, (_, index) => ({
+  angle: (index / 10) * Math.PI * 2 - Math.PI / 2,
+  distance: 64 + (index % 3) * 14,
+  length: 12 + (index % 3) * 5
 }));
 
 function Halo({ progress, size, delay }: { progress: SharedValue<number>; size: number; delay: number }) {
@@ -98,7 +114,17 @@ function OrbitDot({
   );
 }
 
-function Spark({ progress, spark, color }: { progress: SharedValue<number>; spark: (typeof SPARKS)[number]; color: string }) {
+function Spark({
+  progress,
+  spark,
+  color,
+  height = 3
+}: {
+  progress: SharedValue<number>;
+  spark: { angle: number; distance: number; length: number };
+  color: string;
+  height?: number;
+}) {
   const sparkStyle = useAnimatedStyle(() => {
     const p = progress.value;
     const travel = interpolate(p, [0, 0.42, 1], [24, spark.distance, spark.distance * 1.18]);
@@ -118,26 +144,113 @@ function Spark({ progress, spark, color }: { progress: SharedValue<number>; spar
       pointerEvents="none"
       style={[
         styles.spark,
-        { width: spark.length, backgroundColor: color },
+        { width: spark.length, height, backgroundColor: color },
         sparkStyle
       ]}
     />
   );
 }
 
-export function CheckInCelebration({
-  visible,
-  habitName,
+/**
+ * 普通打卡的轻量庆祝：一枚小盖章从底部弹起、微微歪斜地「敲」在屏幕上，
+ * 伴随一圈短促的迸发与光环，随后上浮消散。全程不拦截触摸，用户可以连续打卡。
+ * trigger.key 变化即重播（连续打多个习惯时可连续触发）。
+ */
+export function MiniCheckInBurst({
+  trigger,
   onFinish
 }: {
-  visible: boolean;
-  habitName?: string;
+  trigger: { key: number; habitName: string } | null;
   onFinish: () => void;
 }) {
   const { colors } = useTheme();
   const progress = useSharedValue(0);
   const stamp = useSharedValue(0);
   const exit = useSharedValue(0);
+  const triggerKey = trigger?.key;
+
+  useEffect(() => {
+    if (triggerKey === undefined) {
+      return;
+    }
+
+    progress.value = 0;
+    stamp.value = 0;
+    exit.value = 0;
+    progress.value = withTiming(1, { duration: 760, easing: Easing.out(Easing.cubic) });
+    stamp.value = withSpring(1, { damping: 9, stiffness: 190 });
+    exit.value = withDelay(980, withTiming(1, { duration: 260 }, (finished) => {
+      if (finished) {
+        runOnJS(onFinish)();
+      }
+    }));
+  }, [exit, onFinish, progress, stamp, triggerKey]);
+
+  const stampStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(stamp.value, [0, 0.2, 1], [0, 1, 1]) * interpolate(exit.value, [0, 1], [1, 0]),
+    transform: [
+      { translateY: interpolate(stamp.value, [0, 1], [26, 0]) + interpolate(exit.value, [0, 1], [0, -20]) },
+      { scale: interpolate(stamp.value, [0, 0.7, 1], [0.55, 1.07, 1]) },
+      { rotate: `${interpolate(stamp.value, [0, 1], [-14, -4])}deg` }
+    ]
+  }));
+
+  const ringStyle = useAnimatedStyle(() => ({
+    opacity: interpolate(progress.value, [0, 0.15, 1], [0, 0.5, 0]),
+    transform: [{ scale: interpolate(progress.value, [0, 1], [0.5, 1.9]) }]
+  }));
+
+  if (!trigger) {
+    return null;
+  }
+
+  return (
+    <View pointerEvents="none" style={styles.miniStage}>
+      <View style={styles.miniCenter}>
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.miniRing, { borderColor: colors.primary }, ringStyle]}
+        />
+        {MINI_SPARKS.map((spark, index) => (
+          <Spark
+            key={index}
+            progress={progress}
+            spark={spark}
+            height={2.5}
+            color={index % 3 === 0 ? colors.celebration : index % 3 === 1 ? colors.primary : colors.partner}
+          />
+        ))}
+        <Animated.View
+          style={[
+            styles.miniStamp,
+            { borderColor: colors.celebration, backgroundColor: colors.surface },
+            stampStyle
+          ]}
+        >
+          <AppText variant="caption" tone="primary" style={styles.kicker}>
+            打卡成功
+          </AppText>
+          <AppText variant="bodyStrong" numberOfLines={1} style={styles.miniHabitName}>
+            {trigger.habitName} +1
+          </AppText>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
+
+export function CheckInCelebration({
+  celebration,
+  onFinish
+}: {
+  celebration: FullCelebration | null;
+  onFinish: () => void;
+}) {
+  const { colors } = useTheme();
+  const progress = useSharedValue(0);
+  const stamp = useSharedValue(0);
+  const exit = useSharedValue(0);
+  const visible = celebration !== null;
 
   useEffect(() => {
     if (!visible) {
@@ -173,37 +286,46 @@ export function CheckInCelebration({
     ]
   }));
 
+  const kicker = celebration?.kind === "milestone" ? "连续坚持里程碑" : "今日全勤达成";
+  const headline = celebration?.kind === "milestone" ? `${celebration.days} 天` : "全部完成";
+  const subline =
+    celebration?.kind === "milestone" ? celebration.habitName : "今天的坚持，一件不落";
+  const accessibilityText =
+    celebration?.kind === "milestone"
+      ? `${celebration.habitName} 连续打卡 ${celebration.days} 天`
+      : "今天的习惯全部完成";
+
   return (
     <Modal visible={visible} transparent animationType="none" statusBarTranslucent onRequestClose={onFinish}>
       <Animated.View
         accessible
-        accessibilityLabel={`${habitName ?? "习惯"} 打卡完成`}
+        accessibilityLabel={accessibilityText}
         accessibilityRole="alert"
         style={[styles.stage, { backgroundColor: colors.overlay }, stageStyle]}
       >
         <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.primaryInk, opacity: 0.9 }]} />
         <Animated.View style={[styles.colorPool, { backgroundColor: colors.accent }, poolStyle]} />
-        <Animated.View style={[styles.colorPoolAlt, { backgroundColor: "#F6C84C" }, poolStyle]} />
+        <Animated.View style={[styles.colorPoolAlt, { backgroundColor: colors.celebration }, poolStyle]} />
 
         <View style={styles.center}>
           <Halo progress={progress} size={210} delay={0} />
           <Halo progress={progress} size={310} delay={0.14} />
           {SPARKS.map((spark, index) => (
-            <Spark key={index} progress={progress} spark={spark} color={index % 2 === 0 ? "#F6C84C" : colors.onPrimary} />
+            <Spark key={index} progress={progress} spark={spark} color={index % 2 === 0 ? colors.celebration : colors.onPrimary} />
           ))}
           {ORBIT_DOTS.map((dot, index) => (
-            <OrbitDot key={index} progress={progress} dot={dot} color={index % 2 === 0 ? colors.accent : "#F6C84C"} />
+            <OrbitDot key={index} progress={progress} dot={dot} color={index % 2 === 0 ? colors.accent : colors.celebration} />
           ))}
 
-          <Animated.View style={[styles.stamp, { borderColor: "#F6C84C", backgroundColor: colors.surface }, stampStyle]}>
+          <Animated.View style={[styles.stamp, { borderColor: colors.celebration, backgroundColor: colors.surface }, stampStyle]}>
             <AppText variant="caption" tone="primary" style={styles.kicker}>
-              CHECK-IN SEALED
+              {kicker}
             </AppText>
             <AppText variant="display" tone="primary" style={styles.doneText}>
-              完成 +1
+              {headline}
             </AppText>
             <AppText variant="bodyStrong" tone="soft" numberOfLines={1} style={styles.habitName}>
-              {habitName ?? "今天的坚持"}
+              {subline}
             </AppText>
           </Animated.View>
         </View>
@@ -224,6 +346,49 @@ const styles = StyleSheet.create({
     height: 1,
     alignItems: "center",
     justifyContent: "center"
+  },
+  miniStage: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    // 落在首屏列表上沿附近，靠近用户刚点过的区域又不挡住后续操作
+    paddingTop: 170,
+    zIndex: 10
+  },
+  miniCenter: {
+    width: 1,
+    height: 1,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  miniRing: {
+    position: "absolute",
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    borderWidth: 2
+  },
+  miniStamp: {
+    minWidth: 150,
+    maxWidth: 240,
+    alignItems: "center",
+    borderWidth: 2.5,
+    borderRadius: radius.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    elevation: 8
+  },
+  miniHabitName: {
+    marginTop: 2,
+    maxWidth: 200,
+    textAlign: "center"
   },
   colorPool: {
     position: "absolute",

@@ -1,13 +1,14 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { listHabits, moveHabit } from "../../src/habits/habitRepository";
 import { Habit } from "../../src/habits/types";
 import { AppButton, AppText, Badge, HelperText, IconButton } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
+import { radius, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 
 const WEEKDAY_SHORT = ["日", "一", "二", "三", "四", "五", "六"];
@@ -69,19 +70,25 @@ export default function HabitsScreen() {
       ) : (
         <View style={{ gap: spacing.sm }}>
           {habits.map((habit, index) => (
-            <View
+            <Pressable
               key={habit.id}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: spacing.md,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: colors.line,
-                backgroundColor: habit.isPaused ? colors.surfaceMuted : colors.surface,
-                paddingVertical: spacing.md,
-                paddingHorizontal: spacing.md
-              }}
+              accessibilityRole="button"
+              accessibilityLabel={`编辑 ${habit.name}`}
+              onPress={() => router.push({ pathname: "/habit/[id]", params: { id: habit.id } })}
+              style={({ pressed }) => [
+                {
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: spacing.md,
+                  borderRadius: radius.lg,
+                  borderWidth: 1,
+                  borderColor: colors.line,
+                  backgroundColor: habit.isPaused ? colors.surfaceMuted : colors.surface,
+                  paddingVertical: spacing.md,
+                  paddingHorizontal: spacing.md
+                },
+                pressed ? { opacity: 0.85 } : null
+              ]}
             >
               <View style={{ flex: 1, gap: 3 }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
@@ -94,7 +101,7 @@ export default function HabitsScreen() {
                   {frequencyLabel(habit)} · {habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒"}
                 </AppText>
               </View>
-              <View style={{ flexDirection: "row", gap: spacing.xs }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
                 <IconButton
                   name="chevron-up"
                   accessibilityLabel={`将 ${habit.name} 上移`}
@@ -107,14 +114,9 @@ export default function HabitsScreen() {
                   onPress={() => move(habit.id, "down")}
                   disabled={index === habits.length - 1}
                 />
-                <IconButton
-                  name="create-outline"
-                  tone="primary"
-                  accessibilityLabel={`编辑 ${habit.name}`}
-                  onPress={() => router.push({ pathname: "/habit/[id]", params: { id: habit.id } })}
-                />
+                <Ionicons name="chevron-forward" size={16} color={colors.faint} />
               </View>
-            </View>
+            </Pressable>
           ))}
         </View>
       )}
