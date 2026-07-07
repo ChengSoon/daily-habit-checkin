@@ -30,3 +30,13 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const method = options.method ?? "GET";
   return syncBackend.handle(path, method, options.body) as T;
 }
+
+/** 与真实 apiClient 对齐：返回内置后端地址。测试里给一个稳定基址即可。 */
+export function getApiBaseUrl(): string | null {
+  return "http://test.local";
+}
+
+/** 与真实 apiClient 对齐：返回 R2 公开域名基址，供 publicUrl 拼图片地址。 */
+export function getR2PublicBase(): string | null {
+  return "http://r2.test.local";
+}

@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { PropsWithChildren, ReactNode } from "react";
+import { PropsWithChildren, ReactNode, useEffect, useRef, useState } from "react";
 import {
+  Animated,
   KeyboardTypeOptions,
   Pressable,
   StyleProp,
@@ -205,17 +206,66 @@ export function SegmentedControl<T extends string | number>({
   onChange: (value: T) => void;
 }) {
   const { colors } = useTheme();
+  const PADDING = 4;
+  const [trackWidth, setTrackWidth] = useState(0);
+
+  const activeIndex = Math.max(
+    0,
+    options.findIndex((option) => option.value === value)
+  );
+  // 滑块随选中项平滑滑动：以 activeIndex 为动画目标，宽度按等分计算。
+  const position = useRef(new Animated.Value(activeIndex)).current;
+
+  useEffect(() => {
+    Animated.spring(position, {
+      toValue: activeIndex,
+      friction: 9,
+      tension: 90,
+      useNativeDriver: true
+    }).start();
+  }, [activeIndex, position]);
+
+  const count = options.length || 1;
+  const thumbWidth = trackWidth > 0 ? (trackWidth - PADDING * 2) / count : 0;
 
   return (
     <View
+      onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
       style={{
         flexDirection: "row",
         backgroundColor: colors.surfaceMuted,
         borderRadius: radius.md,
-        padding: 4,
-        gap: 4
+        padding: PADDING
       }}
     >
+      {/* 滑块：绝对定位，跟随选中项在选项间滑动。 */}
+      {thumbWidth > 0 ? (
+        <Animated.View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: PADDING,
+            left: PADDING,
+            bottom: PADDING,
+            width: thumbWidth,
+            borderRadius: radius.sm,
+            backgroundColor: colors.surface,
+            shadowColor: "#000",
+            shadowOpacity: 0.06,
+            shadowRadius: 4,
+            shadowOffset: { width: 0, height: 1 },
+            elevation: 1,
+            transform: [
+              {
+                translateX: position.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, thumbWidth]
+                })
+              }
+            ]
+          }}
+        />
+      ) : null}
       {options.map((option) => {
         const active = option.value === value;
         return (
@@ -230,17 +280,7 @@ export function SegmentedControl<T extends string | number>({
               borderRadius: radius.sm,
               alignItems: "center",
               justifyContent: "center",
-              paddingHorizontal: spacing.sm,
-              backgroundColor: active ? colors.surface : "transparent",
-              ...(active
-                ? {
-                    shadowColor: "#000",
-                    shadowOpacity: 0.06,
-                    shadowRadius: 4,
-                    shadowOffset: { width: 0, height: 1 },
-                    elevation: 1
-                  }
-                : {})
+              paddingHorizontal: spacing.sm
             }}
           >
             <AppText variant="bodyStrong" tone={active ? "primary" : "muted"}>

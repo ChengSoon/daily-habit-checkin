@@ -18,8 +18,7 @@ export const DEFAULT_REWARDS: CreateRewardInput[] = [
     status: "active",
     virtualKind: "theme",
     inventoryLimit: null,
-    imageData: null,
-    imageMime: null
+    imageKey: null
   },
   {
     title: "专属称号",
@@ -29,8 +28,7 @@ export const DEFAULT_REWARDS: CreateRewardInput[] = [
     status: "active",
     virtualKind: "title",
     inventoryLimit: null,
-    imageData: null,
-    imageMime: null
+    imageKey: null
   },
   {
     title: "奶茶一杯",
@@ -40,8 +38,7 @@ export const DEFAULT_REWARDS: CreateRewardInput[] = [
     status: "active",
     virtualKind: "none",
     inventoryLimit: null,
-    imageData: null,
-    imageMime: null
+    imageKey: null
   }
 ];
 

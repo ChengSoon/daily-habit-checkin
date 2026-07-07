@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentAccount, listSpaceMembers, SpaceMember } from "../sync/authService";
+import { publicUrl } from "../sync/uploadClient";
 import { AvatarTone } from "./Avatar";
 
 export type CoupleMember = {
@@ -8,10 +9,11 @@ export type CoupleMember = {
   /** 当前登录者=you（粉），另一半=partner（紫）。 */
   tone: AvatarTone;
   isMe: boolean;
-  /** 自定义头像 base64；没上传则为 null，回退到字母头像。 */
-  avatarData: string | null;
-  /** 自定义头像 MIME。 */
-  avatarMime: string | null;
+  /**
+   * 头像图片 URL（R2 公开域名直连，走 CDN + 系统缓存）；
+   * 没上传头像则为 null，组件回退到字母头像。图片字节不再进内存/JSON。
+   */
+  avatarUrl: string | null;
 };
 
 export type Couple = {
@@ -28,8 +30,12 @@ export type Couple = {
 
 const EMPTY: Couple = { you: null, partner: null, people: [], byId: {}, loaded: false };
 
-/** 当前登录账号的最小信息，用于在成员接口不可用时兜底渲染「你」。 */
-export type MeAccount = { id: string; displayName: string } | null;
+/** 当前登录账号的最小信息，用于在成员接口不可用时兜底渲染「你」（含头像）。 */
+export type MeAccount = {
+  id: string;
+  displayName: string;
+  avatarKey?: string | null;
+} | null;
 
 /**
  * 解析当前空间的情侣双方，把「当前登录者」标为 you（粉）、另一半标为 partner（紫）。
@@ -37,21 +43,22 @@ export type MeAccount = { id: string; displayName: string } | null;
  * 「你」优先取自 me（getCurrentAccount）——只要登录了就一定能显示自己的头像，
  * 不依赖 /space-members 接口（老后端没有该路由时会返回空成员）。
  * 「另一半」来自成员列表里 id 不等于自己的那个人；没有则优雅降级为单人 + 邀请引导。
+ *
+ * 头像不再随成员/账号 JSON 下发，这里根据对象 key 拼 R2 公开地址。
  */
 export function buildCouple(members: SpaceMember[], me: MeAccount): Couple {
   const myId = me?.id ?? null;
 
-  // 「你」：优先用 me；成员列表里若有更完整的昵称则以成员列表为准。
+  // 「你」：优先用 me；成员列表里若有更完整的昵称/头像 key 则以成员列表为准。
   const meFromMembers = myId ? members.find((member) => member.id === myId) ?? null : null;
-  // 头像只存在于成员列表（getCurrentAccount 不含头像），故从 meFromMembers 取。
   const you: CoupleMember | null = me
     ? {
         id: me.id,
         name: meFromMembers?.displayName ?? me.displayName,
         tone: "you",
         isMe: true,
-        avatarData: meFromMembers?.avatarData ?? null,
-        avatarMime: meFromMembers?.avatarMime ?? null
+        // 头像 key 优先取成员列表（更权威），回退 me；只要登录了就能显示自己的头像。
+        avatarUrl: publicUrl(meFromMembers ? meFromMembers.avatarKey : me.avatarKey ?? null)
       }
     : meFromMembers
       ? {
@@ -59,8 +66,7 @@ export function buildCouple(members: SpaceMember[], me: MeAccount): Couple {
           name: meFromMembers.displayName,
           tone: "you",
           isMe: true,
-          avatarData: meFromMembers.avatarData,
-          avatarMime: meFromMembers.avatarMime
+          avatarUrl: publicUrl(meFromMembers.avatarKey)
         }
       : null;
 
@@ -72,8 +78,7 @@ export function buildCouple(members: SpaceMember[], me: MeAccount): Couple {
         name: other.displayName,
         tone: "partner",
         isMe: false,
-        avatarData: other.avatarData,
-        avatarMime: other.avatarMime
+        avatarUrl: publicUrl(other.avatarKey)
       }
     : null;
 
@@ -96,7 +101,18 @@ export function useCouple(): Couple & { reload: () => void } {
   const reload = useCallback(() => {
     Promise.all([listSpaceMembers(), getCurrentAccount()])
       .then(([members, account]) =>
-        setCouple(buildCouple(members, account ? { id: account.id, displayName: account.displayName } : null))
+        setCouple(
+          buildCouple(
+            members,
+            account
+              ? {
+                  id: account.id,
+                  displayName: account.displayName,
+                  avatarKey: account.avatarKey
+                }
+              : null
+          )
+        )
       )
       .catch(() => setCouple(EMPTY));
   }, []);

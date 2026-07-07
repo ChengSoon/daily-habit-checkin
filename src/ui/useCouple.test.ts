@@ -6,16 +6,19 @@ const member = (
   id: string,
   displayName: string,
   role: "owner" | "member" = "member",
-  avatar?: { data: string; mime: string }
+  avatarKey?: string
 ): SpaceMember => ({
   id,
   displayName,
   role,
-  avatarData: avatar?.data ?? null,
-  avatarMime: avatar?.mime ?? null
+  avatarKey: avatarKey ?? null
 });
 
-const me = (id: string, displayName: string) => ({ id, displayName });
+const me = (id: string, displayName: string, avatarKey?: string) => ({
+  id,
+  displayName,
+  avatarKey: avatarKey ?? null
+});
 
 describe("buildCouple", () => {
   it("未登录且无成员时返回未加载状态", () => {
@@ -58,5 +61,25 @@ describe("buildCouple", () => {
     const couple = buildCouple([member("a", "小明"), member("b", "小红")], me("b", "小红"));
     expect(couple.byId["a"].name).toBe("小明");
     expect(couple.byId["b"].isMe).toBe(true);
+  });
+
+  it("成员接口为空时，用 me 携带的头像 key 兜底拼出「你」的头像 URL", () => {
+    // /space-members 暂时不可用或还没返回时，只要 /me 带回了头像 key，自己的头像就应显示。
+    const couple = buildCouple([], me("b", "小红", "avatars/b/pic.jpg"));
+    expect(couple.you?.avatarUrl).toBe("http://r2.test.local/avatars/b/pic.jpg");
+  });
+
+  it("没有头像 key 时 avatarUrl 为 null，回退字母头像", () => {
+    const couple = buildCouple([], me("b", "小红"));
+    expect(couple.you?.avatarUrl).toBeNull();
+  });
+
+  it("成员列表的头像 key 优先于 me 携带的", () => {
+    // 两处都有头像时以成员列表为准（同一份数据，成员列表更权威）。
+    const couple = buildCouple(
+      [member("b", "小红", "member", "avatars/b/from-members.jpg")],
+      me("b", "小红", "avatars/b/from-me.jpg")
+    );
+    expect(couple.you?.avatarUrl).toBe("http://r2.test.local/avatars/b/from-members.jpg");
   });
 });

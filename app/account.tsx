@@ -13,6 +13,7 @@ import {
   updateMyAvatar
 } from "../src/sync/authService";
 import { PickedImage } from "../src/rewards/rewardImage";
+import { uploadImage } from "../src/sync/uploadClient";
 import { AppButton, AppText, Badge, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
 import { CoupleAvatars } from "../src/ui/Avatar";
 import { AvatarPicker } from "../src/ui/AvatarPicker";
@@ -36,7 +37,7 @@ export default function AccountScreen() {
   const [showPassword, setShowPassword] = useState(false);
 
   const couple = useCouple();
-  const { colors } = useTheme();
+  const { colors, reloadTheme } = useTheme();
 
   const load = useCallback(async () => {
     const current = await getCurrentAccount();
@@ -70,6 +71,8 @@ export default function AccountScreen() {
       setAccount(result);
       setMessage(mode === "register" ? "注册成功，已创建你们的空间" : "登录成功");
       setPassword("");
+      // 登录态刚建立，把该账号已保存的主题从服务端拉回来，否则会停在默认主题。
+      reloadTheme();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "操作失败");
     } finally {
@@ -86,6 +89,8 @@ export default function AccountScreen() {
       setAccount(result);
       setInviteCode("");
       setMessage("已加入对方的空间，数据将开始共享");
+      // 空间变了，主题也可能不同，重新拉取。
+      reloadTheme();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "加入失败");
     } finally {
@@ -97,13 +102,17 @@ export default function AccountScreen() {
     await logout();
     setAccount(null);
     setMessage("已退出登录");
+    // 已登出，未登录时 getAppSettings 会抛错被 catch，主题自然回退到默认。
+    reloadTheme();
   }
 
   async function handleAvatarChange(image: PickedImage | null) {
     setError(null);
     setMessage(null);
     try {
-      await updateMyAvatar(image);
+      // 有图先直传 R2 拿到 key，再把 key 提交给后端；移除则传 null 清空。
+      const key = image ? await uploadImage("avatar", image) : null;
+      await updateMyAvatar(key);
       couple.reload();
       setMessage(image ? "头像已更新" : "已移除头像");
     } catch (caughtError) {
@@ -115,21 +124,16 @@ export default function AccountScreen() {
   const myTone = couple.you?.tone ?? "you";
 
   if (account) {
+    const paired = !!couple.partner;
     return (
       <Screen>
-        <View style={{ gap: spacing.xs }}>
-          <AppText variant="display">账号与同步</AppText>
-          <AppText variant="body" tone="muted">
-            登录后，两台设备共享同一份数据
-          </AppText>
-        </View>
+        <AppText variant="display">账号与同步</AppText>
 
         <SectionCard title="当前账号">
           <AvatarPicker
             name={account.displayName}
             tone={myTone}
-            imageData={couple.you?.avatarData}
-            imageMime={couple.you?.avatarMime}
+            imageUri={couple.you?.avatarUrl}
             onChange={handleAvatarChange}
           />
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
@@ -144,31 +148,33 @@ export default function AccountScreen() {
                 people={couple.people.map((person) => ({
                   name: person.name,
                   tone: person.tone,
-                  imageData: person.avatarData,
-                  imageMime: person.avatarMime
+                  imageUri: person.avatarUrl
                 }))}
                 size={40}
               />
             ) : null}
           </View>
-          <AppText variant="small" tone="muted">
-            {couple.partner
-              ? `你和 ${couple.partner.name} 正在共享同一个空间 💞`
-              : "还差另一半 —— 把下面的邀请码发给 TA。"}
-          </AppText>
-          <View style={{ gap: spacing.xs }}>
-            <Label>邀请码（发给另一半，让 TA 加入你们的空间）</Label>
-            <Badge label={account.inviteCode ?? "—"} tone="primary" />
-          </View>
+          {paired ? (
+            <AppText variant="small" tone="muted">
+              你和 {couple.partner!.name} 正在共享同一个空间 💞
+            </AppText>
+          ) : (
+            <View style={{ gap: spacing.xs }}>
+              <Label>邀请码 · 发给另一半即可同步</Label>
+              <Badge label={account.inviteCode ?? "—"} tone="primary" />
+            </View>
+          )}
         </SectionCard>
 
-        <SectionCard title="加入对方的空间">
-          <AppText variant="small" tone="muted">
-            如果对方已经创建了空间，填入 TA 的邀请码即可共享数据。注意：加入后你当前空间的数据将不再显示。
-          </AppText>
-          <TextField label="邀请码" value={inviteCode} onChangeText={setInviteCode} placeholder="输入 8 位邀请码" />
-          <AppButton title="加入空间" onPress={doJoinSpace} disabled={busy || inviteCode.trim().length < 4} />
-        </SectionCard>
+        {!paired ? (
+          <SectionCard title="加入对方的空间">
+            <AppText variant="small" tone="muted">
+              填入对方的邀请码共享数据，当前空间数据会被替换。
+            </AppText>
+            <TextField label="邀请码" value={inviteCode} onChangeText={setInviteCode} placeholder="输入 8 位邀请码" />
+            <AppButton title="加入空间" onPress={doJoinSpace} disabled={busy || inviteCode.trim().length < 4} />
+          </SectionCard>
+        ) : null}
 
         {message ? <HelperText tone="success">{message}</HelperText> : null}
         {error ? <HelperText tone="danger">{error}</HelperText> : null}

@@ -1,4 +1,5 @@
 import { apiRequest } from "./apiClient";
+import { publicUrl } from "./uploadClient";
 import { clearAuthToken, getAuthToken, saveAuthToken } from "./localSettings";
 
 export type AccountRole = "owner" | "member";
@@ -10,6 +11,8 @@ export type Account = {
   spaceId: string;
   inviteCode: string | null;
   role: AccountRole;
+  /** 头像的 R2 对象 key；用 avatarUrl(avatarKey) 拼公开域名取图，无图为 null（字母头像）。 */
+  avatarKey: string | null;
 };
 
 /** 空间成员的公开信息，用于渲染「你 + TA」的成对头像与打卡归属。 */
@@ -17,10 +20,20 @@ export type SpaceMember = {
   id: string;
   displayName: string;
   role: AccountRole;
-  /** 自定义头像（base64），未设置时为 null，回退到字母头像。 */
-  avatarData: string | null;
-  avatarMime: string | null;
+  /** 头像的 R2 对象 key；用 avatarUrl(avatarKey) 拼公开域名取图，无图为 null。 */
+  avatarKey: string | null;
 };
+
+/**
+ * 把头像的 R2 对象 key 拼成可直接交给 <Image source={{ uri }}> 的公开地址。
+ * 头像存 R2、走公开域名直连（CDN + 系统缓存），不再塞进 /me、/space-members 的 JSON——
+ * 这是把这两个接口从 ~690KB 降回几乎 0 的关键。
+ *
+ * 没头像（avatarKey 为 null）或未配置公开域名时返回 null，让组件回退到字母头像。
+ */
+export function avatarUrl(avatarKey: string | null): string | null {
+  return publicUrl(avatarKey);
+}
 
 type AuthResponse = {
   token: string;
@@ -104,14 +117,12 @@ export async function listSpaceMembers(): Promise<SpaceMember[]> {
 }
 
 /**
- * 更新当前登录账号的头像。传入压缩后的图片（base64 + mime），
- * 传 null 则清空头像、回退到字母头像。
+ * 更新当前登录账号的头像。传入已上传到 R2 后拿到的对象 key，
+ * 传 null 则清空头像、回退到字母头像。图片本身已由 uploadImage 直传 R2。
  */
-export async function updateMyAvatar(avatar: { data: string; mime: string } | null): Promise<void> {
+export async function updateMyAvatar(avatarKey: string | null): Promise<void> {
   await apiRequest<void>("/api/auth/me/avatar", {
     method: "PUT",
-    body: avatar
-      ? { avatarData: avatar.data, avatarMime: avatar.mime }
-      : { avatarData: null, avatarMime: null }
+    body: { avatarKey }
   });
 }

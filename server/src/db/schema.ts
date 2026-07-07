@@ -18,16 +18,17 @@ CREATE TABLE IF NOT EXISTS accounts (
   display_name TEXT NOT NULL,
   space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
   role TEXT NOT NULL DEFAULT 'member',
-  avatar_data TEXT,
-  avatar_mime TEXT,
+  avatar_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_space ON accounts(space_id);
 -- 兼容已有部署：老库没有 role 列时补上
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'member';
--- 兼容已有部署：老库没有头像列时补上（base64 存库，与奖励图片同模式）
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS avatar_data TEXT;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS avatar_mime TEXT;
+-- 头像改存 Cloudflare R2：这里只保留对象 key（如 avatars/<accountId>/<uuid>.jpg），
+-- 图片字节走 R2 公开域名直连，不再进 Postgres，也不塞进任何 JSON 接口。
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS avatar_key TEXT;
+-- 兼容已有部署：老库的 base64 头像列停用（保留列不读，避免破坏旧数据），
+-- 迁移后需重新上传一次头像。avatar_data/avatar_mime/avatar_updated_at 不再读写。
 
 CREATE TABLE IF NOT EXISTS habits (
   id TEXT PRIMARY KEY,
@@ -117,12 +118,14 @@ CREATE TABLE IF NOT EXISTS rewards (
   status TEXT NOT NULL,
   virtual_kind TEXT NOT NULL,
   inventory_limit INTEGER,
-  image_data TEXT,
-  image_mime TEXT,
+  image_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_rewards_space ON rewards(space_id);
+-- 奖励图改存 Cloudflare R2：只保留对象 key，图片走 R2 公开域名直连。
+-- 兼容已有部署补列；旧的 image_data/image_mime 停用（保留列不读）。
+ALTER TABLE rewards ADD COLUMN IF NOT EXISTS image_key TEXT;
 
 CREATE TABLE IF NOT EXISTS reward_redemptions (
   id TEXT PRIMARY KEY,

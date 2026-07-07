@@ -31,8 +31,7 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "none",
       inventoryLimit: null,
-      imageData: null,
-      imageMime: null
+      imageKey: null
     });
 
     const redemption = await redeemReward(reward.id);
@@ -63,8 +62,7 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "theme",
       inventoryLimit: null,
-      imageData: null,
-      imageMime: null
+      imageKey: null
     });
 
     const redemption = await redeemReward(reward.id);
@@ -81,8 +79,7 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "none",
       inventoryLimit: null,
-      imageData: null,
-      imageMime: null
+      imageKey: null
     });
 
     await expect(redeemReward(reward.id)).rejects.toThrow("积分不足，还差 1000 积分");
@@ -110,8 +107,7 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "none",
       inventoryLimit: null,
-      imageData: null,
-      imageMime: null
+      imageKey: null
     });
     const first = await redeemReward(reward.id);
     const fulfilled = await fulfillRedemption(first.id);
@@ -133,8 +129,7 @@ describe("reward service", () => {
       status: "active",
       virtualKind: "title",
       inventoryLimit: null,
-      imageData: null,
-      imageMime: null
+      imageKey: null
     });
 
     expect((await listRewards({ includeArchived: false })).map((item) => item.id)).toEqual([reward.id]);

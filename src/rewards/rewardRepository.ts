@@ -19,8 +19,7 @@ type RewardDto = {
   status: Reward["status"];
   virtualKind: Reward["virtualKind"];
   inventoryLimit: number | null;
-  imageData: string | null;
-  imageMime: string | null;
+  imageKey: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -46,8 +45,7 @@ function mapReward(dto: RewardDto): Reward {
     status: dto.status,
     virtualKind: dto.virtualKind,
     inventoryLimit: dto.inventoryLimit === null ? null : Number(dto.inventoryLimit),
-    imageData: dto.imageData,
-    imageMime: dto.imageMime,
+    imageKey: dto.imageKey,
     createdAt: dto.createdAt,
     updatedAt: dto.updatedAt
   };
@@ -75,8 +73,7 @@ function rewardFields(reward: Reward): Record<string, unknown> {
     status: reward.status,
     virtualKind: reward.virtualKind,
     inventoryLimit: reward.inventoryLimit,
-    imageData: reward.imageData,
-    imageMime: reward.imageMime,
+    imageKey: reward.imageKey,
     createdAt: reward.createdAt,
     updatedAt: reward.updatedAt
   };
@@ -105,8 +102,7 @@ export async function createReward(input: CreateRewardInput): Promise<Reward> {
     status: input.status,
     virtualKind: input.virtualKind,
     inventoryLimit: input.inventoryLimit,
-    imageData: input.imageData,
-    imageMime: input.imageMime,
+    imageKey: input.imageKey,
     createdAt: now,
     updatedAt: now
   };
@@ -128,8 +124,7 @@ export async function updateReward(id: string, input: CreateRewardInput): Promis
     status: input.status,
     virtualKind: input.virtualKind,
     inventoryLimit: input.inventoryLimit,
-    imageData: input.imageData,
-    imageMime: input.imageMime,
+    imageKey: input.imageKey,
     createdAt,
     updatedAt: new Date().toISOString()
   };

@@ -133,8 +133,7 @@ export default function ProfileScreen() {
                   people={couple.people.map((person) => ({
                     name: person.name,
                     tone: person.tone,
-                    imageData: person.avatarData,
-                    imageMime: person.avatarMime
+                    imageUri: person.avatarUrl
                   }))}
                   size={40}
                 />

@@ -168,8 +168,7 @@ export default function TodayScreen() {
       completerByHabit[checkIn.habitId] = {
         name: person.name,
         tone: person.tone,
-        imageData: person.avatarData,
-        imageMime: person.avatarMime
+        imageUri: person.avatarUrl
       };
     }
   }
@@ -191,8 +190,7 @@ export default function TodayScreen() {
           people={couple.people.map((person) => ({
             name: person.name,
             tone: person.tone,
-            imageData: person.avatarData,
-            imageMime: person.avatarMime
+            imageUri: person.avatarUrl
           }))}
           hasPartner={couple.partner !== null}
         />

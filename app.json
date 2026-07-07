@@ -8,10 +8,16 @@
     "scheme": "dailyhabitcheckin",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/images/icon.png"
+      "icon": "./assets/images/icon.png",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
     },
     "android": {
       "package": "com.dailyhabitcheckin.app",
+      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#FBE1EF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -51,7 +57,8 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiBaseUrl": "http://192.168.1.8:8787",
+      "apiBaseUrl": "http://111.228.40.252:4000/habit",
+      "r2PublicBase": "https://lcvv.eu.org",
       "router": {},
       "eas": {
         "projectId": "6cebff69-997b-47dc-951a-c7bbe8b62aa4"

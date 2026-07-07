@@ -21,9 +21,8 @@ export type HabitCompleter = {
   name: string;
   /** 完成者分色（you=粉 / partner=紫）。 */
   tone: AvatarTone;
-  /** 自定义头像 base64；没上传则回退字母头像。 */
-  imageData?: string | null;
-  imageMime?: string | null;
+  /** 完成者头像图片 URL（R2 公开域名直读）；没上传则回退字母头像。 */
+  imageUri?: string | null;
 };
 
 export function HabitRow({
@@ -105,8 +104,7 @@ export function HabitRow({
               name={completedBy.name}
               tone={completedBy.tone}
               size={20}
-              imageData={completedBy.imageData}
-              imageMime={completedBy.imageMime}
+              imageUri={completedBy.imageUri}
             />
             <AppText variant="small" tone="muted" numberOfLines={1}>
               {completedBy.name}

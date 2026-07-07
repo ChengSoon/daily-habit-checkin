@@ -6,8 +6,7 @@ import {
   captureRewardImage,
   PickedImage,
   pickRewardImageFromLibrary,
-  PickResult,
-  toDataUri
+  PickResult
 } from "../rewards/rewardImage";
 import { RewardType } from "../rewards/types";
 import { AppText, Label } from "./Controls";
@@ -105,22 +104,24 @@ export function RewardThumb({
 }
 
 /**
- * 管理页选图控件。点击后询问相册或拍照，选中后持久化并回传本地路径。
+ * 管理页选图控件。点击后询问相册或拍照，选中后把压缩好的本地图（PickedImage）回传父组件；
+ * 上传到 R2 与落库交给父组件在保存时处理。展示用 previewUri（可能是本地图或已有远程图）。
  */
 export function ImagePickerField({
   label = "商品图片",
   type,
-  value,
+  previewUri,
   onChange
 }: {
   label?: string;
   type: RewardType;
-  value: PickedImage | null;
+  /** 当前预览地址：新选的本地图 uri，或已有远程图的公开 URL，无图为 null。 */
+  previewUri: string | null;
+  /** 回传选中的本地图；传 null 表示移除。 */
   onChange: (image: PickedImage | null) => void;
 }) {
   const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
-  const previewUri = value ? toDataUri(value.data, value.mime) : null;
 
   async function run(picker: () => Promise<PickResult>) {
     setBusy(true);
@@ -195,7 +196,7 @@ export function ImagePickerField({
           </View>
         ) : null}
       </Pressable>
-      {value ? (
+      {previewUri ? (
         <View style={{ flexDirection: "row", gap: spacing.md }}>
           <Pressable onPress={choose} disabled={busy} hitSlop={6}>
             <AppText variant="small" tone="primary">

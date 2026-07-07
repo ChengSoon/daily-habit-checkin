@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { pickRewardImageFromLibrary, PickedImage, toDataUri } from "../rewards/rewardImage";
+import { pickAvatarFromLibrary, PickedImage } from "../rewards/rewardImage";
 import { AppText } from "./Controls";
 import { AvatarTone } from "./Avatar";
 import { radius, spacing } from "./theme";
@@ -9,21 +9,20 @@ import { useTheme } from "./ThemeContext";
 
 /**
  * 圆形头像选择器，用于账号页上传/更换自己的头像。
- * 复用奖励图片的选择+压缩链路（pickRewardImageFromLibrary：内部含权限、最长边缩放、
- * JPEG 0.7、base64）。上传/移除都通过 onChange 回调交给页面调用后端。
+ * 走头像专用的选择+压缩链路（pickAvatarFromLibrary：内部含权限、1:1 裁剪、
+ * 256px/0.6 压缩，产出本地文件 URI）。选完通过 onChange 回调交给页面直传 R2。
  */
 export function AvatarPicker({
   name,
   tone,
-  imageData,
-  imageMime,
+  imageUri,
   onChange,
   size = 84
 }: {
   name: string;
   tone: AvatarTone;
-  imageData?: string | null;
-  imageMime?: string | null;
+  /** 当前头像的图片 URL（走独立取图端点，系统缓存）；无则显示字母头像。 */
+  imageUri?: string | null;
   /** 传 PickedImage 上传新头像，传 null 移除头像。 */
   onChange: (image: PickedImage | null) => Promise<void> | void;
   size?: number;
@@ -31,17 +30,22 @@ export function AvatarPicker({
   const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // 乐观预览：选完/移除立刻本地生效，不等服务端往返回读。
+  // undefined = 用上层传入的 props；PickedImage = 刚选的图；null = 刚移除。
+  const [preview, setPreview] = useState<PickedImage | null | undefined>(undefined);
 
   const bg = tone === "you" ? colors.primary : colors.partner;
   const fg = tone === "you" ? colors.onPrimary : colors.onPartner;
-  const currentUri = toDataUri(imageData ?? null, imageMime ?? null);
+  // 刚选/移除的图走本地文件 URI 预览（乐观更新，不等服务端）；
+  // 否则用外部传入的 R2 公开 URL（系统缓存）。
+  const currentUri = preview !== undefined ? preview?.uri ?? null : imageUri ?? null;
   const first = [...name.trim()][0]?.toUpperCase() ?? "?";
 
   async function pick() {
     setError(null);
     setBusy(true);
     try {
-      const result = await pickRewardImageFromLibrary();
+      const result = await pickAvatarFromLibrary();
       if (result.status === "denied") {
         setError("需要相册权限才能选择头像");
         return;
@@ -49,7 +53,14 @@ export function AvatarPicker({
       if (result.status === "cancelled") {
         return;
       }
-      await onChange(result.image);
+      // 先本地显示，再交给上层上传；上传失败则回退到原状态。
+      setPreview(result.image);
+      try {
+        await onChange(result.image);
+      } catch (uploadError) {
+        setPreview(undefined);
+        throw uploadError;
+      }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "头像上传失败");
     } finally {
@@ -61,7 +72,13 @@ export function AvatarPicker({
     setError(null);
     setBusy(true);
     try {
-      await onChange(null);
+      setPreview(null);
+      try {
+        await onChange(null);
+      } catch (removeError) {
+        setPreview(undefined);
+        throw removeError;
+      }
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "移除头像失败");
     } finally {

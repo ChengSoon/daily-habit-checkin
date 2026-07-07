@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
 import { getRewardById, listRedemptions } from "../../src/rewards/rewardRepository";
 import { cancelRedemption, fulfillRedemption } from "../../src/rewards/rewardService";
-import { toDataUri } from "../../src/rewards/rewardImage";
+import { publicUrl } from "../../src/sync/uploadClient";
 import { Reward, RewardRedemption } from "../../src/rewards/types";
 import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
@@ -90,7 +90,7 @@ export default function RedemptionsScreen() {
           return (
             <Card key={item.id} style={{ gap: spacing.md }}>
               <View style={{ flexDirection: "row", gap: spacing.md }}>
-                <RewardThumb uri={toDataUri(reward?.imageData ?? null, reward?.imageMime ?? null)} type={reward?.type ?? "real_world"} />
+                <RewardThumb uri={publicUrl(reward?.imageKey ?? null)} type={reward?.type ?? "real_world"} />
                 <View style={{ flex: 1, gap: spacing.xs }}>
                   <Badge label={STATUS_LABEL[item.status]} tone={item.status === "cancelled" ? "muted" : "primary"} />
                   <AppText variant="bodyStrong">{reward?.title ?? "奖励已不存在"}</AppText>

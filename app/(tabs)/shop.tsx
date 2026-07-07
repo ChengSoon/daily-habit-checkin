@@ -2,7 +2,7 @@ import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { listRewards } from "../../src/rewards/rewardRepository";
 import { ensureDefaultRewards, redeemReward } from "../../src/rewards/rewardService";
-import { toDataUri } from "../../src/rewards/rewardImage";
+import { publicUrl } from "../../src/sync/uploadClient";
 import { Reward } from "../../src/rewards/types";
 import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
@@ -83,7 +83,7 @@ export default function ShopScreen() {
             const canRedeem = balance >= reward.priceXp;
             return (
               <Card key={reward.id} style={{ padding: 0, overflow: "hidden", gap: 0 }}>
-                <RewardImage uri={toDataUri(reward.imageData, reward.imageMime)} type={reward.type} height={160} radiusToken={0} />
+                <RewardImage uri={publicUrl(reward.imageKey)} type={reward.type} height={160} radiusToken={0} />
                 <View style={{ padding: spacing.lg, gap: spacing.md }}>
                   <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.md }}>
                     <View style={{ flex: 1, gap: spacing.xs }}>

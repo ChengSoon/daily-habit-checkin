@@ -2,7 +2,8 @@ import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { createReward, listRewards, updateReward } from "../../src/rewards/rewardRepository";
-import { PickedImage, toDataUri } from "../../src/rewards/rewardImage";
+import { PickedImage } from "../../src/rewards/rewardImage";
+import { uploadImage, publicUrl } from "../../src/sync/uploadClient";
 import { Reward, RewardType, VirtualRewardKind } from "../../src/rewards/types";
 import {
   AppButton,
@@ -35,14 +36,21 @@ function AdminRewardsContent() {
   const [type, setType] = useState<RewardType>("real_world");
   const [priceXp, setPriceXp] = useState("300");
   const [virtualKind, setVirtualKind] = useState<VirtualRewardKind>("none");
-  const [image, setImage] = useState<PickedImage | null>(null);
+  // 图片有两种来源：编辑时带回的已有远程图（imageKey）、以及刚从相册/相机选的本地图（picked）。
+  // 保存时若有 picked 则先上传拿到新 key，否则沿用 imageKey；移除则两者都清空。
+  const [imageKey, setImageKey] = useState<string | null>(null);
+  const [picked, setPicked] = useState<PickedImage | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(() => {
     listRewards({ includeArchived: true }).then(setRewards);
   }, []);
 
   useFocusEffect(load);
+
+  // 预览地址：优先显示刚选的本地图，其次是已有远程图，都没有则占位。
+  const previewUri = picked ? picked.uri : publicUrl(imageKey);
 
   function startEdit(reward: Reward) {
     setEditing(reward);
@@ -51,7 +59,8 @@ function AdminRewardsContent() {
     setType(reward.type);
     setPriceXp(String(reward.priceXp));
     setVirtualKind(reward.virtualKind);
-    setImage(reward.imageData ? { data: reward.imageData, mime: reward.imageMime ?? "image/jpeg" } : null);
+    setImageKey(reward.imageKey);
+    setPicked(null);
     setMessage(null);
   }
 
@@ -62,32 +71,51 @@ function AdminRewardsContent() {
     setType("real_world");
     setPriceXp("300");
     setVirtualKind("none");
-    setImage(null);
+    setImageKey(null);
+    setPicked(null);
+  }
+
+  function onPickImage(image: PickedImage | null) {
+    if (image) {
+      setPicked(image);
+    } else {
+      // 移除：清掉本地选择与已有远程图。
+      setPicked(null);
+      setImageKey(null);
+    }
   }
 
   async function save() {
-    // 图片以 base64 存库，换图/移除直接覆盖字段，无本地文件需要清理。
-    const input = {
-      title,
-      description: description || null,
-      type,
-      priceXp: Number(priceXp),
-      status: editing?.status ?? "active",
-      virtualKind: type === "virtual" ? virtualKind : "none",
-      inventoryLimit: null,
-      imageData: image?.data ?? null,
-      imageMime: image?.mime ?? null
-    } as const;
+    setBusy(true);
+    setMessage(null);
+    try {
+      // 有新选的本地图就先直传 R2 拿 key，否则沿用原有 key（可能为 null）。
+      const finalKey = picked ? await uploadImage("reward", picked) : imageKey;
+      const input = {
+        title,
+        description: description || null,
+        type,
+        priceXp: Number(priceXp),
+        status: editing?.status ?? "active",
+        virtualKind: type === "virtual" ? virtualKind : "none",
+        inventoryLimit: null,
+        imageKey: finalKey
+      } as const;
 
-    if (editing) {
-      await updateReward(editing.id, input);
-      setMessage("奖励已更新");
-    } else {
-      await createReward(input);
-      setMessage("奖励已新增");
+      if (editing) {
+        await updateReward(editing.id, input);
+        setMessage("奖励已更新");
+      } else {
+        await createReward(input);
+        setMessage("奖励已新增");
+      }
+      resetForm();
+      load();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "保存失败");
+    } finally {
+      setBusy(false);
     }
-    resetForm();
-    load();
   }
 
   async function toggleArchived(reward: Reward) {
@@ -99,8 +127,7 @@ function AdminRewardsContent() {
       status: reward.status === "active" ? "archived" : "active",
       virtualKind: reward.virtualKind,
       inventoryLimit: reward.inventoryLimit,
-      imageData: reward.imageData,
-      imageMime: reward.imageMime
+      imageKey: reward.imageKey
     });
     load();
   }
@@ -116,7 +143,7 @@ function AdminRewardsContent() {
 
       <Card>
         <AppText variant="section">{editing ? "编辑商品" : "新增商品"}</AppText>
-        <ImagePickerField type={type} value={image} onChange={setImage} />
+        <ImagePickerField type={type} previewUri={previewUri} onChange={onPickImage} />
         <TextField label="名称" value={title} onChangeText={setTitle} placeholder="例如：奶茶一杯" />
         <TextField label="描述" value={description} onChangeText={setDescription} placeholder="例如：周末兑现" />
         <View style={{ gap: spacing.sm }}>
@@ -147,7 +174,12 @@ function AdminRewardsContent() {
         <TextField label="价格（积分）" value={priceXp} onChangeText={setPriceXp} keyboardType="numeric" />
         {message ? <HelperText tone="success">{message}</HelperText> : null}
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <AppButton title="保存" onPress={save} disabled={!title || Number(priceXp) <= 0} style={{ flex: 1 }} />
+          <AppButton
+            title="保存"
+            onPress={save}
+            disabled={busy || !title || Number(priceXp) <= 0}
+            style={{ flex: 1 }}
+          />
           {editing ? (
             <AppButton title="取消编辑" variant="ghost" onPress={resetForm} style={{ flex: 1 }} />
           ) : (
@@ -165,7 +197,7 @@ function AdminRewardsContent() {
         {rewards.map((reward) => (
           <Card key={reward.id}>
             <View style={{ flexDirection: "row", gap: spacing.md }}>
-              <RewardThumb uri={toDataUri(reward.imageData, reward.imageMime)} type={reward.type} size={56} />
+              <RewardThumb uri={publicUrl(reward.imageKey)} type={reward.type} size={56} />
               <View style={{ flex: 1, gap: spacing.xs }}>
                 <Badge
                   label={reward.status === "active" ? "上架中" : "已下架"}

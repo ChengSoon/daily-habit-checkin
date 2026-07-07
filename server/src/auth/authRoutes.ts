@@ -9,7 +9,7 @@ import {
   joinSpaceByInviteCode,
   listSpaceMembers,
   registerAccount,
-  updateAvatar
+  updateAvatarKey
 } from "./accountRepository.js";
 import { requireAuth } from "./authMiddleware.js";
 
@@ -30,12 +30,7 @@ const JoinSchema = z.object({
   inviteCode: z.string().min(4).max(16)
 });
 
-async function withInviteCode(account: {
-  id: string;
-  email: string;
-  displayName: string;
-  spaceId: string;
-}) {
+async function withInviteCode<T extends { spaceId: string }>(account: T) {
   const inviteCode = await getSpaceInviteCode(account.spaceId);
   return { ...account, inviteCode };
 }
@@ -101,28 +96,21 @@ authRouter.get("/space-members", requireAuth, async (request, response) => {
   response.json({ members });
 });
 
-// base64 头像上限约 3MB（客户端已压缩到最长边 512px），防止撞请求体上限。
+// 头像现在存 Cloudflare R2，只在库里记对象 key。客户端先经 /api/uploads/presign
+// 直传图片到 R2，再把返回的 key 提交到这里。传 { avatarKey: null } 即清除头像。
 const AvatarSchema = z.object({
-  avatarData: z.string().min(1).max(4_000_000).nullable(),
-  avatarMime: z.string().min(1).max(64).nullable()
+  avatarKey: z.string().min(1).max(512).nullable()
 });
 
 /**
- * 更新当前登录账号的头像（存 accounts.avatar_data/avatar_mime）。
- * 传 { avatarData: null, avatarMime: null } 即删除头像，回退到字母头像。
+ * 更新当前登录账号的头像 key（accounts.avatar_key）。
+ * 传 { avatarKey: null } 即删除头像，回退到字母头像。
+ * 图片字节不经此接口——它已由客户端直传 R2。
  */
 authRouter.put("/me/avatar", requireAuth, async (request, response) => {
   try {
     const input = AvatarSchema.parse(request.body);
-    // 要么都有、要么都为 null，避免半截数据。
-    if ((input.avatarData === null) !== (input.avatarMime === null)) {
-      response.status(400).json({ error: "头像数据与类型必须同时提供或同时清空" });
-      return;
-    }
-    await updateAvatar(
-      request.accountId!,
-      input.avatarData && input.avatarMime ? { data: input.avatarData, mime: input.avatarMime } : null
-    );
+    await updateAvatarKey(request.accountId!, input.avatarKey);
     response.status(204).end();
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : "更新头像失败" });

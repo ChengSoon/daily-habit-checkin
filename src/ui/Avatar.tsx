@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image, View } from "react-native";
-import { toDataUri } from "../rewards/rewardImage";
 import { AppText } from "./Controls";
 import { radius, spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
@@ -26,21 +25,18 @@ export function Avatar({
   tone,
   size = 32,
   showRing = false,
-  imageData,
-  imageMime
+  imageUri
 }: {
   name: string;
   tone: AvatarTone;
   size?: number;
   showRing?: boolean;
-  /** 自定义头像 base64；有则显示图片，无则回退字母头像。 */
-  imageData?: string | null;
-  imageMime?: string | null;
+  /** 头像图片 URL（走独立取图端点，系统缓存）；有则显示图片，无则回退字母头像。 */
+  imageUri?: string | null;
 }) {
   const { colors } = useTheme();
   const bg = tone === "you" ? colors.primary : colors.partner;
   const fg = tone === "you" ? colors.onPrimary : colors.onPartner;
-  const imageUri = imageData && imageMime ? toDataUri(imageData, imageMime) : null;
 
   return (
     <View
@@ -71,8 +67,8 @@ export function Avatar({
 export type CouplePerson = {
   name: string;
   tone: AvatarTone;
-  imageData?: string | null;
-  imageMime?: string | null;
+  /** 头像图片 URL（走独立取图端点，系统缓存）；无则回退字母头像。 */
+  imageUri?: string | null;
 };
 
 /**
@@ -107,8 +103,7 @@ export function CoupleAvatars({
               tone={person.tone}
               size={size}
               showRing
-              imageData={person.imageData}
-              imageMime={person.imageMime}
+              imageUri={person.imageUri}
             />
           </View>
         ))}
@@ -174,19 +169,17 @@ export function AvatarWithName({
   tone,
   subtitle,
   size = 40,
-  imageData,
-  imageMime
+  imageUri
 }: {
   name: string;
   tone: AvatarTone;
   subtitle?: string;
   size?: number;
-  imageData?: string | null;
-  imageMime?: string | null;
+  imageUri?: string | null;
 }) {
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-      <Avatar name={name} tone={tone} size={size} imageData={imageData} imageMime={imageMime} />
+      <Avatar name={name} tone={tone} size={size} imageUri={imageUri} />
       <View style={{ flex: 1, gap: 2 }}>
         <AppText variant="bodyStrong">{name}</AppText>
         {subtitle ? (

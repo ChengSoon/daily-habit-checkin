@@ -1,7 +1,14 @@
 import OpenAI from "openai";
 import { HabitPlanRequestSchema, HabitPlanResponse, HabitPlanResponseSchema } from "./habitPlanSchema.js";
 
-const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let client: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (!client) {
+    client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return client;
+}
 
 export async function generateHabitPlan(rawInput: unknown): Promise<HabitPlanResponse> {
   const input = HabitPlanRequestSchema.parse(rawInput);
@@ -10,7 +17,7 @@ export async function generateHabitPlan(rawInput: unknown): Promise<HabitPlanRes
     throw new Error("OPENAI_API_KEY is required");
   }
 
-  const response = await client.responses.create({
+  const response = await getClient().responses.create({
     model: input.model ?? process.env.OPENAI_MODEL ?? "gpt-5.5",
     instructions:
       "你是习惯计划助手。只生成温和、可执行、低压力的习惯入门计划。输出的 durationDays 必须等于用户输入的 durationDays。必须输出 JSON，不要输出 Markdown。",

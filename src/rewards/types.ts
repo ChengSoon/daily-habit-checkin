@@ -12,8 +12,8 @@ export type Reward = {
   status: RewardStatus;
   virtualKind: VirtualRewardKind;
   inventoryLimit: number | null;
-  imageData: string | null;
-  imageMime: string | null;
+  /** R2 对象 key；显示时用 publicUrl(imageKey) 拼公开域名直读。无图为 null。 */
+  imageKey: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -37,6 +37,6 @@ export type CreateRewardInput = {
   status: RewardStatus;
   virtualKind: VirtualRewardKind;
   inventoryLimit: number | null;
-  imageData: string | null;
-  imageMime: string | null;
+  /** R2 对象 key；无图为 null。上传由页面在保存前完成，这里只带 key。 */
+  imageKey: string | null;
 };

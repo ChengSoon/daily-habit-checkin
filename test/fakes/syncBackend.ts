@@ -56,7 +56,7 @@ class SyncBackend {
   /** 已见过的 xp 交易 uniqueKey，用于幂等。 */
   private seenTxKeys = new Set<string>();
   /** 当前空间成员（情侣双方），供 space-members 接口返回。 */
-  private members: Array<{ id: string; displayName: string; role: string; avatarData?: string | null; avatarMime?: string | null }> = [];
+  private members: Array<{ id: string; displayName: string; role: string; avatarKey?: string | null }> = [];
 
   reset(): void {
     for (const name of RESOURCES) {
@@ -70,7 +70,7 @@ class SyncBackend {
   }
 
   /** 测试辅助：设置空间成员，供双人 UI 相关测试使用。 */
-  setMembers(members: Array<{ id: string; displayName: string; role: string; avatarData?: string | null; avatarMime?: string | null }>): void {
+  setMembers(members: Array<{ id: string; displayName: string; role: string; avatarKey?: string | null }>): void {
     this.members = members.map((member) => ({ ...member }));
   }
 
@@ -202,21 +202,19 @@ class SyncBackend {
     if (path === "/api/auth/space-members" && method === "GET") {
       return {
         members: this.members.map((member) => ({
-          avatarData: null,
-          avatarMime: null,
+          avatarKey: null,
           ...member
         }))
       };
     }
 
     if (path === "/api/auth/me/avatar" && method === "PUT") {
-      // 只做忠实搬运：更新第一个成员的头像（测试通常只关心「能存能读」）。
-      const input = (body ?? {}) as { avatarData?: string | null; avatarMime?: string | null };
+      // 只做忠实搬运：把第一个成员的头像 key 更新为客户端提交的 key（测试只关心「能存能读」）。
+      const input = (body ?? {}) as { avatarKey?: string | null };
       if (this.members.length > 0) {
         this.members[0] = {
           ...this.members[0],
-          avatarData: input.avatarData ?? null,
-          avatarMime: input.avatarMime ?? null
+          avatarKey: input.avatarKey ?? null
         };
       }
       return { ok: true };
@@ -246,6 +244,6 @@ export function resetSyncBackend(): void {
 }
 
 /** 测试辅助：设置当前空间成员，供 space-members 接口返回。 */
-export function setSyncMembers(members: Array<{ id: string; displayName: string; role: string; avatarData?: string | null; avatarMime?: string | null }>): void {
+export function setSyncMembers(members: Array<{ id: string; displayName: string; role: string; avatarKey?: string | null }>): void {
   syncBackend.setMembers(members);
 }

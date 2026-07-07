@@ -101,8 +101,8 @@ const RESOURCES: Record<string, ResourceConfig> = {
       { column: "status", field: "status", kind: "text" },
       { column: "virtual_kind", field: "virtualKind", kind: "text" },
       { column: "inventory_limit", field: "inventoryLimit", kind: "int", nullable: true },
-      { column: "image_data", field: "imageData", kind: "text", nullable: true },
-      { column: "image_mime", field: "imageMime", kind: "text", nullable: true },
+      // 奖励图改存 R2：只留对象 key，图片走 R2 公开域名直连，不再进 JSON。
+      { column: "image_key", field: "imageKey", kind: "text", nullable: true },
       { column: "created_at", field: "createdAt", kind: "text" },
       { column: "updated_at", field: "updatedAt", kind: "text" }
     ]
