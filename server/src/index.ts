@@ -8,6 +8,7 @@ import { createSettingsRouter } from "./data/settingsRoutes.js";
 import { runSchema } from "./db/schema.js";
 import { createRateLimiter, requireApiKey } from "./middleware.js";
 import { generateHabitPlan } from "./openaiHabitPlanner.js";
+import { createUploadRouter } from "./uploads/uploadRoutes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8787);
@@ -40,6 +41,7 @@ app.post("/api/ai/habit-plan", requireApiKey, rateLimit, async (request, respons
 app.use("/api/auth", authRouter);
 
 // 业务数据同步（全部需登录，按 space_id 隔离）
+app.use("/api/uploads", createUploadRouter());
 app.use("/api/data", requireAuth, createDataRouter());
 app.use("/api/wallet", requireAuth, createWalletRouter());
 app.use("/api/settings", requireAuth, createSettingsRouter());

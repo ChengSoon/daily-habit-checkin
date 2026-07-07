@@ -57,8 +57,8 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiBaseUrl": "http://111.228.40.252:4000/habit",
-      "r2PublicBase": "https://lcvv.eu.org",
+      "apiBaseUrl": "http://127.0.0.1:8787",
+      "r2PublicBase": "https://lzch.eu.org",
       "router": {},
       "eas": {
         "projectId": "6cebff69-997b-47dc-951a-c7bbe8b62aa4"

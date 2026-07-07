@@ -1,3 +1,4 @@
+import { File, UploadType } from "expo-file-system";
 import { apiRequest, getR2PublicBase } from "./apiClient";
 import { PickedImage } from "../rewards/rewardImage";
 
@@ -25,17 +26,16 @@ export async function uploadImage(kind: UploadKind, picked: PickedImage): Promis
     body: { kind, contentType: picked.mime }
   });
 
-  // 从本地 URI 读出字节。RN 的 fetch 支持 file:// URI，转 blob 后直传。
-  const fileResponse = await fetch(picked.uri);
-  const blob = await fileResponse.blob();
-
-  const putResponse = await fetch(uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": picked.mime },
-    body: blob
+  // 走 expo-file-system 的原生文件上传，避开 RN Blob 对 ArrayBuffer 的限制。
+  const file = new File(picked.uri);
+  const putResponse = await file.upload(uploadUrl, {
+    httpMethod: "PUT",
+    uploadType: UploadType.BINARY_CONTENT,
+    mimeType: picked.mime,
+    headers: { "Content-Type": picked.mime }
   });
 
-  if (!putResponse.ok) {
+  if (putResponse.status < 200 || putResponse.status >= 300) {
     throw new Error(`图片上传失败（${putResponse.status}）`);
   }
 
