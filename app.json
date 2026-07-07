@@ -8,8 +8,10 @@
     "scheme": "dailyhabitcheckin",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.dailyhabitcheckin.app",
       "icon": "./assets/images/icon.png",
       "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true
         }
