@@ -26,7 +26,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/${{ github.repository }}/habit-server
+  IMAGE: ghcr.io/chengsoon/daily-habit-checkin/habit-server
 
 jobs:
   build-image:
