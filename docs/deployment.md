@@ -145,16 +145,30 @@ curl -X POST https://habit.example.com/api/ai/habit-plan -d '{}'
 
 ### 2.3 创建 `eas.json`
 
-项目根目录新建 `eas.json`，配 `internal` distribution：
+项目根目录维护 `eas.json`，常用 profile：
+
+- `preview`：开发环境内部分发，Android 出 `.apk`。
+- `production`：生产环境商店包，Android 出 `.aab`。
+- `production-apk`：生产环境内部分发，Android 出 `.apk`。
 
 ```json
 {
-  "cli": { "version": ">= 0.60.0" },
+  "cli": { "version": ">= 20.5.1" },
   "build": {
-    "internal": {
+    "preview": {
       "distribution": "internal",
-      "android": { "buildType": "apk" },
-      "ios": { "simulator": false }
+      "env": { "APP_ENV": "development" },
+      "android": { "buildType": "apk" }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": { "APP_ENV": "production" },
+      "android": { "buildType": "app-bundle" }
+    },
+    "production-apk": {
+      "extends": "production",
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
     }
   }
 }
@@ -196,9 +210,14 @@ cd server && npm run test && npx tsc --noEmit
 ### 2.7 打包
 
 ```bash
-# 分平台或一次两平台
-eas build --profile internal --platform android
-eas build --profile internal --platform ios
+# 生产环境 APK，适合直接发给 Android 用户安装
+eas build --profile production-apk --platform android
+
+# 开发环境 APK，适合本地/内测接口联调
+eas build --profile preview --platform android
+
+# iOS 内部分发按 EAS 提示选择对应 profile 和设备
+eas build --profile preview --platform ios
 ```
 
 构建在 Expo 云端进行，完成后给下载链接：
@@ -226,7 +245,7 @@ App：
 - [ ] `eas build:configure` 已跑（有 project ID）
 - [ ] iOS 已注册双方设备 UDID
 - [ ] `npm run test` + `npx tsc` 两端全绿
-- [ ] `eas build --profile internal` 成功，双方装上并能登录/同步
+- [ ] `eas build --profile production-apk --platform android` 成功，双方装上并能登录/同步
 
 联调验证（发布后真机确认，fake 测不到）：
 

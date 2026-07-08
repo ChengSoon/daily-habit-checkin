@@ -19,7 +19,6 @@
     },
     "android": {
       "package": "com.dailyhabitcheckin.app",
-      "usesCleartextTraffic": true,
       "adaptiveIcon": {
         "backgroundColor": "#FBE1EF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,6 +36,14 @@
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {
