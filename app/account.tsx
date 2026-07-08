@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Animated, Easing, Pressable, TextInput, View, ViewStyle } from "react-native";
+import { Alert, Animated, Easing, Pressable, TextInput, View, ViewStyle } from "react-native";
 import {
   Account,
   getCurrentAccount,
@@ -80,7 +80,7 @@ export default function AccountScreen() {
     }
   }
 
-  async function doJoinSpace() {
+  async function submitJoinSpace() {
     setError(null);
     setMessage(null);
     setBusy(true);
@@ -96,6 +96,13 @@ export default function AccountScreen() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function doJoinSpace() {
+    Alert.alert("确认加入空间？", "加入后当前账号会切换到对方空间，当前个人空间数据不会再显示。", [
+      { text: "取消", style: "cancel" },
+      { text: "确认加入", style: "destructive", onPress: () => void submitJoinSpace() }
+    ]);
   }
 
   async function doLogout() {

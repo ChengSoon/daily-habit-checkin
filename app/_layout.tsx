@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { initializeDatabase } from "../src/db/database";
-import { configureNotificationHandler } from "../src/reminders/reminderService";
+import { configureNotificationHandler, refreshScheduledReminders } from "../src/reminders/reminderService";
 import { ThemeProvider, useTheme } from "../src/ui/ThemeContext";
 
 function ThemedStack() {
@@ -36,8 +36,12 @@ function ThemedStack() {
 
 export default function RootLayout() {
   useEffect(() => {
-    initializeDatabase();
     configureNotificationHandler();
+    void initializeDatabase()
+      .then(() => refreshScheduledReminders())
+      .catch((error) => {
+        console.warn("Failed to initialize app reminders", error);
+      });
   }, []);
 
   return (

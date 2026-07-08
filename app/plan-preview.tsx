@@ -5,7 +5,7 @@ import { saveAIHabitPlan } from "../src/ai/habitPlanRepository";
 import { AIPlanDay, AIPlanPreview } from "../src/ai/types";
 import { createHabit } from "../src/habits/habitRepository";
 import { HabitFrequency, HabitTrackType } from "../src/habits/types";
-import { scheduleHabitReminder } from "../src/reminders/reminderService";
+import { refreshScheduledReminders } from "../src/reminders/reminderService";
 import {
   AppButton,
   AppText,
@@ -87,7 +87,7 @@ export default function PlanPreviewScreen() {
         startDate: todayKey(),
         preview: editablePlan
       });
-      await scheduleHabitReminder(habit);
+      await refreshScheduledReminders();
 
       router.replace("/(tabs)/habits");
     } catch (caughtError) {

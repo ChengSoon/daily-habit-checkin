@@ -4,7 +4,7 @@ import { View } from "react-native";
 import { requestAIHabitPlan } from "../../src/ai/aiClient";
 import { createHabit } from "../../src/habits/habitRepository";
 import { HabitFrequency, HabitTrackType } from "../../src/habits/types";
-import { scheduleHabitReminder } from "../../src/reminders/reminderService";
+import { refreshScheduledReminders } from "../../src/reminders/reminderService";
 import {
   AppButton,
   HelperText,
@@ -108,7 +108,7 @@ export default function NewHabitScreen() {
     }
 
     try {
-      const habit = await createHabit({
+      await createHabit({
         name: goalText,
         description: description || null,
         frequency: toFrequency(frequencyType, weeklyDays),
@@ -118,7 +118,7 @@ export default function NewHabitScreen() {
         numericUnit: trackType === "numeric" ? numericUnit || "次" : null
       });
 
-      await scheduleHabitReminder(habit);
+      await refreshScheduledReminders();
       router.replace("/(tabs)/habits");
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "保存失败");

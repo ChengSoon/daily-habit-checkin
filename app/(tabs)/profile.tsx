@@ -5,6 +5,7 @@ import { Linking, Pressable, Share, View } from "react-native";
 import { buildExportJson } from "../../src/export/exportData";
 import {
   getReminderPermissionStatus,
+  refreshScheduledReminders,
   ReminderPermissionStatus,
   requestReminderPermission
 } from "../../src/reminders/reminderService";
@@ -65,9 +66,12 @@ export default function ProfileScreen() {
 
   const isOwner = account?.role === "owner";
 
-  async function save(next: AppSettings) {
+  async function save(next: AppSettings, shouldRefreshReminders = false) {
     setSettings(next);
     await saveAppSettings(next);
+    if (shouldRefreshReminders) {
+      await refreshScheduledReminders();
+    }
   }
 
   async function enablePermission() {
@@ -86,7 +90,7 @@ export default function ProfileScreen() {
       return;
     }
     setSummaryTimeError(null);
-    save({ ...settings, eveningSummaryTime: normalized });
+    save({ ...settings, eveningSummaryTime: normalized }, true);
   }
 
   function commitQuietHours() {
@@ -97,7 +101,7 @@ export default function ProfileScreen() {
       return;
     }
     setQuietHoursError(null);
-    save({ ...settings, quietHoursStart: start, quietHoursEnd: end });
+    save({ ...settings, quietHoursStart: start, quietHoursEnd: end }, true);
   }
 
   async function exportData() {
@@ -301,7 +305,7 @@ export default function ProfileScreen() {
           label="晚间未完成汇总"
           description="每天固定时间提醒你还有哪些习惯没完成"
           value={settings.isEveningSummaryEnabled}
-          onValueChange={(value) => save({ ...settings, isEveningSummaryEnabled: value })}
+          onValueChange={(value) => save({ ...settings, isEveningSummaryEnabled: value }, true)}
         />
         {settings.isEveningSummaryEnabled ? (
           <>
@@ -326,7 +330,7 @@ export default function ProfileScreen() {
           label="开启免打扰"
           description="这段时间内不发送任何提醒"
           value={settings.isQuietHoursEnabled}
-          onValueChange={(value) => save({ ...settings, isQuietHoursEnabled: value })}
+          onValueChange={(value) => save({ ...settings, isQuietHoursEnabled: value }, true)}
         />
         {settings.isQuietHoursEnabled ? (
           <>

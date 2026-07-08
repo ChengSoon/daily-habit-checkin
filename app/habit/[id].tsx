@@ -10,7 +10,7 @@ import { CheckIn } from "../../src/checkins/types";
 import { deleteHabit, getHabitById, setHabitPaused, updateHabit } from "../../src/habits/habitRepository";
 import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { Habit, HabitFrequency, HabitTrackType } from "../../src/habits/types";
-import { scheduleHabitReminder } from "../../src/reminders/reminderService";
+import { refreshScheduledReminders } from "../../src/reminders/reminderService";
 import {
   AppButton,
   AppText,
@@ -133,11 +133,7 @@ export default function HabitDetailScreen() {
     });
     setReminderTime(normalizedReminder ?? "");
 
-    const nextHabit = await getHabitById(habit.id);
-    if (nextHabit) {
-      await scheduleHabitReminder(nextHabit);
-    }
-
+    await refreshScheduledReminders();
     setMessage("已保存修改");
     await reload();
   }
@@ -148,6 +144,7 @@ export default function HabitDetailScreen() {
     }
 
     await setHabitPaused(habit.id, !habit.isPaused);
+    await refreshScheduledReminders();
     await reload();
   }
 
@@ -157,6 +154,7 @@ export default function HabitDetailScreen() {
     }
 
     await deleteHabit(habit.id);
+    await refreshScheduledReminders();
     router.replace("/(tabs)/habits");
   }
 

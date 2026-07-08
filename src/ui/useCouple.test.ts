@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCouple } from "./useCouple";
+import { buildCouple, shouldApplyCoupleReload } from "./useCouple";
 import type { SpaceMember } from "../sync/authService";
 
 const member = (
@@ -81,5 +81,13 @@ describe("buildCouple", () => {
       me("b", "小红", "avatars/b/from-me.jpg")
     );
     expect(couple.you?.avatarUrl).toBe("http://r2.test.local/avatars/b/from-members.jpg");
+  });
+});
+
+describe("shouldApplyCoupleReload", () => {
+  it("只允许最新请求在 token 未变化时写入状态", () => {
+    expect(shouldApplyCoupleReload(2, 2, "token-a", "token-a")).toBe(true);
+    expect(shouldApplyCoupleReload(1, 2, "token-a", "token-a")).toBe(false);
+    expect(shouldApplyCoupleReload(2, 2, "token-a", "token-b")).toBe(false);
   });
 });

@@ -8,6 +8,20 @@ import { getDatabase } from "../db/database";
 
 const AUTH_TOKEN_KEY = "authToken";
 const ACCOUNT_KEY = "account";
+const authTokenListeners = new Set<() => void>();
+
+function notifyAuthTokenChanged(): void {
+  for (const listener of [...authTokenListeners]) {
+    listener();
+  }
+}
+
+export function subscribeAuthTokenChanges(listener: () => void): () => void {
+  authTokenListeners.add(listener);
+  return () => {
+    authTokenListeners.delete(listener);
+  };
+}
 
 async function getLocal(key: string): Promise<string | null> {
   const db = getDatabase();
@@ -36,11 +50,13 @@ export async function getAuthToken(): Promise<string | null> {
 
 export async function saveAuthToken(token: string): Promise<void> {
   await setLocal(AUTH_TOKEN_KEY, token);
+  notifyAuthTokenChanged();
 }
 
 export async function clearAuthToken(): Promise<void> {
   await setLocal(AUTH_TOKEN_KEY, null);
   await setLocal(ACCOUNT_KEY, null);
+  notifyAuthTokenChanged();
 }
 
 /** 保存当前账号信息（JSON），供离线读取展示。 */

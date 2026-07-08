@@ -1,17 +1,37 @@
 import * as Notifications from "expo-notifications";
 import { isHabitCompletedOn } from "../checkins/checkinRepository";
+import { listActiveHabits } from "../habits/habitRepository";
+import { shouldRunOnDate } from "../habits/habitRules";
 import { Habit } from "../habits/types";
-import { todayKey } from "../utils/date";
+import { getAppSettings } from "../settings/settingsRepository";
+import { toDateKey } from "../utils/date";
+import {
+  buildHabitReminderPlans,
+  dateKeyToDate,
+  getNextReminderDate,
+  isValidReminderTime,
+  isWithinQuietHours,
+  parseReminderTime,
+  REMINDER_CHANNEL_ID
+} from "./reminderPlan";
+import type { QuietHours } from "./reminderPlan";
+
+export { isValidReminderTime, isWithinQuietHours, parseReminderTime };
+export type { QuietHours };
+
+const REMINDER_SOURCE = "daily-habit-checkin";
+type ReminderKind = "habit" | "eveningSummary";
+type ScheduledRequest = Awaited<ReturnType<typeof Notifications.getAllScheduledNotificationsAsync>>[number];
 
 export function configureNotificationHandler(): void {
+  void ensureReminderChannel();
+
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
-      // DAILY 重复提醒无法按单日跳过，因此在前台触发时按当天打卡状态抑制：
-      // 习惯提醒带有 habitId，若该习惯今天已完成则不再展示。
       const habitId = notification.request.content.data?.habitId;
 
       if (typeof habitId === "string") {
-        const alreadyDone = await isHabitCompletedOn(habitId, todayKey()).catch(() => false);
+        const alreadyDone = await isHabitCompletedOn(habitId, toDateKey(new Date())).catch(() => false);
         if (alreadyDone) {
           return {
             shouldShowBanner: false,
@@ -32,65 +52,6 @@ export function configureNotificationHandler(): void {
   });
 }
 
-const REMINDER_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
-
-export function isValidReminderTime(time: string): boolean {
-  return REMINDER_TIME_PATTERN.test(time);
-}
-
-export function parseReminderTime(time: string): { hour: number; minute: number } {
-  const match = REMINDER_TIME_PATTERN.exec(time);
-
-  if (!match) {
-    throw new Error("Invalid reminder time");
-  }
-
-  return {
-    hour: Number(match[1]),
-    minute: Number(match[2])
-  };
-}
-
-export type QuietHours = {
-  isEnabled: boolean;
-  start: string;
-  end: string;
-};
-
-export function isWithinQuietHours(time: string, start: string, end: string): boolean {
-  const target = parseReminderTime(time);
-  const from = parseReminderTime(start);
-  const to = parseReminderTime(end);
-
-  const targetMinutes = target.hour * 60 + target.minute;
-  const fromMinutes = from.hour * 60 + from.minute;
-  const toMinutes = to.hour * 60 + to.minute;
-
-  if (fromMinutes === toMinutes) {
-    return false;
-  }
-
-  // 跨午夜区间，例如 22:00–08:00
-  if (fromMinutes > toMinutes) {
-    return targetMinutes >= fromMinutes || targetMinutes < toMinutes;
-  }
-
-  return targetMinutes >= fromMinutes && targetMinutes < toMinutes;
-}
-
-
-function getNextReminderDate(time: string, now = new Date()): Date {
-  const { hour, minute } = parseReminderTime(time);
-  const reminderDate = new Date(now);
-  reminderDate.setHours(hour, minute, 0, 0);
-
-  if (reminderDate <= now) {
-    reminderDate.setDate(reminderDate.getDate() + 1);
-  }
-
-  return reminderDate;
-}
-
 export type ReminderPermissionStatus = "granted" | "denied" | "undetermined";
 
 export async function getReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
@@ -108,6 +69,7 @@ export async function getReminderPermissionStatus(): Promise<ReminderPermissionS
 }
 
 export async function requestReminderPermission(): Promise<boolean> {
+  await ensureReminderChannel();
   const current = await Notifications.getPermissionsAsync();
 
   if (current.granted) {
@@ -118,72 +80,28 @@ export async function requestReminderPermission(): Promise<boolean> {
   return requested.granted;
 }
 
-export async function scheduleHabitReminder(habit: Habit): Promise<string | null> {
-  if (!habit.isReminderEnabled || !habit.reminderTime || habit.isPaused) {
-    return null;
-  }
-
-  const hasPermission = await requestReminderPermission();
-
-  if (!hasPermission) {
-    return null;
-  }
-
-  const { hour, minute } = parseReminderTime(habit.reminderTime);
-
-  return Notifications.scheduleNotificationAsync({
-    content: {
-      title: `该打卡了：${habit.name}`,
-      body: "完成后点一下，今天就算坚持住了。",
-      data: { habitId: habit.id }
-    },
-    trigger: {
-      type: Notifications.SchedulableTriggerInputTypes.DAILY,
-      hour,
-      minute
-    }
-  });
-}
-
-let habitNotificationIds: string[] = [];
-
 export async function rescheduleHabitReminders(input: {
   habits: Habit[];
   completedHabitIds: Set<string>;
   quietHours?: QuietHours;
+  now?: Date;
+  horizonDays?: number;
 }): Promise<string[]> {
-  await Promise.all(habitNotificationIds.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
-  habitNotificationIds = [];
+  await cancelAppReminderRequests({ kind: "habit" });
 
-  const ids: string[] = [];
-
-  for (const habit of input.habits) {
-    if (input.completedHabitIds.has(habit.id)) {
-      continue;
-    }
-
-    if (
-      habit.reminderTime &&
-      input.quietHours?.isEnabled &&
-      isWithinQuietHours(habit.reminderTime, input.quietHours.start, input.quietHours.end)
-    ) {
-      continue;
-    }
-
-    const id = await scheduleHabitReminder(habit);
-    if (id) {
-      ids.push(id);
-    }
+  const hasPermission = await requestReminderPermission();
+  if (!hasPermission) {
+    return [];
   }
 
-  habitNotificationIds = ids;
-  return ids;
+  return scheduleHabitReminderPlans(input);
 }
 
 export async function scheduleEveningSummary(input: {
   incompleteCount: number;
   incompleteNames: string[];
   time: string;
+  now?: Date;
 }): Promise<string | null> {
   if (input.incompleteCount === 0) {
     return null;
@@ -195,46 +113,169 @@ export async function scheduleEveningSummary(input: {
   }
 
   const hasPermission = await requestReminderPermission();
-
   if (!hasPermission) {
     return null;
   }
 
-  // 晚间汇总内容是「今天」的未完成名单，不能用 DAILY 重复触发（会冻结成过时名单）。
-  // 采用当天一次性触发，由今日页每次加载时重排，保证内容与当前状态一致。
+  const date = getNextReminderDate(reminderTime, input.now);
   return Notifications.scheduleNotificationAsync({
+    identifier: `${REMINDER_SOURCE}:eveningSummary:${toDateKey(date)}`,
     content: {
       title: `今天还有 ${input.incompleteCount} 个习惯未完成`,
-      body: input.incompleteNames.join("、")
+      body: input.incompleteNames.join("、"),
+      data: {
+        reminderSource: REMINDER_SOURCE,
+        reminderKind: "eveningSummary",
+        dateKey: toDateKey(date)
+      }
     },
     trigger: {
       type: Notifications.SchedulableTriggerInputTypes.DATE,
-      date: getNextReminderDate(reminderTime)
+      date,
+      channelId: REMINDER_CHANNEL_ID
     }
   });
 }
-
-let eveningSummaryNotificationId: string | null = null;
 
 export async function rescheduleTodayEveningSummary(input: {
   isEnabled: boolean;
   incompleteNames: string[];
   time: string;
+  now?: Date;
 }): Promise<string | null> {
-  if (eveningSummaryNotificationId) {
-    await Notifications.cancelScheduledNotificationAsync(eveningSummaryNotificationId);
-    eveningSummaryNotificationId = null;
-  }
+  await cancelAppReminderRequests({ kind: "eveningSummary" });
 
   if (!input.isEnabled || input.incompleteNames.length === 0) {
     return null;
   }
 
-  eveningSummaryNotificationId = await scheduleEveningSummary({
+  return scheduleEveningSummary({
     incompleteCount: input.incompleteNames.length,
     incompleteNames: input.incompleteNames,
-    time: input.time
+    time: input.time,
+    now: input.now
   });
+}
 
-  return eveningSummaryNotificationId;
+export async function refreshScheduledReminders(now = new Date()): Promise<void> {
+  const [habits, settings] = await Promise.all([listActiveHabits(), getAppSettings()]);
+  const today = toDateKey(now);
+  const todayHabits = habits.filter((habit) => shouldRunOnDate(habit.frequency, dateKeyToDate(today)));
+  const completedHabitIds = await getCompletedHabitIds(todayHabits, today);
+  const incompleteNames = todayHabits.filter((habit) => !completedHabitIds.has(habit.id)).map((habit) => habit.name);
+
+  await rescheduleHabitReminders({
+    habits,
+    completedHabitIds,
+    quietHours: {
+      isEnabled: settings.isQuietHoursEnabled,
+      start: settings.quietHoursStart,
+      end: settings.quietHoursEnd
+    },
+    now
+  });
+  await rescheduleTodayEveningSummary({
+    isEnabled: settings.isEveningSummaryEnabled,
+    incompleteNames,
+    time: settings.eveningSummaryTime,
+    now
+  });
+}
+
+async function ensureReminderChannel(): Promise<void> {
+  await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
+    name: "打卡提醒",
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: null,
+    enableVibrate: true,
+    vibrationPattern: [0, 250, 250, 250]
+  });
+}
+
+async function scheduleHabitReminderPlans(input: {
+  habits: Habit[];
+  completedHabitIds: Set<string>;
+  quietHours?: QuietHours;
+  now?: Date;
+  horizonDays?: number;
+}): Promise<string[]> {
+  const ids: string[] = [];
+  const plans = buildHabitReminderPlans(input);
+
+  for (const plan of plans) {
+    const id = await Notifications.scheduleNotificationAsync({
+      identifier: `${REMINDER_SOURCE}:habit:${plan.habit.id}:${plan.dateKey}`,
+      content: {
+        title: `该打卡了：${plan.habit.name}`,
+        body: "完成后点一下，今天就算坚持住了。",
+        data: {
+          reminderSource: REMINDER_SOURCE,
+          reminderKind: "habit",
+          habitId: plan.habit.id,
+          dateKey: plan.dateKey
+        }
+      },
+      trigger: {
+        type: Notifications.SchedulableTriggerInputTypes.DATE,
+        date: plan.date,
+        channelId: REMINDER_CHANNEL_ID
+      }
+    });
+    ids.push(id);
+  }
+
+  return ids;
+}
+
+async function getCompletedHabitIds(habits: Habit[], dateKey: string): Promise<Set<string>> {
+  const entries = await Promise.all(
+    habits.map(async (habit) => {
+      const isDone = await isHabitCompletedOn(habit.id, dateKey).catch(() => false);
+      return isDone ? habit.id : null;
+    })
+  );
+  return new Set(entries.filter((id): id is string => id !== null));
+}
+
+async function cancelAppReminderRequests(filter: { kind?: ReminderKind; habitId?: string }): Promise<void> {
+  const requests = await Notifications.getAllScheduledNotificationsAsync();
+  const ownedIds = requests
+    .filter((request) => shouldCancelRequest(request, filter))
+    .map((request) => request.identifier);
+
+  await Promise.all(ownedIds.map((id) => Notifications.cancelScheduledNotificationAsync(id)));
+}
+
+function shouldCancelRequest(request: ScheduledRequest, filter: { kind?: ReminderKind; habitId?: string }): boolean {
+  const kind = getReminderKind(request);
+  if (!kind || (filter.kind && kind !== filter.kind)) {
+    return false;
+  }
+
+  const habitId = getReminderHabitId(request);
+  return !filter.habitId || habitId === filter.habitId;
+}
+
+function getReminderKind(request: ScheduledRequest): ReminderKind | null {
+  const data = request.content.data;
+  const title = request.content.title;
+
+  if (data?.reminderSource === REMINDER_SOURCE && isReminderKind(data.reminderKind)) {
+    return data.reminderKind;
+  }
+
+  if (typeof data?.habitId === "string" || title?.startsWith("该打卡了：")) {
+    return "habit";
+  }
+
+  return title?.startsWith("今天还有 ") ? "eveningSummary" : null;
+}
+
+function getReminderHabitId(request: ScheduledRequest): string | null {
+  const habitId = request.content.data?.habitId;
+  return typeof habitId === "string" ? habitId : null;
+}
+
+function isReminderKind(value: unknown): value is ReminderKind {
+  return value === "habit" || value === "eveningSummary";
 }

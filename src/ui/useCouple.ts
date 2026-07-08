@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getCurrentAccount, listSpaceMembers } from "../sync/authService";
 import type { SpaceMember } from "../sync/authService";
+import { getAuthToken, subscribeAuthTokenChanges } from "../sync/localSettings";
 import { publicUrl } from "../sync/publicUrl";
 import type { AvatarTone } from "./Avatar";
 
@@ -96,30 +97,54 @@ export function buildCouple(members: SpaceMember[], me: MeAccount): Couple {
   return { you, partner, people, byId, loaded: true };
 }
 
+export function shouldApplyCoupleReload(
+  requestId: number,
+  latestRequestId: number,
+  tokenAtStart: string | null,
+  tokenAtEnd: string | null
+): boolean {
+  return requestId === latestRequestId && tokenAtStart === tokenAtEnd;
+}
+
 export function useCouple(): Couple & { reload: () => void } {
   const [couple, setCouple] = useState<Couple>(EMPTY);
+  const latestRequestIdRef = useRef(0);
 
   const reload = useCallback(() => {
-    Promise.all([listSpaceMembers(), getCurrentAccount()])
-      .then(([members, account]) =>
-        setCouple(
-          buildCouple(
-            members,
-            account
-              ? {
-                  id: account.id,
-                  displayName: account.displayName,
-                  avatarKey: account.avatarKey
-                }
-              : null
-          )
+    const requestId = latestRequestIdRef.current + 1;
+    latestRequestIdRef.current = requestId;
+
+    void (async () => {
+      const tokenAtStart = await getAuthToken();
+      const [members, account] = await Promise.all([listSpaceMembers(), getCurrentAccount()]);
+      const tokenAtEnd = await getAuthToken();
+
+      if (!shouldApplyCoupleReload(requestId, latestRequestIdRef.current, tokenAtStart, tokenAtEnd)) {
+        return;
+      }
+
+      setCouple(
+        buildCouple(
+          members,
+          account
+            ? {
+                id: account.id,
+                displayName: account.displayName,
+                avatarKey: account.avatarKey
+              }
+            : null
         )
-      )
-      .catch(() => setCouple(EMPTY));
+      );
+    })().catch(() => {
+      if (requestId === latestRequestIdRef.current) {
+        setCouple(EMPTY);
+      }
+    });
   }, []);
 
   useEffect(() => {
     reload();
+    return subscribeAuthTokenChanges(reload);
   }, [reload]);
 
   return { ...couple, reload };

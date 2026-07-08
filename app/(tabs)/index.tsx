@@ -84,7 +84,7 @@ export default function TodayScreen() {
     setCheckIns(todayCheckIns);
     setStreaks(nextStreaks);
     await rescheduleHabitReminders({
-      habits: loadedHabits,
+      habits: activeHabits,
       completedHabitIds: completedIds,
       quietHours: {
         isEnabled: settings.isQuietHoursEnabled,

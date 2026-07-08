@@ -137,6 +137,27 @@ export async function joinSpaceByInviteCode(accountId: string, inviteCode: strin
       throw new Error("邀请码无效");
     }
 
+    const currentAccountResult = await client.query<AccountRow>(
+      `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE id = $1`,
+      [accountId]
+    );
+    const currentAccount = currentAccountResult.rows[0];
+    if (!currentAccount) {
+      throw new Error("账号不存在");
+    }
+    if (currentAccount.space_id === space.id) {
+      throw new Error("你已在这个空间，无需重复加入");
+    }
+
+    const currentSpaceCountResult = await client.query<{ count: string }>(
+      "SELECT COUNT(*) FROM accounts WHERE space_id = $1",
+      [currentAccount.space_id]
+    );
+    const currentSpaceAccountCount = Number(currentSpaceCountResult.rows[0]?.count ?? 0);
+    if (currentSpaceAccountCount > 1) {
+      throw new Error("当前空间已有成员，不能加入其他空间");
+    }
+
     // 加入别人的空间即成为该空间的成员（member），不具备奖励管理权限。
     await client.query("UPDATE accounts SET space_id = $1, role = 'member' WHERE id = $2", [space.id, accountId]);
 
