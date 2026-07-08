@@ -98,6 +98,11 @@ type AdminSettingRow = {
   value: string;
 };
 
+type LocalSettingRow = {
+  key: string;
+  value: string;
+};
+
 export type SQLiteDatabase = {
   execAsync(sql: string): Promise<void>;
   runAsync(sql: string, params?: unknown[]): Promise<void>;
@@ -115,6 +120,7 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
   private rewards: RewardRow[] = [];
   private rewardRedemptions: RewardRedemptionRow[] = [];
   private adminSettings: AdminSettingRow[] = [];
+  private localSettings: LocalSettingRow[] = [];
 
   async execAsync(sql: string): Promise<void> {
     if (sql.includes("DELETE FROM xp_wallet")) {
@@ -123,6 +129,7 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
       this.rewards = [];
       this.rewardRedemptions = [];
       this.adminSettings = [];
+      this.localSettings = [];
     }
 
     if (sql.includes("DELETE FROM reminder_settings")) {
@@ -355,6 +362,17 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
       this.adminSettings.push(row);
       return;
     }
+
+    if (sql.includes("INSERT INTO local_settings")) {
+      const row = { key: String(params[0]), value: String(params[1]) };
+      this.localSettings = this.localSettings.filter((setting) => setting.key !== row.key);
+      this.localSettings.push(row);
+      return;
+    }
+
+    if (sql.includes("DELETE FROM local_settings WHERE key = ?")) {
+      this.localSettings = this.localSettings.filter((setting) => setting.key !== params[0]);
+    }
   }
 
   async getAllAsync<T>(sql: string, params: unknown[] = []): Promise<T[]> {
@@ -434,6 +452,10 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
 
     if (sql.includes("FROM admin_settings WHERE key = ?")) {
       return (this.adminSettings.find((setting) => setting.key === params[0]) as T | undefined) ?? null;
+    }
+
+    if (sql.includes("FROM local_settings WHERE key = ?")) {
+      return (this.localSettings.find((setting) => setting.key === params[0]) as T | undefined) ?? null;
     }
 
     return null;

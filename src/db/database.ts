@@ -23,6 +23,7 @@ export async function resetDatabaseForTests(): Promise<void> {
     DELETE FROM rewards;
     DELETE FROM xp_transactions;
     DELETE FROM xp_wallet;
+    DELETE FROM local_settings;
     DELETE FROM app_settings;
     DELETE FROM reminder_settings;
     DELETE FROM habit_plans;

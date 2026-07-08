@@ -1,4 +1,4 @@
-import { listResource, upsertResource } from "../sync/dataClient";
+import { deleteResource, listResource, upsertResource } from "../sync/dataClient";
 import { createId } from "../utils/id";
 import { CheckIn } from "./types";
 
@@ -69,6 +69,22 @@ export async function completeCheckIn(input: {
 
   await upsertResource<CheckInDto>("check_ins", checkIn.id, toFields(checkIn));
   return checkIn;
+}
+
+export async function undoCheckIn(input: {
+  habitId: string;
+  date: string;
+  checkInId?: string | null;
+}): Promise<CheckIn | null> {
+  const all = await fetchAll();
+  const existing = all.find((checkIn) => checkIn.habitId === input.habitId && checkIn.date === input.date);
+
+  if (!existing || (input.checkInId && existing.id !== input.checkInId)) {
+    return null;
+  }
+
+  await deleteResource("check_ins", existing.id);
+  return existing;
 }
 
 export async function listCheckInsForHabit(habitId: string): Promise<CheckIn[]> {

@@ -6,6 +6,7 @@ export type XpReason =
   | "streak_7"
   | "plan_complete"
   | "return_bonus"
+  | "checkin_undo"
   | "reward_redeem"
   | "redemption_cancel";
 
@@ -40,6 +41,12 @@ export type XpAward = {
 
 export type XpAwardResult = {
   awards: XpAward[];
+  insertedTransactions: XpTransaction[];
+  wallet: XpWallet;
+};
+
+export type XpRevokeResult = {
+  reversedAmount: number;
   insertedTransactions: XpTransaction[];
   wallet: XpWallet;
 };

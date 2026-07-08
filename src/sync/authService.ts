@@ -1,5 +1,5 @@
 import { apiRequest } from "./apiClient";
-import { clearAuthToken, getAuthToken, saveAuthToken } from "./localSettings";
+import { clearAuthToken, getAuthToken, getStoredAccount, saveAuthToken, saveStoredAccount } from "./localSettings";
 import { publicUrl } from "./publicUrl";
 
 export type AccountRole = "owner" | "member";
@@ -40,6 +40,12 @@ type AuthResponse = {
   account: Account;
 };
 
+async function saveAuthSession(result: AuthResponse): Promise<Account> {
+  await saveStoredAccount(result.account);
+  await saveAuthToken(result.token);
+  return result.account;
+}
+
 export async function register(input: {
   email: string;
   displayName: string;
@@ -50,8 +56,7 @@ export async function register(input: {
     body: input,
     anonymous: true
   });
-  await saveAuthToken(result.token);
-  return result.account;
+  return saveAuthSession(result);
 }
 
 export async function login(input: { email: string; password: string }): Promise<Account> {
@@ -60,8 +65,7 @@ export async function login(input: { email: string; password: string }): Promise
     body: input,
     anonymous: true
   });
-  await saveAuthToken(result.token);
-  return result.account;
+  return saveAuthSession(result);
 }
 
 /** 用邀请码加入另一半的空间；服务端会重新签发携带新 spaceId 的 token。 */
@@ -70,14 +74,17 @@ export async function joinSpace(inviteCode: string): Promise<Account> {
     method: "POST",
     body: { inviteCode }
   });
-  await saveAuthToken(result.token);
-  return result.account;
+  return saveAuthSession(result);
 }
 
 /** 本地是否已登录（有 token 即视为已登录）。无网络也可判断。 */
 export async function getCurrentAccount(): Promise<Account | null> {
   if (!(await getAuthToken())) {
     return null;
+  }
+  const cached = await getStoredAccount<Account>();
+  if (cached) {
+    return cached;
   }
   try {
     return await refreshAccount();
@@ -93,6 +100,7 @@ export async function refreshAccount(): Promise<Account | null> {
   }
   try {
     const result = await apiRequest<{ account: Account }>("/api/auth/me");
+    await saveStoredAccount(result.account);
     return result.account;
   } catch {
     return null;

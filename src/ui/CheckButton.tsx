@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are intentionally updated from event handlers. */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable } from "react-native";
 import Animated, {
   interpolate,
@@ -13,6 +13,7 @@ import Animated, {
   withTiming
 } from "react-native-reanimated";
 import { AppText } from "./Controls";
+import { getCheckButtonPressAction } from "./checkButtonPress";
 import { useTheme } from "./ThemeContext";
 
 const SIZE = 30;
@@ -77,20 +78,25 @@ export function CheckButton({
   disabled,
   accessibilityLabel,
   onComplete,
+  onUndo,
   onCelebrate,
-  optimistic = true
+  optimistic = true,
+  canUndo = false
 }: {
   checked: boolean;
   disabled: boolean;
   accessibilityLabel: string;
   onComplete: () => void;
+  onUndo?: () => void;
   onCelebrate?: () => void;
   // 数值型习惯点击后要弹输入框，不应立即显示"已完成"，此时传 false
   optimistic?: boolean;
+  canUndo?: boolean;
 }) {
   const { colors } = useTheme();
   const particles = useMemo(() => buildParticles(), []);
   const [justChecked, setJustChecked] = useState(false);
+  const wasChecked = useRef(checked);
   const effectiveChecked = checked || justChecked;
 
   const circleScale = useSharedValue(1);
@@ -115,8 +121,23 @@ export function CheckButton({
     transform: [{ scale: interpolate(ripple.value, [0, 1], [0.6, 2.4]) }]
   }));
 
+  useEffect(() => {
+    if (wasChecked.current && !checked) {
+      setJustChecked(false);
+    }
+    wasChecked.current = checked;
+    checkAnim.value = withTiming(checked ? 1 : 0, { duration: checked ? 120 : 80 });
+  }, [checkAnim, checked]);
+
   function handlePress() {
-    if (disabled || effectiveChecked) {
+    const action = getCheckButtonPressAction({ disabled, checked: effectiveChecked, canUndo });
+
+    if (action === "none") {
+      return;
+    }
+
+    if (action === "undo") {
+      onUndo?.();
       return;
     }
 
@@ -158,8 +179,8 @@ export function CheckButton({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
-      accessibilityState={{ checked: effectiveChecked, disabled }}
-      disabled={disabled || effectiveChecked}
+      accessibilityState={{ checked: effectiveChecked, disabled: disabled || (effectiveChecked && !canUndo) }}
+      disabled={disabled || (effectiveChecked && !canUndo)}
       hitSlop={8}
       onPress={handlePress}
       style={{ width: SIZE, height: SIZE, alignItems: "center", justifyContent: "center" }}

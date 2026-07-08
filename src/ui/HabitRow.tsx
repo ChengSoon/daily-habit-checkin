@@ -29,21 +29,27 @@ export function HabitRow({
   habit,
   isCompleted,
   onComplete,
+  onUndo,
   onCelebrate,
   onOpen,
   streak,
   showCheck = true,
-  completedBy
+  completedBy,
+  canUndo = false,
+  isUndoing = false
 }: {
   habit: Habit;
   isCompleted: boolean;
   onComplete: () => void;
+  onUndo?: () => void;
   onCelebrate?: () => void;
   onOpen: () => void;
   streak?: number;
   showCheck?: boolean;
   /** 完成者信息，用于已完成项标注是谁打的卡。 */
   completedBy?: HabitCompleter;
+  canUndo?: boolean;
+  isUndoing?: boolean;
 }) {
   const { colors } = useTheme();
   const dimmed = isCompleted || habit.isPaused;
@@ -75,11 +81,13 @@ export function HabitRow({
       {showCheck ? (
         <CheckButton
           checked={isCompleted}
-          disabled={habit.isPaused}
-          accessibilityLabel={isCompleted ? "已完成" : `完成 ${habit.name}`}
+          disabled={habit.isPaused || isUndoing}
+          accessibilityLabel={isCompleted && canUndo ? `撤销 ${habit.name}` : isCompleted ? "已完成" : `完成 ${habit.name}`}
           onComplete={onComplete}
+          onUndo={onUndo}
           onCelebrate={onCelebrate}
           optimistic={habit.trackType !== "numeric"}
+          canUndo={isCompleted && canUndo}
         />
       ) : null}
 

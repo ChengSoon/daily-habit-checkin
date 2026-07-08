@@ -1,12 +1,13 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { completeCheckIn, listCheckInsForHabit } from "../../src/checkins/checkinRepository";
+import { completeCheckIn, listCheckInsForHabit, undoCheckIn } from "../../src/checkins/checkinRepository";
 import { CheckIn } from "../../src/checkins/types";
 import { getStreakMilestone } from "../../src/checkins/milestones";
 import { calculateCurrentStreak } from "../../src/checkins/stats";
+import { canUndoCheckIn, CHECKIN_UNDO_WINDOW_MS } from "../../src/checkins/undoWindow";
 import { listActiveHabits } from "../../src/habits/habitRepository";
 import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { Habit } from "../../src/habits/types";
@@ -24,7 +25,7 @@ import { radius, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, todayKey } from "../../src/utils/date";
 import { getWallet } from "../../src/xp/xpRepository";
-import { awardXpForCheckIn } from "../../src/xp/xpService";
+import { awardXpForCheckIn, revokeXpForCheckIn } from "../../src/xp/xpService";
 import { XpAwardResult } from "../../src/xp/types";
 
 export default function TodayScreen() {
@@ -39,6 +40,8 @@ export default function TodayScreen() {
   const [fullCelebration, setFullCelebration] = useState<FullCelebration | null>(null);
   const [xpBalance, setXpBalance] = useState(0);
   const [lastXpResult, setLastXpResult] = useState<XpAwardResult | null>(null);
+  const [isUndoing, setIsUndoing] = useState(false);
+  const [undoNow, setUndoNow] = useState(() => new Date());
   const miniBurstKey = useRef(0);
   const today = todayKey();
 
@@ -54,6 +57,23 @@ export default function TodayScreen() {
   const hideFullCelebration = useCallback(() => {
     setFullCelebration(null);
   }, []);
+
+  useEffect(() => {
+    const undoableCheckIns = checkIns.filter((checkIn) => checkIn.status === "completed" && canUndoCheckIn(checkIn, undoNow));
+    if (undoableCheckIns.length === 0) {
+      return;
+    }
+
+    const nextExpiresAt = Math.min(
+      ...undoableCheckIns.map((checkIn) => new Date(checkIn.createdAt).getTime() + CHECKIN_UNDO_WINDOW_MS)
+    );
+    const delay = Math.max(0, nextExpiresAt - Date.now() + 1);
+    const timer = setTimeout(() => {
+      setUndoNow(new Date());
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [checkIns, undoNow]);
 
   const load = useCallback(async () => {
     const activeHabits = await listActiveHabits();
@@ -134,6 +154,7 @@ export default function TodayScreen() {
     setNumericHabit(null);
     setNumericValue("");
     await reload();
+    setUndoNow(new Date());
 
     // 全屏仪式感只留给里程碑和今日全勤；里程碑更稀有，优先展示
     if (milestone !== null) {
@@ -152,6 +173,32 @@ export default function TodayScreen() {
     complete(habit, null);
   }
 
+  async function undoTodayCheckIn(habit: Habit, checkIn: CheckIn) {
+    if (isUndoing || !canUndoCheckIn(checkIn, new Date())) {
+      return;
+    }
+
+    setIsUndoing(true);
+    setFullCelebration(null);
+
+    try {
+      const removed = await undoCheckIn({ habitId: habit.id, date: today, checkInId: checkIn.id });
+      if (removed) {
+        const xpResult = await revokeXpForCheckIn({
+          habitId: habit.id,
+          dateKey: today,
+          checkInId: removed.id
+        });
+        setXpBalance(xpResult.wallet.balance);
+        setLastXpResult(null);
+      }
+      await reload();
+      setUndoNow(new Date());
+    } finally {
+      setIsUndoing(false);
+    }
+  }
+
   function cancelNumeric() {
     setNumericHabit(null);
     setNumericValue("");
@@ -159,7 +206,11 @@ export default function TodayScreen() {
 
   // 已完成项标注是谁打的卡：checkIn.createdBy → couple 里的人（含自定义头像）。
   const completerByHabit: Record<string, HabitCompleter> = {};
+  const todayCheckInByHabit: Record<string, CheckIn> = {};
   for (const checkIn of checkIns) {
+    if (checkIn.status === "completed") {
+      todayCheckInByHabit[checkIn.habitId] = checkIn;
+    }
     if (checkIn.status !== "completed" || !checkIn.createdBy) {
       continue;
     }
@@ -254,17 +305,24 @@ export default function TodayScreen() {
                 <AppText variant="caption" tone="muted">
                   已完成 {done.length}
                 </AppText>
-                {done.map((habit) => (
-                  <HabitRow
-                    key={habit.id}
-                    habit={habit}
-                    isCompleted
-                    streak={streaks[habit.id]}
-                    completedBy={completerByHabit[habit.id]}
-                    onComplete={() => undefined}
-                    onOpen={() => router.push({ pathname: "/habit/[id]", params: { id: habit.id } })}
-                  />
-                ))}
+                {done.map((habit) => {
+                  const checkIn = todayCheckInByHabit[habit.id];
+                  const canUndo = checkIn ? canUndoCheckIn(checkIn, undoNow) : false;
+                  return (
+                    <HabitRow
+                      key={habit.id}
+                      habit={habit}
+                      isCompleted
+                      streak={streaks[habit.id]}
+                      completedBy={completerByHabit[habit.id]}
+                      canUndo={canUndo}
+                      isUndoing={isUndoing}
+                      onComplete={() => undefined}
+                      onUndo={() => checkIn && undoTodayCheckIn(habit, checkIn)}
+                      onOpen={() => router.push({ pathname: "/habit/[id]", params: { id: habit.id } })}
+                    />
+                  );
+                })}
               </View>
             ) : null}
           </View>

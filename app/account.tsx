@@ -12,6 +12,7 @@ import {
   register,
   updateMyAvatar
 } from "../src/sync/authService";
+import { getAuthToken } from "../src/sync/localSettings";
 import { PickedImage } from "../src/rewards/rewardImage";
 import { uploadImage } from "../src/sync/uploadClient";
 import { AppButton, AppText, Badge, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
@@ -23,9 +24,11 @@ import { radius, spacing } from "../src/ui/theme";
 import { useTheme } from "../src/ui/ThemeContext";
 
 type Mode = "login" | "register";
+type AccountLoadState = "checking" | "ready";
 
 export default function AccountScreen() {
   const [account, setAccount] = useState<Account | null>(null);
+  const [accountLoadState, setAccountLoadState] = useState<AccountLoadState>("checking");
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -42,11 +45,16 @@ export default function AccountScreen() {
   const load = useCallback(async () => {
     const current = await getCurrentAccount();
     setAccount(current);
+    setAccountLoadState("ready");
     if (current) {
       // 后台刷新一次，拿到最新邀请码/空间
-      refreshAccount().then((fresh) => {
+      refreshAccount().then(async (fresh) => {
         if (fresh) {
-          setAccount(fresh);
+          setAccount((visibleAccount) => (visibleAccount?.id === fresh.id ? fresh : visibleAccount));
+          return;
+        }
+        if (!(await getAuthToken())) {
+          setAccount(null);
         }
       });
     }
@@ -69,6 +77,7 @@ export default function AccountScreen() {
           ? await register({ email: email.trim(), displayName: displayName.trim(), password })
           : await login({ email: email.trim(), password });
       setAccount(result);
+      setAccountLoadState("ready");
       setMessage(mode === "register" ? "注册成功，已创建你们的空间" : "登录成功");
       setPassword("");
       // 登录态刚建立，把该账号已保存的主题从服务端拉回来，否则会停在默认主题。
@@ -87,6 +96,7 @@ export default function AccountScreen() {
     try {
       const result = await joinSpace(inviteCode.trim());
       setAccount(result);
+      setAccountLoadState("ready");
       setInviteCode("");
       setMessage("已加入对方的空间，数据将开始共享");
       // 空间变了，主题也可能不同，重新拉取。
@@ -108,6 +118,7 @@ export default function AccountScreen() {
   async function doLogout() {
     await logout();
     setAccount(null);
+    setAccountLoadState("ready");
     setMessage("已退出登录");
     // 已登出，未登录时 getAppSettings 会抛错被 catch，主题自然回退到默认。
     reloadTheme();
@@ -130,8 +141,19 @@ export default function AccountScreen() {
   // couple.you 携带当前账号的头像数据（来自成员接口）。
   const myTone = couple.you?.tone ?? "you";
 
+  if (accountLoadState === "checking") {
+    return (
+      <Screen>
+        <AppText variant="body" tone="muted">
+          账号加载中…
+        </AppText>
+      </Screen>
+    );
+  }
+
   if (account) {
-    const paired = !!couple.partner;
+    const isCoupleLoading = !couple.loaded;
+    const paired = couple.loaded && !!couple.partner;
     return (
       <Screen>
         <AppText variant="display">账号与同步</AppText>
@@ -161,7 +183,11 @@ export default function AccountScreen() {
               />
             ) : null}
           </View>
-          {paired ? (
+          {isCoupleLoading ? (
+            <AppText variant="small" tone="muted">
+              同步关系加载中…
+            </AppText>
+          ) : paired ? (
             <AppText variant="small" tone="muted">
               你和 {couple.partner!.name} 正在共享同一个空间 💞
             </AppText>
@@ -173,7 +199,7 @@ export default function AccountScreen() {
           )}
         </SectionCard>
 
-        {!paired ? (
+        {!isCoupleLoading && !paired ? (
           <SectionCard title="加入对方的空间">
             <AppText variant="small" tone="muted">
               填入对方的邀请码共享数据，当前空间数据会被替换。
