@@ -2,6 +2,8 @@ import { randomUUID } from "node:crypto";
 import { Router } from "express";
 import type { PoolClient } from "pg";
 import { getPool, withTransaction } from "../db/pool.js";
+import { deleteObject } from "../r2/r2Client.js";
+import { OwnerWritePolicy, requiresOwner } from "./ownerWrite.js";
 import { walletDelta, WalletTxType } from "./walletMath.js";
 
 /**
@@ -41,7 +43,13 @@ type ResourceConfig = {
    *   任何人可创建兑换（花积分兑换），但兑现/取消（改已有记录状态）仅 owner。
    * 不设则任何登录用户都能写（情侣共享的习惯/打卡/计划等）。
    */
-  ownerWrite?: "always" | "onUpdate";
+  ownerWrite?: OwnerWritePolicy;
+  /**
+   * 若该资源有一列存 R2 图片对象 key，在此声明列名。
+   * PUT 换图（新旧 key 不同）与 DELETE 时会 best-effort 删掉不再被引用的旧对象，
+   * 避免孤儿图在 R2 里长期堆积。仅奖励用到（image_key）。
+   */
+  imageKeyColumn?: string;
 };
 
 type ChangeNotifier = (spaceId: string, resource: string) => void;
@@ -99,6 +107,8 @@ const RESOURCES: Record<string, ResourceConfig> = {
     table: "rewards",
     // 奖励目录的增删改仅 owner；兑换记录见下方 onUpdate 规则
     ownerWrite: "always",
+    // 奖励图存 R2，换图/删奖励时清理旧对象，避免孤儿图堆积
+    imageKeyColumn: "image_key",
     columns: [
       { column: "title", field: "title", kind: "text" },
       { column: "description", field: "description", kind: "text", nullable: true },
@@ -221,6 +231,36 @@ export function createDataRouter(options: DataRouterOptions = {}): Router {
     const updates = config.columns.map((c) => `${c.column} = excluded.${c.column}`).join(", ");
 
     const pool = getPool();
+
+    // owner 权限门：奖励目录（always）任何写都要 owner；兑换记录（onUpdate）
+    // 新建放行（member 可花积分兑换）、更新已有记录（兑现/取消）要 owner。
+    // onUpdate 需先查记录是否已存在，判定本身交给纯函数 requiresOwner（可单测）。
+    if (config.ownerWrite) {
+      let recordExists = false;
+      if (config.ownerWrite === "onUpdate") {
+        const { rows: existingRows } = await pool.query(
+          `SELECT 1 FROM ${config.table} WHERE id = $1 AND space_id = $2`,
+          [id, request.spaceId]
+        );
+        recordExists = existingRows.length > 0;
+      }
+      if (requiresOwner(config.ownerWrite, "update", recordExists) && request.role !== "owner") {
+        response.status(403).json({ error: "仅空间创建者可执行此操作" });
+        return;
+      }
+    }
+
+    // 若该资源带 R2 图列（如 rewards.image_key），先取旧图 key，
+    // 更新成功后若换了新图则删旧图，避免换图后旧对象在 R2 里成为孤儿。
+    let previousImageKey: string | null = null;
+    if (config.imageKeyColumn) {
+      const { rows: existing } = await pool.query(
+        `SELECT ${config.imageKeyColumn} AS image_key FROM ${config.table} WHERE id = $1 AND space_id = $2`,
+        [id, request.spaceId]
+      );
+      previousImageKey = (existing[0]?.image_key as string | null | undefined) ?? null;
+    }
+
     const { rows } = await pool.query(
       `INSERT INTO ${config.table} (${columns.join(", ")})
        VALUES (${placeholders})
@@ -234,6 +274,15 @@ export function createDataRouter(options: DataRouterOptions = {}): Router {
       response.status(403).json({ error: "无权修改该记录" });
       return;
     }
+
+    // 换图后清理旧图（best-effort，不阻断响应）。
+    if (config.imageKeyColumn) {
+      const nextImageKey = (rows[0] as Record<string, unknown>)[config.imageKeyColumn] as string | null;
+      if (previousImageKey && previousImageKey !== nextImageKey) {
+        await deleteObject(previousImageKey);
+      }
+    }
+
     options.onChange?.(request.spaceId!, request.params.resource);
     response.json(fromDbRow(config, rows[0] as Record<string, unknown>));
   });
@@ -245,11 +294,33 @@ export function createDataRouter(options: DataRouterOptions = {}): Router {
       return;
     }
 
+    // owner 权限门：删除总是针对已存在记录，requiresOwner 对 always/onUpdate 均返回 true。
+    if (requiresOwner(config.ownerWrite, "delete", true) && request.role !== "owner") {
+      response.status(403).json({ error: "仅空间创建者可执行此操作" });
+      return;
+    }
+
     const pool = getPool();
+
+    // 带图资源：删记录前先取图 key，删成功后清理 R2 对象，避免孤儿图。
+    let removedImageKey: string | null = null;
+    if (config.imageKeyColumn) {
+      const { rows } = await pool.query(
+        `SELECT ${config.imageKeyColumn} AS image_key FROM ${config.table} WHERE id = $1 AND space_id = $2`,
+        [request.params.id, request.spaceId]
+      );
+      removedImageKey = (rows[0]?.image_key as string | null | undefined) ?? null;
+    }
+
     await pool.query(`DELETE FROM ${config.table} WHERE id = $1 AND space_id = $2`, [
       request.params.id,
       request.spaceId
     ]);
+
+    if (removedImageKey) {
+      await deleteObject(removedImageKey);
+    }
+
     options.onChange?.(request.spaceId!, request.params.resource);
     response.status(204).end();
   });

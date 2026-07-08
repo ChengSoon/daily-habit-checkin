@@ -37,6 +37,9 @@ server/.env
 # typescript
 *.tsbuildinfo
 
+# Claude Code (machine-local settings & plans)
+.claude/
+
 example
 
 # generated native folders

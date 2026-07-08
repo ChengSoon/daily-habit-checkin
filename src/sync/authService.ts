@@ -134,3 +134,37 @@ export async function updateMyAvatar(avatarKey: string | null): Promise<void> {
     body: { avatarKey }
   });
 }
+
+/**
+ * 修改当前登录账号的密码。服务端校验旧密码后更新，成功即完成——
+ * 不改变登录态（token 仍有效），失败会抛出带原因的错误交给调用方展示。
+ */
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await apiRequest<void>("/api/auth/me/password", {
+    method: "PUT",
+    body: input
+  });
+}
+
+/**
+ * 退出当前共享空间。仅 member（对方是创建者）可用：服务端为你新建独立空间并转为其
+ * owner，原空间数据留给对方。会重新签发携带新 spaceId 的 token，因此更新本地登录态。
+ */
+export async function leaveSpace(): Promise<Account> {
+  const result = await apiRequest<AuthResponse>("/api/auth/leave-space", {
+    method: "POST"
+  });
+  return saveAuthSession(result);
+}
+
+/**
+ * 删除当前账号。服务端按「是否唯一成员」决定连同空间数据一起删、还是只删自己
+ * （member 退出、数据留给对方）。成功后清掉本地登录态。
+ */
+export async function deleteMyAccount(): Promise<void> {
+  await apiRequest<void>("/api/auth/me", { method: "DELETE" });
+  await clearAuthToken();
+}

@@ -32,9 +32,10 @@ export async function requireAuth(request: Request, response: Response, next: Ne
       return;
     }
 
-    // 以库中最新的 spaceId 为准（token 里的可能因加入/退出空间而过期）。
+    // 以库中最新的 spaceId / role 为准（token 里的可能因加入/退出空间而过期）。
     request.accountId = account.id;
     request.spaceId = account.spaceId;
+    request.role = account.role;
     next();
   } catch (error) {
     response.status(500).json({ error: error instanceof Error ? error.message : "校验登录状态失败" });

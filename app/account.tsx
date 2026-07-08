@@ -4,8 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert, Animated, Easing, Pressable, TextInput, View, ViewStyle } from "react-native";
 import {
   Account,
+  changePassword,
+  deleteMyAccount,
   getCurrentAccount,
   joinSpace,
+  leaveSpace,
   login,
   logout,
   refreshAccount,
@@ -15,7 +18,7 @@ import {
 import { getAuthToken } from "../src/sync/localSettings";
 import { PickedImage } from "../src/rewards/rewardImage";
 import { uploadImage } from "../src/sync/uploadClient";
-import { AppButton, AppText, Badge, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
+import { AppButton, AppText, Badge, Divider, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
 import { CoupleAvatars } from "../src/ui/Avatar";
 import { AvatarPicker } from "../src/ui/AvatarPicker";
 import { useCouple } from "../src/ui/useCouple";
@@ -37,6 +40,11 @@ export default function AccountScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // 修改密码卡片：默认收起，点开才显示输入，避免占用主视图。
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   const couple = useCouple();
   const reloadCouple = couple.reload;
@@ -113,6 +121,83 @@ export default function AccountScreen() {
       { text: "取消", style: "cancel" },
       { text: "确认加入", style: "destructive", onPress: () => void submitJoinSpace() }
     ]);
+  }
+
+  async function submitChangePassword() {
+    setError(null);
+    setMessage(null);
+    if (newPassword.length < 6) {
+      setError("新密码至少 6 位");
+      return;
+    }
+    setBusy(true);
+    try {
+      await changePassword({ currentPassword, newPassword });
+      setMessage("密码已更新");
+      setCurrentPassword("");
+      setNewPassword("");
+      setShowPasswordForm(false);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "修改密码失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitLeaveSpace() {
+    setError(null);
+    setMessage(null);
+    setBusy(true);
+    try {
+      const result = await leaveSpace();
+      setAccount(result);
+      setMessage("已退出共享空间，你现在有了独立的个人空间");
+      // 空间变了，主题、成员关系都要重拉。
+      reloadTheme();
+      reloadCouple();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "退出空间失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function doLeaveSpace() {
+    Alert.alert(
+      "退出共享空间？",
+      "退出后你会拥有一个全新的独立空间，当前共享的习惯、积分和奖励都留给对方，不会带走。",
+      [
+        { text: "取消", style: "cancel" },
+        { text: "确认退出", style: "destructive", onPress: () => void submitLeaveSpace() }
+      ]
+    );
+  }
+
+  async function submitDeleteAccount() {
+    setError(null);
+    setMessage(null);
+    setBusy(true);
+    try {
+      await deleteMyAccount();
+      setAccount(null);
+      setAccountLoadState("ready");
+      setMessage("账号已删除");
+      reloadTheme();
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : "删除账号失败");
+      setBusy(false);
+    }
+  }
+
+  function doDeleteAccount() {
+    Alert.alert(
+      "删除账号？",
+      "此操作不可撤销。若你是空间里唯一的人，全部习惯、打卡、积分和奖励都会一并永久删除。",
+      [
+        { text: "取消", style: "cancel" },
+        { text: "永久删除", style: "destructive", onPress: () => void submitDeleteAccount() }
+      ]
+    );
   }
 
   async function doLogout() {
@@ -212,7 +297,79 @@ export default function AccountScreen() {
         {message ? <HelperText tone="success">{message}</HelperText> : null}
         {error ? <HelperText tone="danger">{error}</HelperText> : null}
 
-        <AppButton title="退出登录" variant="ghost" onPress={doLogout} disabled={busy} />
+        <SectionCard title="账号">
+          {showPasswordForm ? (
+            <>
+              <TextField
+                label="当前密码"
+                value={currentPassword}
+                onChangeText={setCurrentPassword}
+                placeholder="输入当前密码"
+                secureTextEntry
+              />
+              <TextField
+                label="新密码"
+                value={newPassword}
+                onChangeText={setNewPassword}
+                placeholder="至少 6 位"
+                secureTextEntry
+              />
+              <View style={{ flexDirection: "row", gap: spacing.md }}>
+                <View style={{ flex: 1 }}>
+                  <AppButton
+                    title="取消"
+                    variant="secondary"
+                    onPress={() => {
+                      setShowPasswordForm(false);
+                      setCurrentPassword("");
+                      setNewPassword("");
+                    }}
+                    disabled={busy}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppButton
+                    title="确认修改"
+                    onPress={submitChangePassword}
+                    disabled={busy || !currentPassword || newPassword.length < 6}
+                  />
+                </View>
+              </View>
+            </>
+          ) : (
+            <>
+              <AppButton
+                title="修改密码"
+                variant="secondary"
+                icon="key-outline"
+                onPress={() => setShowPasswordForm(true)}
+              />
+              <AppButton title="退出登录" variant="ghost" icon="log-out-outline" onPress={doLogout} disabled={busy} />
+            </>
+          )}
+        </SectionCard>
+
+        {!showPasswordForm ? (
+          <SectionCard title="危险区域">
+            {paired ? (
+              <AppButton
+                title="退出当前空间"
+                variant="ghost"
+                icon="exit-outline"
+                onPress={doLeaveSpace}
+                disabled={busy}
+              />
+            ) : (
+              <AppButton
+                title="删除账号"
+                variant="ghost"
+                icon="trash-outline"
+                onPress={doDeleteAccount}
+                disabled={busy}
+              />
+            )}
+          </SectionCard>
+        ) : null}
       </Screen>
     );
   }

@@ -3,17 +3,32 @@ import { z } from "zod";
 import { hashPassword, verifyPassword } from "./passwords.js";
 import { signToken } from "./tokens.js";
 import {
+  deleteAccount,
   findAccountByEmail,
   getAccountById,
+  getPasswordHashById,
   getSpaceInviteCode,
   joinSpaceByInviteCode,
+  leaveSpace,
   listSpaceMembers,
   registerAccount,
-  updateAvatarKey
+  updateAvatarKey,
+  updatePasswordHash
 } from "./accountRepository.js";
 import { requireAuth } from "./authMiddleware.js";
+import { createRateLimiter } from "../middleware.js";
 
 export const authRouter = Router();
+
+/**
+ * 认证类写接口的限流：防止对 /login 暴力撞密码、对 /register 批量注册刷库。
+ * 按客户端 IP 计数，默认每分钟 10 次（可用 AUTH_RATE_LIMIT_* 覆盖）。
+ * 只挂在 login/register/join-space 这类写接口上，读接口（/me、/space-members）不受限。
+ */
+const authRateLimit = createRateLimiter({
+  windowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS ?? 60_000),
+  max: Number(process.env.AUTH_RATE_LIMIT_MAX ?? 10)
+});
 
 const RegisterSchema = z.object({
   email: z.string().email().max(120),
@@ -35,7 +50,7 @@ async function withInviteCode<T extends { spaceId: string }>(account: T) {
   return { ...account, inviteCode };
 }
 
-authRouter.post("/register", async (request, response) => {
+authRouter.post("/register", authRateLimit, async (request, response) => {
   try {
     const input = RegisterSchema.parse(request.body);
     const passwordHash = await hashPassword(input.password);
@@ -51,7 +66,7 @@ authRouter.post("/register", async (request, response) => {
   }
 });
 
-authRouter.post("/login", async (request, response) => {
+authRouter.post("/login", authRateLimit, async (request, response) => {
   try {
     const input = LoginSchema.parse(request.body);
     const account = await findAccountByEmail(input.email);
@@ -66,7 +81,7 @@ authRouter.post("/login", async (request, response) => {
   }
 });
 
-authRouter.post("/join-space", requireAuth, async (request, response) => {
+authRouter.post("/join-space", authRateLimit, requireAuth, async (request, response) => {
   try {
     const input = JoinSchema.parse(request.body);
     const account = await joinSpaceByInviteCode(request.accountId!, input.inviteCode);
@@ -114,5 +129,62 @@ authRouter.put("/me/avatar", requireAuth, async (request, response) => {
     response.status(204).end();
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : "更新头像失败" });
+  }
+});
+
+// 登录态改密码：校验旧密码后写新哈希。新密码规则与注册一致（至少 6 位）。
+const ChangePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(72),
+  newPassword: z.string().min(6).max(72)
+});
+
+/**
+ * 修改当前登录账号的密码。需提供正确的旧密码，避免他人拿着已登录设备直接改密。
+ * 改密后不使旧 token 失效（无吊销机制，双人场景可接受），客户端可自行选择重登。
+ */
+authRouter.put("/me/password", requireAuth, authRateLimit, async (request, response) => {
+  try {
+    const input = ChangePasswordSchema.parse(request.body);
+    const currentHash = await getPasswordHashById(request.accountId!);
+    if (!currentHash || !(await verifyPassword(input.currentPassword, currentHash))) {
+      response.status(400).json({ error: "当前密码不正确" });
+      return;
+    }
+    if (input.newPassword === input.currentPassword) {
+      response.status(400).json({ error: "新密码不能与当前密码相同" });
+      return;
+    }
+    const newHash = await hashPassword(input.newPassword);
+    await updatePasswordHash(request.accountId!, newHash);
+    response.status(204).end();
+  } catch (error) {
+    response.status(400).json({ error: error instanceof Error ? error.message : "修改密码失败" });
+  }
+});
+
+/**
+ * 退出当前空间（仅 member 可用）：为自己新建独立空间并转 owner，共享数据留给对方。
+ * owner 想解散共享需让对方先退出，由仓储层拦截提示。退出后重新签发携带新 spaceId 的 token。
+ */
+authRouter.post("/leave-space", requireAuth, async (request, response) => {
+  try {
+    const account = await leaveSpace(request.accountId!);
+    const token = signToken({ accountId: account.id, spaceId: account.spaceId });
+    response.json({ token, account: await withInviteCode(account) });
+  } catch (error) {
+    response.status(400).json({ error: error instanceof Error ? error.message : "退出空间失败" });
+  }
+});
+
+/**
+ * 删除当前登录账号。唯一成员会连空间与全部共享数据一并删除（不可恢复）；
+ * member 删除只移除自己，数据留给对方 owner；owner 在对方仍在时被拒绝。
+ */
+authRouter.delete("/me", requireAuth, async (request, response) => {
+  try {
+    await deleteAccount(request.accountId!);
+    response.status(204).end();
+  } catch (error) {
+    response.status(400).json({ error: error instanceof Error ? error.message : "删除账号失败" });
   }
 });

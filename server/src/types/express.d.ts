@@ -7,6 +7,8 @@ declare global {
       accountId?: string;
       /** 由 requireAuth 中间件解析出的当前空间 ID。 */
       spaceId?: string;
+      /** 由 requireAuth 中间件解析出的当前账号角色（owner/member），用于写接口权限判断。 */
+      role?: "owner" | "member";
     }
   }
 }

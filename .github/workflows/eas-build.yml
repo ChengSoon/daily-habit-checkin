@@ -1,0 +1,43 @@
+name: EAS Build (Mobile)
+
+# 手动触发的移动端构建：用 EAS 云构建 Android/iOS 包。
+# 默认走 preview profile（内部分发 APK），可在触发时切换 profile / platform。
+#
+# 需要的 secret：EXPO_TOKEN（Expo 账号的 access token，见 https://expo.dev/settings/access-tokens）。
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 构建平台
+        type: choice
+        default: android
+        options: [android, ios, all]
+      profile:
+        description: EAS build profile（见 eas.json）
+        type: choice
+        default: preview
+        options: [development, preview, production, production-apk]
+
+jobs:
+  build:
+    name: EAS ${{ inputs.platform }} / ${{ inputs.profile }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Build
+        run: eas build --non-interactive --no-wait --platform ${{ inputs.platform }} --profile ${{ inputs.profile }}

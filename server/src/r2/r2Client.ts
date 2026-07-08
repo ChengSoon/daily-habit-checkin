@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
@@ -92,4 +92,22 @@ export async function createPresignedUpload(
   );
 
   return { key, uploadUrl };
+}
+
+/**
+ * 删除一个 R2 对象（换头像/换奖励图/删奖励后清理旧图，避免孤儿对象长期堆积）。
+ * best-effort：删除失败只记日志、不抛出，绝不因清理旧图而阻断主流程。
+ * 传入空 key 直接跳过。R2 未配置时同样静默跳过（自建环境常见）。
+ */
+export async function deleteObject(key: string | null | undefined): Promise<void> {
+  if (!key) {
+    return;
+  }
+  try {
+    const { s3, bucket } = getClient();
+    await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(`R2 对象删除失败（已忽略）：${key} — ${message}`);
+  }
 }

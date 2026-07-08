@@ -1,0 +1,97 @@
+name: CD (Server)
+
+# 服务端持续部署：
+#   1. build-image —— 构建后端 Docker 镜像并推送到 GHCR（版本化产物 + 验证 Dockerfile 可构建）。
+#   2. deploy      —— SSH 到服务器，按现有 deploy.sh 的流程打包源码 → 远程构建 → 只重启 app 容器。
+#
+# 触发：推送 main 且改动了 server/**，或手动 workflow_dispatch。
+# 需要的 secrets：SSH_PRIVATE_KEY、SSH_HOST、SSH_USER（详见 README / 仓库 Settings → Secrets）。
+on:
+  push:
+    branches: [main]
+    paths:
+      - "server/**"
+      - ".github/workflows/cd-server.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: cd-server
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/habit-server
+
+jobs:
+  build-image:
+    name: Build & push image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to server
+    runs-on: ubuntu-latest
+    needs: build-image
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy (tar source → remote build → restart app)
+        env:
+          HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+          REMOTE_DIR: /root/habit-server
+        run: |
+          set -euo pipefail
+          # 只同步构建镜像所需文件；不动服务器上的 .env。
+          tar czf - --exclude='._*' --exclude='.DS_Store' \
+            -C server src Dockerfile package.json package-lock.json tsconfig.json docker-compose.yml \
+            | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "
+                set -e
+                mkdir -p '$REMOTE_DIR'
+                tar xzf - -C '$REMOTE_DIR'
+                cd '$REMOTE_DIR'
+                docker compose build app
+                docker compose up -d --no-deps app
+                docker compose ps
+              "
+
+      - name: Health check
+        env:
+          HEALTH_URL: http://${{ secrets.SSH_HOST }}:4000/habit/health
+        run: |
+          set -euo pipefail
+          sleep 3
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "$HEALTH_URL" || true)
+          if [ "$code" = "200" ]; then
+            echo "部署成功，健康检查 200：$HEALTH_URL"
+          else
+            echo "::error::健康检查未返回 200（实际：$code）"
+            exit 1
+          fi
