@@ -8,7 +8,7 @@ const apiClientFakePath = fileURLToPath(new URL("./test/fakes/apiClient.ts", imp
 export default defineConfig({
   test: {
     environment: "node",
-    exclude: ["node_modules/**", "server/node_modules/**", "server/dist/**", "dist/**"]
+    exclude: ["node_modules/**", "server/**", "dist/**"]
   },
   resolve: {
     alias: {

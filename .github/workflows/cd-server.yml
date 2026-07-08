@@ -1,21 +1,28 @@
-name: CD (Server)
+name: Server Build & Deploy
 
-# 服务端持续部署：
-#   1. build-image —— 构建后端 Docker 镜像并推送到 GHCR（版本化产物 + 验证 Dockerfile 可构建）。
-#   2. deploy      —— SSH 到服务器，按现有 deploy.sh 的流程打包源码 → 远程构建 → 只重启 app 容器。
+# GitHub Actions 服务端打包：
+# - 普通 server 改动 push：构建 preview Docker 镜像 tar，只作为 artifact 保存，不发布。
+# - v* tag：构建 production Docker 镜像并推送 GHCR，然后部署到服务器。
+# - 手动触发：可选择 preview / production 构建 artifact；只有 v* tag 才推送和部署。
 #
-# 触发：推送 main 且改动了 server/**，或手动 workflow_dispatch。
-# 需要的 secrets：SSH_PRIVATE_KEY、SSH_HOST、SSH_USER（详见 README / 仓库 Settings → Secrets）。
+# production 需要的 secrets：SSH_PRIVATE_KEY、SSH_HOST、SSH_USER。
 on:
   push:
-    branches: [main]
+    branches: ["**"]
+    tags: ["v*"]
     paths:
       - "server/**"
       - ".github/workflows/cd-server.yml"
   workflow_dispatch:
+    inputs:
+      release_channel:
+        description: 构建版本
+        type: choice
+        default: preview
+        options: [preview, production]
 
 concurrency:
-  group: cd-server
+  group: server-build-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -23,36 +30,95 @@ env:
 
 jobs:
   build-image:
-    name: Build & push image
+    name: Docker build
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+    outputs:
+      channel: ${{ steps.mode.outputs.channel }}
+      publish: ${{ steps.mode.outputs.publish }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve build mode
+        id: mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          channel="preview"
+          publish="false"
+          is_release_tag="false"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            channel="production"
+            publish="true"
+            is_release_tag="true"
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            channel="${{ inputs.release_channel }}"
+            publish="false"
+            if [[ "$channel" == "production" && "$is_release_tag" == "true" ]]; then
+              publish="true"
+            fi
+          fi
+
+          safe_ref="${GITHUB_REF_NAME//\//-}"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=server-${channel}-${safe_ref}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare artifact directory
+        if: steps.mode.outputs.publish != 'true'
+        run: mkdir -p artifacts/server
+
+      - name: Build image artifact
+        if: steps.mode.outputs.publish != 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: ./server
+          push: false
+          tags: ${{ env.IMAGE }}:${{ steps.mode.outputs.channel }}-${{ github.sha }}
+          outputs: type=docker,dest=artifacts/server/habit-server-${{ steps.mode.outputs.channel }}-${{ github.sha }}.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Upload image artifact
+        if: steps.mode.outputs.publish != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.mode.outputs.artifact_name }}
+          path: artifacts/server/*
+          if-no-files-found: error
+
       - name: Log in to GHCR
+        if: steps.mode.outputs.publish == 'true'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & push
+      - name: Build and publish production image
+        if: steps.mode.outputs.publish == 'true'
         uses: docker/build-push-action@v6
         with:
           context: ./server
           push: true
           tags: |
             ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:production
+            ${{ env.IMAGE }}:${{ github.ref_name }}
             ${{ env.IMAGE }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
-    name: Deploy to server
+    name: Deploy production server
     runs-on: ubuntu-latest
     needs: build-image
+    if: needs.build-image.outputs.publish == 'true'
     steps:
       - uses: actions/checkout@v4
 
@@ -63,7 +129,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Deploy (tar source → remote build → restart app)
+      - name: Deploy (tar source -> remote build -> restart app)
         env:
           HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
           REMOTE_DIR: /root/habit-server

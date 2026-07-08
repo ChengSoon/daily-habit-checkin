@@ -1,37 +1,103 @@
-name: EAS Build (Mobile)
+name: Mobile Build
 
-# 手动触发的移动端构建：用 EAS 云构建 Android/iOS 包。
-# 默认走 preview profile（内部分发 APK），可在触发时切换 profile / platform。
+# GitHub Actions 本地打 Android 包：
+# - 普通移动端改动 push：构建 preview APK，只作为 artifact 保存，不发布。
+# - v* tag：构建 production-apk，并发布到对应 GitHub Release。
+# - 手动触发：可选择 preview / production 构建 artifact；只有在 v* tag 上运行才发布。
 #
-# 需要的 secret：EXPO_TOKEN（Expo 账号的 access token，见 https://expo.dev/settings/access-tokens）。
+# 需要的 secret：EXPO_TOKEN（Expo 账号的 access token，用于读取 EAS 项目与签名凭据）。
 on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+    paths:
+      - "app/**"
+      - "src/**"
+      - "assets/**"
+      - "package.json"
+      - "package-lock.json"
+      - "app.json"
+      - "app.config.*"
+      - "eas.json"
+      - ".github/workflows/eas-build.yml"
   workflow_dispatch:
     inputs:
-      platform:
-        description: 构建平台
-        type: choice
-        default: android
-        options: [android, ios, all]
-      profile:
-        description: EAS build profile（见 eas.json）
+      release_channel:
+        description: 构建版本
         type: choice
         default: preview
-        options: [development, preview, production, production-apk]
+        options: [preview, production]
+
+concurrency:
+  group: mobile-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
-    name: EAS ${{ inputs.platform }} / ${{ inputs.profile }}
+  android:
+    name: Android build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Resolve build mode
+        id: mode
+        shell: bash
+        run: |
+          set -euo pipefail
+          channel="preview"
+          publish="false"
+          is_release_tag="false"
+
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${GITHUB_REF_NAME}" == v* ]]; then
+            channel="production"
+            publish="true"
+            is_release_tag="true"
+          fi
+
+          if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
+            channel="${{ inputs.release_channel }}"
+            publish="false"
+            if [[ "$channel" == "production" && "$is_release_tag" == "true" ]]; then
+              publish="true"
+            fi
+          fi
+
+          profile="preview"
+          if [[ "$channel" == "production" ]]; then
+            profile="production-apk"
+          fi
+
+          safe_ref="${GITHUB_REF_NAME//\//-}"
+          echo "channel=$channel" >> "$GITHUB_OUTPUT"
+          echo "profile=$profile" >> "$GITHUB_OUTPUT"
+          echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=mobile-${channel}-${safe_ref}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+
       - name: Install deps
         run: npm ci
+
+      - name: Check Expo token
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          if [ -z "$EXPO_TOKEN" ]; then
+            echo "::error::Missing EXPO_TOKEN secret. Add it in GitHub Settings > Secrets and variables > Actions."
+            exit 1
+          fi
 
       - name: Set up EAS
         uses: expo/expo-github-action@v8
@@ -39,5 +105,28 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Build
-        run: eas build --non-interactive --no-wait --platform ${{ inputs.platform }} --profile ${{ inputs.profile }}
+      - name: Build Android locally
+        env:
+          EAS_LOCAL_BUILD_ARTIFACTS_DIR: ${{ github.workspace }}/artifacts/mobile
+        run: |
+          mkdir -p "$EAS_LOCAL_BUILD_ARTIFACTS_DIR"
+          eas build --local --non-interactive --platform android --profile "${{ steps.mode.outputs.profile }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.mode.outputs.artifact_name }}
+          path: artifacts/mobile/*
+          if-no-files-found: error
+
+      - name: Publish production release
+        if: steps.mode.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --title "$tag" --notes "Automated production mobile build for ${GITHUB_SHA}."
+          fi
+          gh release upload "$tag" artifacts/mobile/* --clobber
