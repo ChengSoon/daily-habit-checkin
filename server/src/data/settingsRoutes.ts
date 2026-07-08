@@ -17,7 +17,11 @@ const SCOPE_TABLES: Record<string, string> = {
   admin: "admin_settings"
 };
 
-export function createSettingsRouter(): Router {
+type SettingsRouterOptions = {
+  onChange?: (spaceId: string, resource: string) => void;
+};
+
+export function createSettingsRouter(options: SettingsRouterOptions = {}): Router {
   const router = Router();
 
   router.get("/:scope", async (request, response) => {
@@ -72,6 +76,7 @@ export function createSettingsRouter(): Router {
       );
     }
 
+    options.onChange?.(request.spaceId!, `settings:${request.params.scope}`);
     response.status(204).end();
   });
 

@@ -8,6 +8,8 @@ import { createSettingsRouter } from "./data/settingsRoutes.js";
 import { runSchema } from "./db/schema.js";
 import { createRateLimiter, requireApiKey } from "./middleware.js";
 import { generateHabitPlan } from "./openaiHabitPlanner.js";
+import { syncChangeHub } from "./sync/changeHub.js";
+import { attachSyncWebSocketServer } from "./sync/syncWebSocketServer.js";
 import { createUploadRouter } from "./uploads/uploadRoutes.js";
 
 const app = express();
@@ -41,19 +43,23 @@ app.post("/api/ai/habit-plan", requireApiKey, rateLimit, async (request, respons
 app.use("/api/auth", authRouter);
 
 // 业务数据同步（全部需登录，按 space_id 隔离）
+const notifySyncChange = (spaceId: string, resource: string) => {
+  syncChangeHub.notifyChange(spaceId, resource);
+};
 app.use("/api/uploads", createUploadRouter());
-app.use("/api/data", requireAuth, createDataRouter());
-app.use("/api/wallet", requireAuth, createWalletRouter());
-app.use("/api/settings", requireAuth, createSettingsRouter());
+app.use("/api/data", requireAuth, createDataRouter({ onChange: notifySyncChange }));
+app.use("/api/wallet", requireAuth, createWalletRouter({ onChange: notifySyncChange }));
+app.use("/api/settings", requireAuth, createSettingsRouter({ onChange: notifySyncChange }));
 
 async function start(): Promise<void> {
   if (process.env.DATABASE_URL) {
     await runSchema();
     console.log("数据库表已就绪");
   }
-  app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`Habit server listening on http://localhost:${port}`);
   });
+  attachSyncWebSocketServer(server);
 }
 
 start().catch((error) => {

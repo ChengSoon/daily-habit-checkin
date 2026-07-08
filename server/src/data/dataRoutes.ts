@@ -44,6 +44,12 @@ type ResourceConfig = {
   ownerWrite?: "always" | "onUpdate";
 };
 
+type ChangeNotifier = (spaceId: string, resource: string) => void;
+
+type DataRouterOptions = {
+  onChange?: ChangeNotifier;
+};
+
 /**
  * 每种资源的字段映射。id 与 space_id 由框架统一处理，这里只列业务列。
  */
@@ -165,7 +171,7 @@ function fromDbRow(config: ResourceConfig, row: Record<string, unknown>): Record
   return result;
 }
 
-export function createDataRouter(): Router {
+export function createDataRouter(options: DataRouterOptions = {}): Router {
   const router = Router();
 
   router.get("/:resource", async (request, response) => {
@@ -228,6 +234,7 @@ export function createDataRouter(): Router {
       response.status(403).json({ error: "无权修改该记录" });
       return;
     }
+    options.onChange?.(request.spaceId!, request.params.resource);
     response.json(fromDbRow(config, rows[0] as Record<string, unknown>));
   });
 
@@ -243,6 +250,7 @@ export function createDataRouter(): Router {
       request.params.id,
       request.spaceId
     ]);
+    options.onChange?.(request.spaceId!, request.params.resource);
     response.status(204).end();
   });
 
@@ -258,7 +266,7 @@ export function createDataRouter(): Router {
  *
  * 余额由服务端计算，客户端只上报交易，避免两台设备各算各的导致钱包不一致。
  */
-export function createWalletRouter(): Router {
+export function createWalletRouter(options: DataRouterOptions = {}): Router {
   const router = Router();
 
   router.get("/", async (request, response) => {
@@ -347,6 +355,9 @@ export function createWalletRouter(): Router {
       return { inserted, wallet };
     });
 
+    if (result.inserted.length > 0) {
+      options.onChange?.(spaceId, "wallet");
+    }
     response.json(result);
   });
 

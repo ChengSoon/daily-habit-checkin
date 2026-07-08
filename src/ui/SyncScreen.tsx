@@ -1,9 +1,12 @@
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import { AppState } from "react-native";
 import { UnauthorizedError } from "../sync/apiClient";
+import { subscribeSyncInvalidations } from "../sync/syncInvalidation";
 import { AppButton, AppText } from "./Controls";
 import { EmptyState } from "./EmptyState";
 import { Screen } from "./Screen";
+import { normalizeSyncScreenOptions, shouldRunSyncRefresh, SyncScreenOptions } from "./syncScreenRefresh";
 
 export type SyncStatus = "loading" | "ready" | "unauthenticated" | "error";
 
@@ -13,29 +16,66 @@ export type SyncStatus = "loading" | "ready" | "unauthenticated" | "error";
  *
  * 首次进入才显示「加载中」，refocus 时静默刷新，不闪 loading。
  */
-export function useSyncScreen(loader: () => Promise<void>) {
+export function useSyncScreen(loader: () => Promise<void>, options: SyncScreenOptions = {}) {
   const [status, setStatus] = useState<SyncStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const inFlightRef = useRef<Promise<void> | null>(null);
+  const { refreshOnForeground, refreshOnRemoteChange } = normalizeSyncScreenOptions(options);
 
   const run = useCallback(async () => {
-    try {
-      await loader();
-      setErrorMessage(null);
-      setStatus("ready");
-    } catch (error) {
-      if (error instanceof UnauthorizedError) {
-        setStatus("unauthenticated");
-      } else {
-        setErrorMessage(error instanceof Error ? error.message : "加载失败");
-        setStatus("error");
-      }
+    if (inFlightRef.current) {
+      return inFlightRef.current;
     }
+
+    const task = (async () => {
+      try {
+        await loader();
+        setErrorMessage(null);
+        setStatus("ready");
+      } catch (error) {
+        if (error instanceof UnauthorizedError) {
+          setStatus("unauthenticated");
+        } else {
+          setErrorMessage(error instanceof Error ? error.message : "加载失败");
+          setStatus("error");
+        }
+      }
+    })();
+
+    inFlightRef.current = task;
+    void task.finally(() => {
+      if (inFlightRef.current === task) {
+        inFlightRef.current = null;
+      }
+    });
+
+    return task;
   }, [loader]);
 
   useFocusEffect(
     useCallback(() => {
-      run();
-    }, [run])
+      void run();
+
+      const subscription = refreshOnForeground
+        ? AppState.addEventListener("change", (nextState) => {
+            if (shouldRunSyncRefresh(nextState)) {
+              void run();
+            }
+          })
+        : null;
+      const unsubscribeInvalidations = refreshOnRemoteChange
+        ? subscribeSyncInvalidations(() => {
+            if (shouldRunSyncRefresh(AppState.currentState)) {
+              void run();
+            }
+          })
+        : null;
+
+      return () => {
+        subscription?.remove();
+        unsubscribeInvalidations?.();
+      };
+    }, [refreshOnForeground, refreshOnRemoteChange, run])
   );
 
   return { status, errorMessage, reload: run };

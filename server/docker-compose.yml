@@ -39,6 +39,8 @@ services:
     networks:
       - default
       - proxy_net
+    ports:
+      - "${APP_PORT:-8787}:8787"
 
 networks:
   proxy_net:
