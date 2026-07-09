@@ -1233,7 +1233,7 @@ Create `server/.env.example`:
 
 ```bash
 OPENAI_API_KEY=
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=
 PORT=8787
 ```
 
@@ -1345,7 +1345,7 @@ export async function generateHabitPlan(rawInput: unknown): Promise<HabitPlanRes
   }
 
   const response = await client.responses.create({
-    model: process.env.OPENAI_MODEL ?? "gpt-5.5",
+    model: process.env.OPENAI_MODEL ?? "your-model-name",
     instructions:
       "你是习惯计划助手。只生成温和、可执行、低压力的习惯入门计划。必须输出 JSON，不要输出 Markdown。",
     input: JSON.stringify(input),

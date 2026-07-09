@@ -15,7 +15,7 @@
 ## 项目截图
 
 <p align="center">
-  <img src="docs/assets/readme/ai-plan-screen.png" alt="AI 制定习惯计划页面" width="320" />
+  <img src="docs/assets/readme/ai-plan-screen.png" alt="今日打卡页面" width="320" />
 </p>
 
 ## 技术栈
@@ -77,14 +77,14 @@ cd server && npm install
 
 ### 2. 准备后端环境
 
-在 `server/.env` 中配置：
+在仓库根目录 `.env.dev` / `.env.prod` 中分别配置开发和正式环境，两个文件参数名保持一致：
 
 ```bash
 PORT=8787
 DATABASE_URL=postgres://habit:<password>@localhost:5432/habit
 JWT_SECRET=<强随机字符串>
 OPENAI_API_KEY=<你的 OpenAI 或兼容服务 Key>
-OPENAI_MODEL=gpt-5.5
+OPENAI_MODEL=<模型名>
 API_KEY=<可选，生产环境建议必填>
 RATE_LIMIT_MAX=60
 
@@ -92,7 +92,7 @@ R2_ACCOUNT_ID=<Cloudflare Account ID>
 R2_ACCESS_KEY_ID=<R2 Access Key ID>
 R2_SECRET_ACCESS_KEY=<R2 Secret Access Key>
 R2_BUCKET=<R2 bucket 名>
-APP_UPDATE_MANIFEST_URL=https://你的R2公开域名/releases/android/latest.json
+APP_UPDATE_MANIFEST_URL=https://your-cdn.example.com/releases/android/latest.json
 ```
 
 启动后端：
@@ -136,7 +136,7 @@ npm run build
 
 ### 后端部署
 
-服务器需要 Docker 和 Docker Compose。远端 `/root/habit-server/.env` 配好数据库、JWT、OpenAI、R2、更新 manifest 等环境变量后，可使用项目内脚本部署：
+服务器需要 Docker 和 Docker Compose。部署脚本会根据 `APP_ENV` 选择 `.env.dev` 或 `.env.prod`，并在远端 `/opt/daily-habit-server/.env` 生成 Docker Compose 实际读取的配置：
 
 ```bash
 cd server
@@ -147,7 +147,7 @@ cd server
 
 - 本地执行后端 TypeScript build
 - 打包 `server/` 必要源码到服务器
-- 远端重建并重启 `habit-app`
+- 远端重建并重启 App 容器
 - 检查 `/habit/health`
 
 ### Android 发版与自动更新
@@ -165,7 +165,7 @@ R2_BUCKET
 GitHub Variables：
 
 ```text
-R2_PUBLIC_BASE=https://你的R2公开域名
+R2_PUBLIC_BASE=https://your-cdn.example.com
 R2_RELEASE_PREFIX=releases/android   # 可选
 R2_RELEASE_KEEP=5                    # 可选
 ```
@@ -201,15 +201,18 @@ GET /api/app-update/latest?platform=android
 
 ## 环境地址
 
-`app.config.js` 会根据 `APP_ENV` 注入地址：
+项目根目录的 `.env.dev` 和 `.env.prod` 是 App 和 Server 共用的配置源，两个文件里的参数名保持一致。`APP_ENV` 决定本次启动读取哪个文件。
 
-- development：`http://127.0.0.1:8787`、`https://lzch.eu.org`
-- production：
-
-如需覆盖：
+- `APP_ENV` 未设置或非 `production`：读取 `.env.dev`
+- `APP_ENV=production` 或 `APP_ENV=prod`：读取 `.env.prod`
+- 本机私有覆盖值放到 `.env.dev.local` / `.env.prod.local`，不会提交
+- 命令行传入的 `API_BASE_URL` / `R2_PUBLIC_BASE` 优先级最高
+- Docker Compose / CI 部署会通过 `scripts/select-env.cjs` 把选中的文件转换成远端实际读取的 `.env`
 
 ```bash
-APP_ENV=production API_BASE_URL=https://habit.example.com R2_PUBLIC_BASE=https://cdn.example.com npm run start
+APP_ENV=production npm run start
+APP_ENV=development R2_PUBLIC_BASE=https://your-dev-cdn.example.com npm run web
+APP_ENV=production node scripts/select-env.cjs
 ```
 
 ## 相关文档

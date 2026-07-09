@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
+import type { ImageContentFit } from "expo-image";
 import { useState } from "react";
 import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import {
@@ -26,12 +27,14 @@ export function RewardImage({
   uri,
   type,
   height = 150,
-  radiusToken = radius.lg
+  radiusToken = radius.lg,
+  contentFit = "cover"
 }: {
   uri: string | null;
   type: RewardType;
   height?: number;
   radiusToken?: number;
+  contentFit?: ImageContentFit;
 }) {
   const { colors } = useTheme();
 
@@ -39,8 +42,9 @@ export function RewardImage({
     return (
       <Image
         source={{ uri }}
-        style={{ width: "100%", height, borderRadius: radiusToken }}
-        contentFit="cover"
+        style={{ width: "100%", height, borderRadius: radiusToken, backgroundColor: colors.surfaceMuted }}
+        contentFit={contentFit}
+        placeholderContentFit={contentFit}
         transition={180}
       />
     );

@@ -486,7 +486,7 @@ export default function ProfileScreen() {
           value={settings.aiModel}
           onChangeText={(value) => setSettings({ ...settings, aiModel: value })}
           onBlur={() => save(settings)}
-          placeholder="例如：gpt-5.5"
+          placeholder="例如：your-model-name"
         />
         <AppText variant="small" tone="faint">
           修改后离开输入框即自动保存

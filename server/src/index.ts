@@ -1,5 +1,5 @@
 import cors from "cors";
-import "dotenv/config";
+import "./env.js";
 import express from "express";
 import { createAppUpdateRouter } from "./appUpdate/appUpdateRoutes.js";
 import { requireAuth } from "./auth/authMiddleware.js";

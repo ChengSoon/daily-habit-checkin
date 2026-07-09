@@ -2,7 +2,7 @@
   "expo": {
     "name": "每日打卡",
     "slug": "daily-habit-checkin",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "dailyhabitcheckin",
@@ -17,12 +17,12 @@
         }
       }
     },
-      "android": {
-        "package": "com.dailyhabitcheckin.app",
-        "softwareKeyboardLayoutMode": "resize",
-        "adaptiveIcon": {
-          "backgroundColor": "#FBE1EF",
-          "foregroundImage": "./assets/images/android-icon-foreground.png",
+    "android": {
+      "package": "com.dailyhabitcheckin.app",
+      "softwareKeyboardLayoutMode": "resize",
+      "adaptiveIcon": {
+        "backgroundColor": "#FBE1EF",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -68,7 +68,7 @@
     },
     "extra": {
       "apiBaseUrl": "http://127.0.0.1:8787",
-      "r2PublicBase": "https://lzch.eu.org",
+      "r2PublicBase": "https://your-dev-cdn.example.com",
       "router": {},
       "eas": {
         "projectId": "6cebff69-997b-47dc-951a-c7bbe8b62aa4"

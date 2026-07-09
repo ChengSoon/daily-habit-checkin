@@ -47,7 +47,7 @@
   "mandatory": false,
   "releaseDate": "2026-07-09T00:00:00.000Z",
   "notes": "修复同步体验并优化打卡动画。",
-  "downloadUrl": "https://lcvv.eu.org/releases/android/v1.0.1/app.apk",
+  "downloadUrl": "https://your-cdn.example.com/releases/android/v1.0.1/app.apk",
   "sha256": "64 位十六进制摘要",
   "sizeBytes": 123456789
 }

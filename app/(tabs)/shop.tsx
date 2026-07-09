@@ -13,8 +13,19 @@ import { radius, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { getWallet } from "../../src/xp/xpRepository";
 
+const GRID_GAP = spacing.sm;
+const GRID_IMAGE_HEIGHT = 104;
+
 function rewardTypeLabel(reward: Reward): string {
   return reward.type === "virtual" ? "虚拟奖励" : "现实奖励";
+}
+
+function groupRewards(rewards: Reward[]): Reward[][] {
+  const rows: Reward[][] = [];
+  for (let index = 0; index < rewards.length; index += 2) {
+    rows.push(rewards.slice(index, index + 2));
+  }
+  return rows;
 }
 
 export default function ShopScreen() {
@@ -52,19 +63,20 @@ export default function ShopScreen() {
 
   return (
     <Screen>
-      <AppText variant="display">奖励商城</AppText>
+      <AppText variant="title">奖励商城</AppText>
 
       <Card
         style={{
           backgroundColor: colors.primary,
           borderColor: colors.primary,
-          gap: spacing.xs
+          padding: spacing.md,
+          gap: 2
         }}
       >
         <AppText variant="caption" tone="onPrimary" style={{ opacity: 0.85 }}>
           我的积分
         </AppText>
-        <AppText variant="display" tone="onPrimary">
+        <AppText variant="title" tone="onPrimary">
           {balance}
         </AppText>
         <AppText variant="small" tone="onPrimary" style={{ opacity: 0.85 }}>
@@ -78,46 +90,59 @@ export default function ShopScreen() {
       {rewards.length === 0 ? (
         <EmptyState title="商城还没有商品" body="等待管理员上架奖励后，就可以在这里兑换啦。" icon="gift-outline" />
       ) : (
-        <View style={{ gap: spacing.md }}>
-          {rewards.map((reward) => {
-            const canRedeem = balance >= reward.priceXp;
-            return (
-              <Card key={reward.id} style={{ padding: 0, overflow: "hidden", gap: 0 }}>
-                <RewardImage uri={publicUrl(reward.imageKey)} type={reward.type} height={160} radiusToken={0} />
-                <View style={{ padding: spacing.lg, gap: spacing.md }}>
-                  <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.md }}>
-                    <View style={{ flex: 1, gap: spacing.xs }}>
-                      <Badge label={rewardTypeLabel(reward)} tone={reward.type === "virtual" ? "primary" : "success"} />
-                      <AppText variant="bodyStrong">{reward.title}</AppText>
-                      {reward.description ? (
-                        <AppText variant="small" tone="muted">
-                          {reward.description}
+        <View style={{ gap: GRID_GAP }}>
+          {groupRewards(rewards).map((row) => (
+            <View key={row[0].id} style={{ flexDirection: "row", gap: GRID_GAP }}>
+              {row.map((reward) => {
+                const canRedeem = balance >= reward.priceXp;
+                return (
+                  <Card key={reward.id} style={{ flex: 1, padding: 0, overflow: "hidden", gap: 0 }}>
+                    <RewardImage
+                      uri={publicUrl(reward.imageKey)}
+                      type={reward.type}
+                      height={GRID_IMAGE_HEIGHT}
+                      radiusToken={0}
+                      contentFit="contain"
+                    />
+                    <View style={{ flex: 1, padding: spacing.sm, gap: spacing.sm }}>
+                      <View style={{ flex: 1, gap: 3 }}>
+                        <Badge label={rewardTypeLabel(reward)} tone={reward.type === "virtual" ? "primary" : "success"} />
+                        <AppText variant="bodyStrong" numberOfLines={2}>
+                          {reward.title}
                         </AppText>
-                      ) : null}
+                        {reward.description ? (
+                          <AppText variant="small" tone="muted" numberOfLines={2}>
+                            {reward.description}
+                          </AppText>
+                        ) : null}
+                      </View>
+                      <View
+                        style={{
+                          alignSelf: "flex-start",
+                          borderRadius: radius.sm,
+                          backgroundColor: colors.surfaceTint,
+                          paddingHorizontal: spacing.sm,
+                          paddingVertical: 3
+                        }}
+                      >
+                        <AppText variant="small" tone="primary" style={{ fontWeight: "700" }}>
+                          {reward.priceXp} 积分
+                        </AppText>
+                      </View>
+                      <AppButton
+                        title={canRedeem ? "购买" : `还差 ${reward.priceXp - balance} 积分`}
+                        onPress={() => redeem(reward)}
+                        disabled={!canRedeem}
+                        compact
+                        fullWidth
+                      />
                     </View>
-                    <View
-                      style={{
-                        alignSelf: "flex-start",
-                        borderRadius: radius.md,
-                        backgroundColor: colors.surfaceTint,
-                        paddingHorizontal: spacing.md,
-                        paddingVertical: spacing.xs
-                      }}
-                    >
-                      <AppText variant="bodyStrong" tone="primary">
-                        {reward.priceXp} 积分
-                      </AppText>
-                    </View>
-                  </View>
-                  <AppButton
-                    title={canRedeem ? "购买" : `还差 ${reward.priceXp - balance} 积分`}
-                    onPress={() => redeem(reward)}
-                    disabled={!canRedeem}
-                  />
-                </View>
-              </Card>
-            );
-          })}
+                  </Card>
+                );
+              })}
+              {row.length === 1 ? <View style={{ flex: 1 }} /> : null}
+            </View>
+          ))}
         </View>
       )}
     </Screen>

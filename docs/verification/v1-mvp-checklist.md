@@ -18,7 +18,7 @@
 
 - Automated TypeScript, lint, and unit tests can run on this machine.
 - Expo Go QR service can start on this machine.
-- iOS simulator cannot be verified yet because `/Applications/Xcode.app` is installed but Apple Xcode license has not been accepted; `simctl` is blocked until `sudo xcodebuild -license` is completed in Terminal.
+- iOS simulator cannot be verified yet because local Xcode is installed but the Apple Xcode license has not been accepted; `simctl` is blocked until `sudo xcodebuild -license` is completed in Terminal.
 - Android emulator cannot be verified here because Android SDK tools are unavailable.
 - Local notification delivery still needs verification on a real mobile device.
 - AI generation still needs verification with an OpenAI account that has available quota.

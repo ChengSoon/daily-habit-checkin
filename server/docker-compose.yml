@@ -22,11 +22,12 @@ services:
       db:
         condition: service_healthy
     environment:
-      PORT: 8787
-      DATABASE_URL: postgres://${POSTGRES_USER:-habit}:${POSTGRES_PASSWORD:-habit}@db:5432/${POSTGRES_DB:-habit}
+      APP_ENV: ${APP_ENV:-development}
+      PORT: ${PORT:-8787}
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL}
       JWT_SECRET: ${JWT_SECRET:?set a strong secret}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.5}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
       API_KEY: ${API_KEY:-}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-60}
       # Cloudflare R2：图片 presigned 直传 + 公开域名直读所需凭据。

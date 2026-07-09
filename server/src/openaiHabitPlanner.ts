@@ -17,8 +17,13 @@ export async function generateHabitPlan(rawInput: unknown): Promise<HabitPlanRes
     throw new Error("OPENAI_API_KEY is required");
   }
 
+  const model = input.model ?? process.env.OPENAI_MODEL;
+  if (!model) {
+    throw new Error("OPENAI_MODEL is required");
+  }
+
   const response = await getClient().responses.create({
-    model: input.model ?? process.env.OPENAI_MODEL ?? "gpt-5.5",
+    model,
     instructions:
       "你是习惯计划助手。只生成温和、可执行、低压力的习惯入门计划。输出的 durationDays 必须等于用户输入的 durationDays。必须输出 JSON，不要输出 Markdown。",
     input: JSON.stringify(input),
