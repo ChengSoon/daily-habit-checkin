@@ -41,7 +41,6 @@ function WheelColumn({
   selectedIndex: number;
   onSelect: (index: number) => void;
 }) {
-  const { colors } = useTheme();
   const scrollRef = useRef<ScrollView>(null);
 
   // 打开时把当前值滚到中间（无动画，避免弹出瞬间的跳动）。
@@ -99,8 +98,78 @@ const HOURS = Array.from({ length: 24 }, (_, i) => pad2(i));
 const MINUTES = Array.from({ length: 60 }, (_, i) => pad2(i));
 
 /**
+ * 弹层内容：只在打开时挂载，state 直接用 value 初始化，
+ * 因此不需要在 effect 里同步重置（避免 setState-in-effect 的级联渲染）。
+ */
+function TimeWheelBody({
+  value,
+  onCancel,
+  onConfirm
+}: {
+  value: string;
+  onCancel: () => void;
+  onConfirm: (value: string) => void;
+}) {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const initial = parseTime(value);
+  const [hours, setHours] = useState(initial.hours);
+  const [minutes, setMinutes] = useState(initial.minutes);
+
+  return (
+    <View style={{ flex: 1, justifyContent: "flex-end" }}>
+      <Pressable
+        accessibilityLabel="关闭时间选择"
+        style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.overlay }}
+        onPress={onCancel}
+      />
+      <View
+        style={{
+          backgroundColor: colors.surface,
+          borderTopLeftRadius: radius.xl,
+          borderTopRightRadius: radius.xl,
+          padding: spacing.lg,
+          paddingBottom: spacing.lg + insets.bottom,
+          gap: spacing.md
+        }}
+      >
+        <AppText variant="section">选择时间</AppText>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
+          {/* 中间高亮框：标出滚轮的选中行。 */}
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              left: spacing.xl,
+              right: spacing.xl,
+              height: ITEM_HEIGHT,
+              borderRadius: radius.md,
+              backgroundColor: colors.surfaceTint
+            }}
+          />
+          <WheelColumn values={HOURS} selectedIndex={hours} onSelect={setHours} />
+          <AppText variant="title" tone="primary" style={{ paddingHorizontal: spacing.sm }}>
+            :
+          </AppText>
+          <WheelColumn values={MINUTES} selectedIndex={minutes} onSelect={setMinutes} />
+        </View>
+        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+          <AppButton title="取消" variant="ghost" onPress={onCancel} style={{ flex: 1 }} />
+          <AppButton
+            title="确定"
+            onPress={() => onConfirm(`${pad2(hours)}:${pad2(minutes)}`)}
+            style={{ flex: 1 }}
+          />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+/**
  * 时间滚轮弹层：两列（时 / 分）滚轮，居中冒号，底部取消/确定。
- * 只在确定时回调，取消不改动原值。
+ * 只在确定时回调，取消不改动原值。内容抽到 TimeWheelBody，
+ * 借 Modal 的挂载/卸载天然重置滚轮状态。
  */
 function TimeWheelModal({
   visible,
@@ -113,69 +182,9 @@ function TimeWheelModal({
   onCancel: () => void;
   onConfirm: (value: string) => void;
 }) {
-  const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
-  const initial = parseTime(value);
-  const [hours, setHours] = useState(initial.hours);
-  const [minutes, setMinutes] = useState(initial.minutes);
-
-  // 每次打开都以外部当前值为准重置滚轮。
-  useEffect(() => {
-    if (visible) {
-      const parsed = parseTime(value);
-      setHours(parsed.hours);
-      setMinutes(parsed.minutes);
-    }
-  }, [visible, value]);
-
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
-      <View style={{ flex: 1, justifyContent: "flex-end" }}>
-        <Pressable
-          accessibilityLabel="关闭时间选择"
-          style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.overlay }}
-          onPress={onCancel}
-        />
-        <View
-          style={{
-            backgroundColor: colors.surface,
-            borderTopLeftRadius: radius.xl,
-            borderTopRightRadius: radius.xl,
-            padding: spacing.lg,
-            paddingBottom: spacing.lg + insets.bottom,
-            gap: spacing.md
-          }}
-        >
-          <AppText variant="section">选择时间</AppText>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center" }}>
-            {/* 中间高亮框：标出滚轮的选中行。 */}
-            <View
-              pointerEvents="none"
-              style={{
-                position: "absolute",
-                left: spacing.xl,
-                right: spacing.xl,
-                height: ITEM_HEIGHT,
-                borderRadius: radius.md,
-                backgroundColor: colors.surfaceTint
-              }}
-            />
-            <WheelColumn values={HOURS} selectedIndex={hours} onSelect={setHours} />
-            <AppText variant="title" tone="primary" style={{ paddingHorizontal: spacing.sm }}>
-              :
-            </AppText>
-            <WheelColumn values={MINUTES} selectedIndex={minutes} onSelect={setMinutes} />
-          </View>
-          <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <AppButton title="取消" variant="ghost" onPress={onCancel} style={{ flex: 1 }} />
-            <AppButton
-              title="确定"
-              onPress={() => onConfirm(`${pad2(hours)}:${pad2(minutes)}`)}
-              style={{ flex: 1 }}
-            />
-          </View>
-        </View>
-      </View>
+      {visible ? <TimeWheelBody value={value} onCancel={onCancel} onConfirm={onConfirm} /> : null}
     </Modal>
   );
 }
