@@ -62,6 +62,10 @@ function hasOwn(env, key) {
 }
 
 function selectedValue(fileEnv, key) {
+  if (process.env.SELECT_ENV_ALLOW_PROCESS_OVERRIDES === "1" && process.env[key]) {
+    return process.env[key];
+  }
+
   if (hasOwn(fileEnv, key)) {
     return fileEnv[key];
   }
