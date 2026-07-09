@@ -1,6 +1,7 @@
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
+import { createAppUpdateRouter } from "./appUpdate/appUpdateRoutes.js";
 import { requireAuth } from "./auth/authMiddleware.js";
 import { authRouter } from "./auth/authRoutes.js";
 import { createDataRouter, createWalletRouter } from "./data/dataRoutes.js";
@@ -38,6 +39,9 @@ app.post("/api/ai/habit-plan", requireApiKey, rateLimit, async (request, respons
     response.status(400).json({ error: message });
   }
 });
+
+// App 更新 manifest 代理。匿名可访问，避免客户端直接依赖 GitHub/R2 细节。
+app.use("/api/app-update", createAppUpdateRouter());
 
 // 账号与空间：注册、登录、加入空间、当前账号信息
 app.use("/api/auth", authRouter);

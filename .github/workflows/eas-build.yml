@@ -32,6 +32,10 @@ concurrency:
   group: mobile-build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  R2_RELEASE_PREFIX: releases/android
+  R2_RELEASE_KEEP: "5"
+
 jobs:
   android:
     name: Android build
@@ -130,3 +134,91 @@ jobs:
             gh release create "$tag" --title "$tag" --notes "Automated production mobile build for ${GITHUB_SHA}."
           fi
           gh release upload "$tag" artifacts/mobile/* --clobber
+
+      - name: Mirror production APK to R2
+        if: steps.mode.outputs.publish == 'true'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PUBLIC_BASE: ${{ vars.R2_PUBLIC_BASE }}
+          R2_RELEASE_PREFIX_OVERRIDE: ${{ vars.R2_RELEASE_PREFIX }}
+          R2_RELEASE_KEEP_OVERRIDE: ${{ vars.R2_RELEASE_KEEP }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+          for name in AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY R2_ACCOUNT_ID R2_BUCKET R2_PUBLIC_BASE; do
+            if [ -z "${!name}" ]; then
+              missing+=("$name")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::Missing R2 release config: ${missing[*]}"
+            exit 1
+          fi
+
+          apk="$(find artifacts/mobile -type f -name '*.apk' | head -n 1)"
+          if [ -z "$apk" ]; then
+            echo "::error::No APK found under artifacts/mobile."
+            exit 1
+          fi
+
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          prefix="${R2_RELEASE_PREFIX_OVERRIDE:-$R2_RELEASE_PREFIX}"
+          prefix="${prefix%/}"
+          keep="${R2_RELEASE_KEEP_OVERRIDE:-$R2_RELEASE_KEEP}"
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          object_key="${prefix}/${tag}/app.apk"
+          manifest_key="${prefix}/latest.json"
+          public_base="${R2_PUBLIC_BASE%/}"
+          manifest_path="artifacts/mobile/latest.json"
+
+          export UPDATE_VERSION="$version"
+          export UPDATE_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
+          export UPDATE_DOWNLOAD_URL="${public_base}/${object_key}"
+          export UPDATE_SHA256="$(sha256sum "$apk" | awk '{print $1}')"
+          export UPDATE_SIZE_BYTES="$(wc -c < "$apk" | tr -d ' ')"
+          export UPDATE_NOTES="Android ${tag} production build for ${GITHUB_SHA}."
+          export UPDATE_MANIFEST_PATH="$manifest_path"
+          node <<'NODE'
+          const fs = require("node:fs");
+          const manifest = {
+            platform: "android",
+            version: process.env.UPDATE_VERSION,
+            buildNumber: Number(process.env.UPDATE_BUILD_NUMBER),
+            mandatory: false,
+            releaseDate: new Date().toISOString(),
+            notes: process.env.UPDATE_NOTES,
+            downloadUrl: process.env.UPDATE_DOWNLOAD_URL,
+            sha256: process.env.UPDATE_SHA256,
+            sizeBytes: Number(process.env.UPDATE_SIZE_BYTES)
+          };
+          fs.writeFileSync(process.env.UPDATE_MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+          NODE
+
+          aws --version
+          aws s3 cp "$apk" "s3://${R2_BUCKET}/${object_key}" \
+            --endpoint-url "$endpoint" \
+            --content-type "application/vnd.android.package-archive"
+          aws s3 cp "$manifest_path" "s3://${R2_BUCKET}/${manifest_key}" \
+            --endpoint-url "$endpoint" \
+            --content-type "application/json" \
+            --cache-control "no-cache"
+
+          mapfile -t release_dirs < <(
+            aws s3 ls "s3://${R2_BUCKET}/${prefix}/" --endpoint-url "$endpoint" \
+              | awk '/PRE v/ { gsub("/", "", $2); print $2 }' \
+              | sort -Vr
+          )
+
+          if [ "${#release_dirs[@]}" -gt "$keep" ]; then
+            for old_tag in "${release_dirs[@]:$keep}"; do
+              aws s3 rm "s3://${R2_BUCKET}/${prefix}/${old_tag}/" --recursive --endpoint-url "$endpoint"
+            done
+          fi
+
+          echo "Mirrored ${tag} to ${UPDATE_DOWNLOAD_URL}"

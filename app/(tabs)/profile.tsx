@@ -12,6 +12,8 @@ import {
 import { AppSettings, getAppSettings, saveAppSettings } from "../../src/settings/settingsRepository";
 import { getCurrentAccount } from "../../src/sync/authService";
 import type { Account } from "../../src/sync/authService";
+import { getCurrentAppVersion } from "../../src/updates/appVersion";
+import { AppUpdateCheckResult, checkForAppUpdate } from "../../src/updates/updateClient";
 import { AppButton, AppText, Badge, Divider, HelperText, SectionCard, SegmentedControl, SwitchRow, TextField } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
 import { radius, spacing, themeOptions } from "../../src/ui/theme";
@@ -20,6 +22,25 @@ import { CoupleAvatars } from "../../src/ui/Avatar";
 import { useCouple } from "../../src/ui/useCouple";
 import { normalizeTimeInput } from "../../src/utils/time";
 import { getWallet } from "../../src/xp/xpRepository";
+
+function formatBytes(sizeBytes: number): string {
+  if (sizeBytes < 1024 * 1024) {
+    return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+  }
+  return `${(sizeBytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatVersion(version: string, buildNumber?: number | null): string {
+  return buildNumber ? `${version} (${buildNumber})` : version;
+}
+
+function formatReleaseDate(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString("zh-CN");
+}
 
 export default function ProfileScreen() {
   const { mode, setMode, themeName, setThemeName, colors } = useTheme();
@@ -39,8 +60,24 @@ export default function ProfileScreen() {
   const [xpBalance, setXpBalance] = useState(0);
   const [lifetimeEarned, setLifetimeEarned] = useState(0);
   const [account, setAccount] = useState<Account | null>(null);
+  const [currentAppVersion] = useState(() => getCurrentAppVersion());
+  const [updateResult, setUpdateResult] = useState<AppUpdateCheckResult | null>(null);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
   const couple = useCouple();
   const reloadCouple = couple.reload;
+
+  const checkUpdates = useCallback(async () => {
+    setIsCheckingUpdate(true);
+    setUpdateError(null);
+    try {
+      setUpdateResult(await checkForAppUpdate(currentAppVersion));
+    } catch (caughtError) {
+      setUpdateError(caughtError instanceof Error ? caughtError.message : "更新检查失败");
+    } finally {
+      setIsCheckingUpdate(false);
+    }
+  }, [currentAppVersion]);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,7 +98,8 @@ export default function ProfileScreen() {
         .then(setAccount)
         .catch(() => setAccount(null));
       reloadCouple();
-    }, [reloadCouple])
+      void checkUpdates();
+    }, [checkUpdates, reloadCouple])
   );
 
   const isOwner = account?.role === "owner";
@@ -114,6 +152,22 @@ export default function ProfileScreen() {
     }
   }
 
+  async function downloadUpdate() {
+    if (updateResult?.status !== "available") {
+      return;
+    }
+    setUpdateError(null);
+    try {
+      await Linking.openURL(updateResult.update.downloadUrl);
+    } catch (caughtError) {
+      setUpdateError(caughtError instanceof Error ? caughtError.message : "无法打开下载链接");
+    }
+  }
+
+  const availableUpdate = updateResult?.status === "available" ? updateResult.update : null;
+  const currentVersionText = formatVersion(currentAppVersion.version, currentAppVersion.buildNumber);
+  const releaseDateText = formatReleaseDate(availableUpdate?.releaseDate);
+
   return (
     <Screen>
       <View style={{ gap: spacing.xs }}>
@@ -159,6 +213,50 @@ export default function ProfileScreen() {
             <AppButton title="登录 / 注册" icon="log-in-outline" onPress={() => router.push("/account")} />
           </>
         )}
+      </SectionCard>
+
+      <SectionCard>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText variant="bodyStrong">应用更新</AppText>
+            <AppText variant="small" tone="muted">
+              当前 {currentVersionText}
+              {updateResult?.status === "current" ? " · 已是最新" : ""}
+            </AppText>
+          </View>
+          {availableUpdate ? <Badge label="有新版本" tone="primary" /> : null}
+          <AppButton
+            title="检查"
+            variant="secondary"
+            icon="refresh-outline"
+            iconSpin={isCheckingUpdate}
+            compact
+            onPress={() => {
+              if (!isCheckingUpdate) {
+                void checkUpdates();
+              }
+            }}
+          />
+        </View>
+        {availableUpdate ? (
+          <>
+            <Divider />
+            <View style={{ gap: spacing.xs }}>
+              <AppText variant="bodyStrong">版本 {formatVersion(availableUpdate.version, availableUpdate.buildNumber)}</AppText>
+              <AppText variant="small" tone="muted">
+                {formatBytes(availableUpdate.sizeBytes)}
+                {releaseDateText ? ` · ${releaseDateText}` : ""}
+              </AppText>
+              {availableUpdate.notes ? (
+                <AppText variant="body" tone="soft">
+                  {availableUpdate.notes}
+                </AppText>
+              ) : null}
+            </View>
+            <AppButton title="下载更新" icon="download-outline" onPress={downloadUpdate} />
+          </>
+        ) : null}
+        {updateError ? <HelperText tone="danger">{updateError}</HelperText> : null}
       </SectionCard>
 
       <SectionCard title="奖励">

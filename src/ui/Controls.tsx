@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { PropsWithChildren, ReactNode, useEffect, useState } from "react";
 import {
   Animated,
+  Easing,
   KeyboardTypeOptions,
   Pressable,
   StyleProp,
@@ -77,6 +78,51 @@ export function AppText({
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
+function ButtonIcon({
+  activeSpin,
+  color,
+  name,
+  size
+}: {
+  activeSpin: boolean;
+  color: string;
+  name: IoniconName;
+  size: number;
+}) {
+  const [spin] = useState(() => new Animated.Value(0));
+
+  useEffect(() => {
+    if (!activeSpin) {
+      spin.stopAnimation();
+      spin.setValue(0);
+      return;
+    }
+
+    const loop = Animated.loop(
+      Animated.timing(spin, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.linear,
+        useNativeDriver: true
+      })
+    );
+    loop.start();
+
+    return () => {
+      loop.stop();
+      spin.setValue(0);
+    };
+  }, [activeSpin, spin]);
+
+  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+
+  return (
+    <Animated.View style={activeSpin ? { transform: [{ rotate }] } : null}>
+      <Ionicons name={name} size={size} color={color} />
+    </Animated.View>
+  );
+}
+
 export function AppButton({
   title,
   onPress,
@@ -85,6 +131,7 @@ export function AppButton({
   compact = false,
   fullWidth = false,
   icon,
+  iconSpin = false,
   style
 }: {
   title: string;
@@ -94,6 +141,7 @@ export function AppButton({
   compact?: boolean;
   fullWidth?: boolean;
   icon?: IoniconName;
+  iconSpin?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
@@ -144,7 +192,7 @@ export function AppButton({
         style
       ]}
     >
-      {icon ? <Ionicons name={icon} size={compact ? 16 : 18} color={iconColor} /> : null}
+      {icon ? <ButtonIcon activeSpin={iconSpin} name={icon} size={compact ? 16 : 18} color={iconColor} /> : null}
       <AppText variant="bodyStrong" tone={disabled ? "muted" : textTone[variant]}>
         {title}
       </AppText>

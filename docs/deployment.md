@@ -42,6 +42,9 @@ API_KEY=<强随机串>
 
 # 限流：每个 IP 每分钟最大请求数
 RATE_LIMIT_MAX=60
+
+# Android APK 自动更新：R2 上 latest.json 的公开 HTTPS 地址
+APP_UPDATE_MANIFEST_URL=https://lcvv.eu.org/releases/android/latest.json
 ```
 
 生成强随机串的一种方式：
@@ -225,6 +228,45 @@ eas build --profile preview --platform ios
 - Android：把 `.apk` 发给对方，直接安装。
 - iOS：用分发链接在已注册设备上安装。
 
+### 2.8 Android 自动更新通道（R2 镜像）
+
+`v*` tag 触发 `.github/workflows/eas-build.yml` 后，生产 APK 会同时上传到 GitHub Release 和 Cloudflare R2。App 不直接访问 GitHub，而是请求后端：
+
+```bash
+curl https://habit.example.com/api/app-update/latest?platform=android
+```
+
+后端会读取 `APP_UPDATE_MANIFEST_URL` 指向的 `latest.json`，返回最新版本、下载地址、包大小和 sha256。用户在「我的 → 应用更新」里看到新版本后，点击按钮会打开 R2 下载链接，由 Android 系统完成安装确认。
+
+GitHub Actions 需要配置以下 secrets：
+
+- `R2_ACCOUNT_ID`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
+- `R2_BUCKET`
+
+还需要配置以下 repository variables：
+
+- `R2_PUBLIC_BASE`：R2 公开访问域名，例如 `https://lcvv.eu.org`
+- `R2_RELEASE_PREFIX`：可选，默认 `releases/android`
+- `R2_RELEASE_KEEP`：可选，默认 `5`
+
+发布后的 R2 路径约定：
+
+```text
+releases/android/latest.json
+releases/android/v1.0.1/app.apk
+releases/android/v1.0.2/app.apk
+```
+
+建议后端 `.env` 配成：
+
+```bash
+APP_UPDATE_MANIFEST_URL=https://lcvv.eu.org/releases/android/latest.json
+```
+
+workflow 会保留最近 `R2_RELEASE_KEEP` 个 `v*` 目录，旧 APK 自动删除。APK 下载走 R2 公开域名，不占服务器带宽。
+
 ---
 
 ## 三、发布清单（Checklist）
@@ -246,6 +288,10 @@ App：
 - [ ] iOS 已注册双方设备 UDID
 - [ ] `npm run test` + `npx tsc` 两端全绿
 - [ ] `eas build --profile production-apk --platform android` 成功，双方装上并能登录/同步
+- [ ] GitHub Actions 已配置 R2 secrets / variables
+- [ ] `APP_UPDATE_MANIFEST_URL` 指向 R2 的 `latest.json`
+- [ ] 打 `v*` tag 后，R2 生成 `latest.json` 和对应版本 APK
+- [ ] App「我的 → 应用更新」能看到最新版本并打开下载链接
 
 联调验证（发布后真机确认，fake 测不到）：
 

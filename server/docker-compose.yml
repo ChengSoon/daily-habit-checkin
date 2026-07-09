@@ -34,6 +34,7 @@ services:
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-}
+      APP_UPDATE_MANIFEST_URL: ${APP_UPDATE_MANIFEST_URL:-}
     # 只接入 db 的内部网络 + 复用现有的 proxy_net，
     # 让 my-nginx 能用容器名 habit-app 反代过来；不对主机映射端口。
     networks:
