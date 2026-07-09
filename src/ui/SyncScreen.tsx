@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Animated, AppState, Easing, StyleSheet, View } from "react-native";
 import { UnauthorizedError } from "../sync/apiClient";
 import { subscribeSyncInvalidations } from "../sync/syncInvalidation";
@@ -9,7 +9,12 @@ import { EmptyState } from "./EmptyState";
 import { Screen } from "./Screen";
 import { spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
-import { normalizeSyncScreenOptions, shouldRunSyncRefresh, SyncScreenOptions } from "./syncScreenRefresh";
+import {
+  createQueuedAsyncRunner,
+  normalizeSyncScreenOptions,
+  shouldRunSyncRefresh,
+  SyncScreenOptions
+} from "./syncScreenRefresh";
 
 export type SyncStatus = "loading" | "ready" | "unauthenticated" | "error";
 const LOADING_REVEAL_DELAY_MS = 320;
@@ -24,38 +29,23 @@ const LOADING_FADE_MS = 180;
 export function useSyncScreen(loader: () => Promise<void>, options: SyncScreenOptions = {}) {
   const [status, setStatus] = useState<SyncStatus>("loading");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const inFlightRef = useRef<Promise<void> | null>(null);
   const { refreshOnForeground, refreshOnRemoteChange } = normalizeSyncScreenOptions(options);
 
-  const run = useCallback(async () => {
-    if (inFlightRef.current) {
-      return inFlightRef.current;
+  const runOnce = useCallback(async () => {
+    try {
+      await loader();
+      setErrorMessage(null);
+      setStatus("ready");
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        setStatus("unauthenticated");
+      } else {
+        setErrorMessage(error instanceof Error ? error.message : "加载失败");
+        setStatus("error");
+      }
     }
-
-    const task = (async () => {
-      try {
-        await loader();
-        setErrorMessage(null);
-        setStatus("ready");
-      } catch (error) {
-        if (error instanceof UnauthorizedError) {
-          setStatus("unauthenticated");
-        } else {
-          setErrorMessage(error instanceof Error ? error.message : "加载失败");
-          setStatus("error");
-        }
-      }
-    })();
-
-    inFlightRef.current = task;
-    void task.finally(() => {
-      if (inFlightRef.current === task) {
-        inFlightRef.current = null;
-      }
-    });
-
-    return task;
   }, [loader]);
+  const run = useMemo(() => createQueuedAsyncRunner(runOnce), [runOnce]);
 
   useFocusEffect(
     useCallback(() => {

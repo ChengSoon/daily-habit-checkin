@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeSyncScreenOptions, shouldRunSyncRefresh } from "./syncScreenRefresh";
+import { createQueuedAsyncRunner, normalizeSyncScreenOptions, shouldRunSyncRefresh } from "./syncScreenRefresh";
 
 describe("sync screen refresh options", () => {
   it("enables foreground refresh by default", () => {
@@ -19,5 +19,31 @@ describe("sync screen refresh options", () => {
     expect(shouldRunSyncRefresh("active")).toBe(true);
     expect(shouldRunSyncRefresh("background")).toBe(false);
     expect(shouldRunSyncRefresh("inactive")).toBe(false);
+  });
+
+  it("runs one more refresh when reload is requested during an in-flight refresh", async () => {
+    let releaseFirstRefresh!: () => void;
+    const firstRefreshGate = new Promise<void>((resolve) => {
+      releaseFirstRefresh = resolve;
+    });
+    const seenStates: string[] = [];
+    let currentState = "before-checkin";
+
+    const run = createQueuedAsyncRunner(async () => {
+      seenStates.push(currentState);
+      if (seenStates.length === 1) {
+        await firstRefreshGate;
+      }
+    });
+
+    const firstRefresh = run();
+    currentState = "after-checkin";
+    const secondRefresh = run();
+
+    releaseFirstRefresh();
+    await secondRefresh;
+    await firstRefresh;
+
+    expect(seenStates).toEqual(["before-checkin", "after-checkin"]);
   });
 });
