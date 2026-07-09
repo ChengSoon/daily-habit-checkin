@@ -15,7 +15,7 @@
 ## 项目截图
 
 <p align="center">
-  <img src="docs/assets/readme/ai-plan-screen.png" alt="今日打卡页面" width="320" />
+  <img src="docs/assets/readme/ai-plan-screen.png" alt="AI 制定习惯计划页面" width="320" />
 </p>
 
 ## 技术栈
@@ -204,7 +204,7 @@ GET /api/app-update/latest?platform=android
 `app.config.js` 会根据 `APP_ENV` 注入地址：
 
 - development：`http://127.0.0.1:8787`、`https://lzch.eu.org`
-- production：`http://111.228.40.252:4000/habit`、`https://lcvv.eu.org`
+- production：
 
 如需覆盖：
 
