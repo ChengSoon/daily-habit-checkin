@@ -146,9 +146,14 @@ jobs:
                 mkdir -p '$REMOTE_DIR'
                 tar xzf - -C '$REMOTE_DIR'
                 cd '$REMOTE_DIR'
-                docker compose build app
-                docker compose up -d --no-deps app
-                docker compose ps
+                if [ ! -f .env ]; then
+                  echo 'Missing server env file: expected /root/habit-server/.env' >&2
+                  exit 1
+                fi
+                echo 'Using server env file: .env'
+                docker compose --env-file .env build app
+                docker compose --env-file .env up -d --no-deps app
+                docker compose --env-file .env ps
               "
 
       - name: Health check

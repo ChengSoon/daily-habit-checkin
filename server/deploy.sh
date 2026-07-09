@@ -51,10 +51,15 @@ COPYFILE_DISABLE=1 tar czf - \
       mkdir -p '$REMOTE_DIR'
       tar xzf - -C '$REMOTE_DIR'
       cd '$REMOTE_DIR'
+      if [ ! -f .env ]; then
+        echo 'Missing server env file: expected /root/habit-server/.env' >&2
+        exit 1
+      fi
+      echo 'Using server env file: .env'
       echo '==> 远程构建镜像并重启 app（--no-deps，不动 db 与其他服务）…'
-      docker compose build app
-      docker compose up -d --no-deps app
-      docker compose ps
+      docker compose --env-file .env build app
+      docker compose --env-file .env up -d --no-deps app
+      docker compose --env-file .env ps
     "
 
 # ---- 3. 健康检查 ----
