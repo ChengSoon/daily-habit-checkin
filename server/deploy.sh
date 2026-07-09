@@ -41,10 +41,13 @@ fi
 # COPYFILE_DISABLE=1 阻止 bsdtar 塞进 AppleDouble 元数据文件。
 echo "==> 打包源码并推送到 ${HOST}:${REMOTE_DIR} …"
 node "$REPO_DIR/scripts/select-env.cjs" > "$TMP_DIR/.env"
+STAGE_DIR="$TMP_DIR/deploy"
+mkdir -p "$STAGE_DIR"
+cp "$TMP_DIR/.env" "$STAGE_DIR/.env"
+cp -R src Dockerfile package.json package-lock.json tsconfig.json docker-compose.yml "$STAGE_DIR/"
 COPYFILE_DISABLE=1 tar czf - \
   --exclude='._*' --exclude='.DS_Store' \
-  -C "$TMP_DIR" .env \
-  -C "$LOCAL_DIR" src Dockerfile package.json package-lock.json tsconfig.json docker-compose.yml \
+  -C "$STAGE_DIR" . \
   | ssh "${SSH_OPTS[@]}" "$HOST" "
       set -e
       mkdir -p '$REMOTE_DIR'
