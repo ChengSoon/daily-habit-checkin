@@ -82,7 +82,8 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 22
-          package-manager-cache: false
+          # 缓存 ~/.npm，省掉每次重新下载依赖（配合 package-lock.json 做 key）。
+          cache: npm
 
       - uses: actions/setup-java@v5
         with:
@@ -90,6 +91,31 @@ jobs:
           java-version: 17
 
       - uses: android-actions/setup-android@v3
+
+      # 缓存全局 Gradle 目录：依赖 jar、wrapper、编译缓存都在这里。
+      # android/ 工程每次 prebuild 重新生成，所以只能缓存全局 ~/.gradle，
+      # 用 package-lock.json 做 key（依赖决定了要编译哪些原生模块）。
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            gradle-${{ runner.os }}-
+
+      # 全局 gradle.properties：开并行 + 构建缓存 + 加大堆内存。
+      # 写在 ~/.gradle 下，因为 prebuild 生成的 android/ 工程内改不了。
+      - name: Tune Gradle
+        run: |
+          mkdir -p ~/.gradle
+          cat > ~/.gradle/gradle.properties <<'EOF'
+          org.gradle.parallel=true
+          org.gradle.caching=true
+          org.gradle.configureondemand=true
+          org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g
+          EOF
 
       - name: Install deps
         run: npm ci
