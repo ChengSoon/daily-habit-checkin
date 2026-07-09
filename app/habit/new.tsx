@@ -11,12 +11,13 @@ import {
   Label,
   SectionCard,
   SegmentedControl,
+  SwitchRow,
   TextField,
   WeekdayPicker
 } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
 import { spacing } from "../../src/ui/theme";
-import { normalizeTimeInput } from "../../src/utils/time";
+import { TimePickerField } from "../../src/ui/TimeWheelPicker";
 
 type CurrentLevel = "beginner" | "some_experience" | "stable";
 type ReminderPreference = "morning" | "noon" | "evening" | "custom";
@@ -43,6 +44,8 @@ export default function NewHabitScreen() {
   const [weeklyDays, setWeeklyDays] = useState<number[]>([1, 3, 5]);
   const [reminderPreference, setReminderPreference] = useState<ReminderPreference>("evening");
   const [customReminderTime, setCustomReminderTime] = useState("21:30");
+  // 手动模式：是否开启提醒（关闭则不设提醒时间）。
+  const [isManualReminderEnabled, setIsManualReminderEnabled] = useState(true);
   const [trackType, setTrackType] = useState<HabitTrackType>("check");
   const [numericUnit, setNumericUnit] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -55,15 +58,8 @@ export default function NewHabitScreen() {
     setIsLoading(true);
     setError(null);
 
-    let normalizedReminder: string | null = null;
-    if (reminderPreference === "custom") {
-      normalizedReminder = normalizeTimeInput(customReminderTime);
-      if (!normalizedReminder) {
-        setError("提醒时间格式不正确，请用 24 小时制，例如 21:30");
-        setIsLoading(false);
-        return;
-      }
-    }
+    // 选择器产出的时间恒为合法 "HH:MM"，无需再校验。
+    const customReminder = reminderPreference === "custom" ? customReminderTime : null;
 
     try {
       const plan = await requestAIHabitPlan({
@@ -73,7 +69,7 @@ export default function NewHabitScreen() {
         dailyAvailableMinutes: Number(dailyMinutes),
         expectedFrequency: toFrequency(frequencyType, weeklyDays),
         reminderPreference,
-        customReminderTime: normalizedReminder,
+        customReminderTime: customReminder,
         preferredTrackType: trackType
       });
 
@@ -96,24 +92,16 @@ export default function NewHabitScreen() {
   async function saveManualHabit() {
     setError(null);
 
-    // 留空表示不提醒；填了就必须是合法时间
-    const trimmedReminder = customReminderTime.trim();
-    let normalizedReminder: string | null = null;
-    if (trimmedReminder) {
-      normalizedReminder = normalizeTimeInput(trimmedReminder);
-      if (!normalizedReminder) {
-        setError("提醒时间格式不正确，请用 24 小时制，例如 21:30");
-        return;
-      }
-    }
+    // 开关关闭表示不提醒；开启则用选择器选定的时间（恒为合法 "HH:MM"）。
+    const reminderTime = isManualReminderEnabled ? customReminderTime : null;
 
     try {
       await createHabit({
         name: goalText,
         description: description || null,
         frequency: toFrequency(frequencyType, weeklyDays),
-        reminderTime: normalizedReminder,
-        isReminderEnabled: Boolean(normalizedReminder),
+        reminderTime,
+        isReminderEnabled: isManualReminderEnabled,
         trackType,
         numericUnit: trackType === "numeric" ? numericUnit || "次" : null
       });
@@ -219,12 +207,27 @@ export default function NewHabitScreen() {
             />
           </View>
         ) : null}
-        {mode === "manual" || reminderPreference === "custom" ? (
-          <TextField
+        {mode === "manual" ? (
+          <>
+            <SwitchRow
+              label="开启提醒"
+              description="到点提醒你完成这个习惯"
+              value={isManualReminderEnabled}
+              onValueChange={setIsManualReminderEnabled}
+            />
+            {isManualReminderEnabled ? (
+              <TimePickerField
+                label="提醒时间"
+                value={customReminderTime}
+                onChange={setCustomReminderTime}
+              />
+            ) : null}
+          </>
+        ) : reminderPreference === "custom" ? (
+          <TimePickerField
             label="提醒时间"
             value={customReminderTime}
-            onChangeText={setCustomReminderTime}
-            placeholder="21:30"
+            onChange={setCustomReminderTime}
           />
         ) : null}
       </SectionCard>

@@ -17,6 +17,7 @@ import {
   TextField
 } from "../src/ui/Controls";
 import { Screen } from "../src/ui/Screen";
+import { TimePickerField } from "../src/ui/TimeWheelPicker";
 import { spacing } from "../src/ui/theme";
 import { todayKey } from "../src/utils/date";
 
@@ -135,7 +136,7 @@ export default function PlanPreviewScreen() {
       </SectionCard>
 
       <SectionCard title="提醒与记录">
-        <TextField label="提醒时间" value={reminderTime} onChangeText={setReminderTime} placeholder="21:30" />
+        <TimePickerField label="提醒时间" value={reminderTime || "21:30"} onChange={setReminderTime} />
         <View style={{ gap: spacing.sm }}>
           <Label>记录方式</Label>
           <SegmentedControl<HabitTrackType>

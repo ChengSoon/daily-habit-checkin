@@ -19,8 +19,8 @@ import { Screen } from "../../src/ui/Screen";
 import { radius, spacing, themeOptions } from "../../src/ui/theme";
 import { ThemeMode, useTheme } from "../../src/ui/ThemeContext";
 import { CoupleAvatars } from "../../src/ui/Avatar";
+import { TimePickerField } from "../../src/ui/TimeWheelPicker";
 import { useCouple } from "../../src/ui/useCouple";
-import { normalizeTimeInput } from "../../src/utils/time";
 import { getWallet } from "../../src/xp/xpRepository";
 
 function formatBytes(sizeBytes: number): string {
@@ -118,29 +118,6 @@ export default function ProfileScreen() {
   }
 
   const [exportError, setExportError] = useState<string | null>(null);
-  const [summaryTimeError, setSummaryTimeError] = useState<string | null>(null);
-  const [quietHoursError, setQuietHoursError] = useState<string | null>(null);
-
-  function commitSummaryTime() {
-    const normalized = normalizeTimeInput(settings.eveningSummaryTime);
-    if (!normalized) {
-      setSummaryTimeError("时间格式不正确，请用 24 小时制，例如 21:30");
-      return;
-    }
-    setSummaryTimeError(null);
-    save({ ...settings, eveningSummaryTime: normalized }, true);
-  }
-
-  function commitQuietHours() {
-    const start = normalizeTimeInput(settings.quietHoursStart);
-    const end = normalizeTimeInput(settings.quietHoursEnd);
-    if (!start || !end) {
-      setQuietHoursError("时间格式不正确，请用 24 小时制，例如 22:00");
-      return;
-    }
-    setQuietHoursError(null);
-    save({ ...settings, quietHoursStart: start, quietHoursEnd: end }, true);
-  }
 
   async function exportData() {
     setExportError(null);
@@ -408,17 +385,11 @@ export default function ProfileScreen() {
         {settings.isEveningSummaryEnabled ? (
           <>
             <Divider />
-            <TextField
+            <TimePickerField
               label="汇总时间"
               value={settings.eveningSummaryTime}
-              onChangeText={(value) => setSettings({ ...settings, eveningSummaryTime: value })}
-              onBlur={commitSummaryTime}
-              placeholder="21:30"
+              onChange={(value) => save({ ...settings, eveningSummaryTime: value }, true)}
             />
-            {summaryTimeError ? <HelperText tone="danger">{summaryTimeError}</HelperText> : null}
-            <AppText variant="small" tone="faint">
-              修改后离开输入框即自动保存
-            </AppText>
           </>
         ) : null}
       </SectionCard>
@@ -435,25 +406,20 @@ export default function ProfileScreen() {
             <Divider />
             <View style={{ flexDirection: "row", gap: spacing.md }}>
               <View style={{ flex: 1 }}>
-                <TextField
+                <TimePickerField
                   label="开始"
                   value={settings.quietHoursStart}
-                  onChangeText={(value) => setSettings({ ...settings, quietHoursStart: value })}
-                  onBlur={commitQuietHours}
-                  placeholder="22:00"
+                  onChange={(value) => save({ ...settings, quietHoursStart: value }, true)}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <TextField
+                <TimePickerField
                   label="结束"
                   value={settings.quietHoursEnd}
-                  onChangeText={(value) => setSettings({ ...settings, quietHoursEnd: value })}
-                  onBlur={commitQuietHours}
-                  placeholder="08:00"
+                  onChange={(value) => save({ ...settings, quietHoursEnd: value }, true)}
                 />
               </View>
             </View>
-            {quietHoursError ? <HelperText tone="danger">{quietHoursError}</HelperText> : null}
             <AppText variant="small" tone="faint">
               跨夜时间段有效，例如 22:00 到次日 08:00
             </AppText>
