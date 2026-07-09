@@ -1,13 +1,20 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   getScheduledNotificationsForTests,
+  getConfiguredHandlerForTests,
   resetNotificationsForTests,
   scheduleNotificationAsync,
   SchedulableTriggerInputTypes
 } from "../../test/fakes/expo-notifications";
 import { Habit } from "../habits/types";
 import { toDateKey } from "../utils/date";
-import { isWithinQuietHours, parseReminderTime, rescheduleHabitReminders, scheduleEveningSummary } from "./reminderService";
+import {
+  configureNotificationHandler,
+  isWithinQuietHours,
+  parseReminderTime,
+  rescheduleHabitReminders,
+  scheduleEveningSummary
+} from "./reminderService";
 
 function buildHabit(overrides: Partial<Habit> = {}): Habit {
   return {
@@ -121,6 +128,44 @@ describe("rescheduleHabitReminders", () => {
     });
 
     expect(scheduledDateKeys()).toEqual(["2026-07-08", "2026-07-10"]);
+  });
+
+  it("queues habit reminders with default sound", async () => {
+    const habit = buildHabit({ reminderTime: "21:30" });
+
+    await rescheduleHabitReminders({
+      habits: [habit],
+      completedHabitIds: new Set(),
+      now,
+      horizonDays: 1
+    });
+
+    expect(getScheduledNotificationsForTests()[0]?.content.sound).toBe("default");
+  });
+});
+
+describe("configureNotificationHandler", () => {
+  beforeEach(() => {
+    resetNotificationsForTests();
+  });
+
+  it("allows foreground reminder banners to play sound", async () => {
+    configureNotificationHandler();
+
+    const handler = getConfiguredHandlerForTests();
+    const behavior = await handler?.handleNotification({
+      request: {
+        content: {
+          data: {}
+        }
+      }
+    });
+
+    expect(behavior).toMatchObject({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true
+    });
   });
 });
 

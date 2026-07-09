@@ -1,5 +1,9 @@
 type NotificationHandler = {
-  handleNotification(): Promise<{
+  handleNotification(notification: {
+    request: {
+      content: NotificationRequestInput["content"];
+    };
+  }): Promise<{
     shouldShowBanner: boolean;
     shouldShowList: boolean;
     shouldPlaySound: boolean;
@@ -12,6 +16,7 @@ type NotificationRequestInput = {
   content: {
     title?: string | null;
     body?: string | null;
+    sound?: boolean | string | null;
     data?: Record<string, unknown>;
   };
   trigger: Record<string, unknown>;

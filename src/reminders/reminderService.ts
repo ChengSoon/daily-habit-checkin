@@ -45,7 +45,7 @@ export function configureNotificationHandler(): void {
       return {
         shouldShowBanner: true,
         shouldShowList: true,
-        shouldPlaySound: false,
+        shouldPlaySound: true,
         shouldSetBadge: false
       };
     }
@@ -123,6 +123,7 @@ export async function scheduleEveningSummary(input: {
     content: {
       title: `今天还有 ${input.incompleteCount} 个习惯未完成`,
       body: input.incompleteNames.join("、"),
+      sound: "default",
       data: {
         reminderSource: REMINDER_SOURCE,
         reminderKind: "eveningSummary",
@@ -186,7 +187,7 @@ async function ensureReminderChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: "打卡提醒",
     importance: Notifications.AndroidImportance.HIGH,
-    sound: null,
+    sound: "default",
     enableVibrate: true,
     vibrationPattern: [0, 250, 250, 250]
   });
@@ -208,6 +209,7 @@ async function scheduleHabitReminderPlans(input: {
       content: {
         title: `该打卡了：${plan.habit.name}`,
         body: "完成后点一下，今天就算坚持住了。",
+        sound: "default",
         data: {
           reminderSource: REMINDER_SOURCE,
           reminderKind: "habit",
