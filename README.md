@@ -136,7 +136,7 @@ npm run build
 
 ### 后端部署
 
-服务器需要 Docker 和 Docker Compose。部署脚本会根据 `APP_ENV` 选择 `.env.dev` 或 `.env.prod`，并在远端 `/opt/daily-habit-server/.env` 生成 Docker Compose 实际读取的配置：
+服务器需要 Docker 和 Docker Compose。服务器上的 `/root/habit-server/.env` 由运维预先手工配置好正式环境变量（含密钥），部署脚本不会传输或覆盖它：
 
 ```bash
 cd server
@@ -147,7 +147,7 @@ cd server
 
 - 本地执行后端 TypeScript build
 - 打包 `server/` 必要源码到服务器
-- 远端重建并重启 App 容器
+- 远端用服务器上已有的 `.env` 重建并重启 App 容器（`docker compose --env-file .env`）
 - 检查 `/habit/health`
 
 ### Android 发版与自动更新
@@ -207,12 +207,11 @@ GET /api/app-update/latest?platform=android
 - `APP_ENV=production` 或 `APP_ENV=prod`：读取 `.env.prod`
 - 本机私有覆盖值放到 `.env.dev.local` / `.env.prod.local`，不会提交
 - 命令行传入的 `API_BASE_URL` / `R2_PUBLIC_BASE` 优先级最高
-- Docker Compose / CI 部署会通过 `scripts/select-env.cjs` 把选中的文件转换成远端实际读取的 `.env`
+- 服务端部署时，Docker Compose 读取服务器上预置的 `/root/habit-server/.env`（由运维手工维护，不从本仓库生成）
 
 ```bash
 APP_ENV=production npm run start
 APP_ENV=development R2_PUBLIC_BASE=https://your-dev-cdn.example.com npm run web
-APP_ENV=production node scripts/select-env.cjs
 ```
 
 ## 相关文档

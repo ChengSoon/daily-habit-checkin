@@ -19,7 +19,9 @@
 
 ### 1.2 配置环境变量
 
-在仓库根目录准备 `.env.dev` 与 `.env.prod`（App 与 Server 共用，两个文件参数名保持一致）。部署脚本会按 `APP_ENV` 调用 `scripts/select-env.cjs`，把选中的文件转换成远端 Docker Compose 可直接读取的 `.env`。
+在仓库根目录准备 `.env.dev` 与 `.env.prod`（App 与 Server 共用，两个文件参数名保持一致），用于本地开发和 App 打包时注入配置。
+
+服务端部署时，Docker Compose 读取的是**服务器上预置的** `/root/habit-server/.env`（由运维手工维护，不从本仓库的 `.env.dev` / `.env.prod` 生成）。`deploy.sh` 和 CI 只传输源码、要求该文件已存在，不会覆盖它。
 
 ```bash
 # 数据库（务必改掉默认弱密码）
