@@ -178,7 +178,6 @@ jobs:
           manifest_path="artifacts/mobile/latest.json"
 
           export UPDATE_VERSION="$version"
-          export UPDATE_BUILD_NUMBER="${GITHUB_RUN_NUMBER}"
           export UPDATE_DOWNLOAD_URL="${public_base}/${object_key}"
           export UPDATE_SHA256="$(sha256sum "$apk" | awk '{print $1}')"
           export UPDATE_SIZE_BYTES="$(wc -c < "$apk" | tr -d ' ')"
@@ -189,7 +188,6 @@ jobs:
           const manifest = {
             platform: "android",
             version: process.env.UPDATE_VERSION,
-            buildNumber: Number(process.env.UPDATE_BUILD_NUMBER),
             mandatory: false,
             releaseDate: new Date().toISOString(),
             notes: process.env.UPDATE_NOTES,

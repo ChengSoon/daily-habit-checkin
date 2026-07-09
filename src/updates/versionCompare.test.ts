@@ -15,9 +15,9 @@ describe("compareVersions", () => {
 });
 
 describe("isRemoteNewer", () => {
-  it("uses version first and build number only when versions match", () => {
+  it("uses app version as the update boundary", () => {
     expect(isRemoteNewer({ version: "1.1.0", buildNumber: 1 }, { version: "1.0.9", buildNumber: 99 })).toBe(true);
-    expect(isRemoteNewer({ version: "1.0.0", buildNumber: 12 }, { version: "1.0.0", buildNumber: 11 })).toBe(true);
+    expect(isRemoteNewer({ version: "1.0.0", buildNumber: 12 }, { version: "1.0.0", buildNumber: 11 })).toBe(false);
     expect(isRemoteNewer({ version: "1.0.0", buildNumber: 11 }, { version: "1.0.0", buildNumber: 12 })).toBe(false);
   });
 });

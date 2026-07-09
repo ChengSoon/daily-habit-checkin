@@ -34,9 +34,5 @@ export function compareVersions(left: string, right: string): -1 | 0 | 1 {
 
 export function isRemoteNewer(remote: ComparableVersion, current: ComparableVersion): boolean {
   const versionResult = compareVersions(remote.version, current.version);
-  if (versionResult !== 0) {
-    return versionResult > 0;
-  }
-
-  return (remote.buildNumber ?? 0) > (current.buildNumber ?? 0);
+  return versionResult > 0;
 }
