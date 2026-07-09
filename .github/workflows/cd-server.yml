@@ -134,27 +134,10 @@ jobs:
       - name: Deploy (tar source -> remote build -> restart app)
         env:
           HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
-          REMOTE_DIR: ${{ vars.DEPLOY_REMOTE_DIR || '/opt/daily-habit-server' }}
-          APP_ENV: production
-          SELECT_ENV_ALLOW_PROCESS_OVERRIDES: "1"
-          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
-          API_KEY: ${{ secrets.API_KEY }}
-          RATE_LIMIT_MAX: ${{ vars.RATE_LIMIT_MAX }}
-          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          R2_BUCKET: ${{ secrets.R2_BUCKET }}
-          APP_UPDATE_MANIFEST_URL: ${{ vars.APP_UPDATE_MANIFEST_URL }}
+          REMOTE_DIR: ${{ vars.DEPLOY_REMOTE_DIR || '/root/habit-server' }}
         run: |
           set -euo pipefail
-          mkdir -p artifacts/server-env
-          node scripts/select-env.cjs > artifacts/server-env/.env
           mkdir -p artifacts/server-deploy
-          cp artifacts/server-env/.env artifacts/server-deploy/.env
           cp -R server/src server/Dockerfile server/package.json server/package-lock.json server/tsconfig.json server/docker-compose.yml artifacts/server-deploy/
           tar czf - --exclude='._*' --exclude='.DS_Store' \
             -C artifacts/server-deploy . \

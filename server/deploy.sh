@@ -10,15 +10,15 @@
 #   ./deploy.sh              打包本地 server 源码 → 远程构建镜像 → 重启 app → 健康检查
 #   ./deploy.sh --skip-check 跳过本地 TypeScript 类型检查（部署更快，但少一道保险）
 #
-# 前置：仓库根目录 .env.dev / .env.prod 已配置；CI/CD 也可以用环境变量覆盖。
-#       本脚本会按 APP_ENV 选择文件并生成远端 Docker Compose 实际读取的 .env。
+# 前置：服务器上 REMOTE_DIR/.env 已配置好正式环境变量。
+#       本脚本不会传输或覆盖服务器上的 .env。
 
 set -euo pipefail
 
 # ---- 配置 ----
 PEM="${DEPLOY_SSH_KEY:-$HOME/.ssh/deploy_key}"
 HOST="${DEPLOY_HOST:-deploy@example.com}"
-REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/opt/daily-habit-server}"
+REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/root/habit-server}"
 HEALTH_URL="${DEPLOY_HEALTH_URL:-https://your-api.example.com/health}"
 SSH_OPTS=(-i "$PEM" -o StrictHostKeyChecking=no -o ConnectTimeout=20)
 
@@ -40,10 +40,8 @@ fi
 # 只同步构建镜像所需的文件；排除 node_modules/dist/测试与 macOS 元数据（._* / .DS_Store）。
 # COPYFILE_DISABLE=1 阻止 bsdtar 塞进 AppleDouble 元数据文件。
 echo "==> 打包源码并推送到 ${HOST}:${REMOTE_DIR} …"
-node "$REPO_DIR/scripts/select-env.cjs" > "$TMP_DIR/.env"
 STAGE_DIR="$TMP_DIR/deploy"
 mkdir -p "$STAGE_DIR"
-cp "$TMP_DIR/.env" "$STAGE_DIR/.env"
 cp -R src Dockerfile package.json package-lock.json tsconfig.json docker-compose.yml "$STAGE_DIR/"
 COPYFILE_DISABLE=1 tar czf - \
   --exclude='._*' --exclude='.DS_Store' \
