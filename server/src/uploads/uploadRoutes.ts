@@ -13,9 +13,12 @@ import { createPresignedUpload, isAllowedImageMime, UploadKind } from "../r2/r2C
  */
 
 const PresignSchema = z.object({
-  kind: z.enum(["avatar", "reward"]),
-  contentType: z.string().min(1).max(64)
+  kind: z.enum(["avatar", "reward", "adventure_badge"]),
+  contentType: z.string().min(1).max(64),
+  sizeBytes: z.number().int().positive().optional()
 });
+
+const MAX_BADGE_BYTES = 5 * 1024 * 1024;
 
 export function createUploadRouter(): Router {
   const router = Router();
@@ -23,6 +26,16 @@ export function createUploadRouter(): Router {
   router.post("/presign", requireAuth, async (request, response) => {
     try {
       const input = PresignSchema.parse(request.body);
+      if (input.kind === "adventure_badge") {
+        if (request.role !== "owner") {
+          response.status(403).json({ error: "仅空间创建者可上传关卡勋章" });
+          return;
+        }
+        if (!input.sizeBytes || input.sizeBytes > MAX_BADGE_BYTES) {
+          response.status(400).json({ error: "勋章图片不能超过 5 MB" });
+          return;
+        }
+      }
       if (!isAllowedImageMime(input.contentType)) {
         response.status(400).json({ error: "不支持的图片类型（仅 jpeg/png/webp）" });
         return;

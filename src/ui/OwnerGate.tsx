@@ -1,6 +1,7 @@
 import { router, useFocusEffect } from "expo-router";
 import { type ReactNode, useCallback, useState } from "react";
 import { View } from "react-native";
+import { goBackOrReplace } from "../navigation/goBackOrReplace";
 import { getCurrentAccount } from "../sync/authService";
 import { AppButton, AppText } from "./Controls";
 import { Screen } from "./Screen";
@@ -12,7 +13,13 @@ type AccessState = "checking" | "granted" | "denied";
  * 管理页权限门：只有 owner（建空间的人）能进入。
  * 服务端写接口用 requireOwner 兜底，这里只负责不让非 owner 看到管理界面。
  */
-export function OwnerGate({ children }: { children: ReactNode }) {
+export function OwnerGate({
+  children,
+  fallbackHref = "/profile"
+}: {
+  children: ReactNode;
+  fallbackHref?: Parameters<typeof router.replace>[0];
+}) {
   const [access, setAccess] = useState<AccessState>("checking");
 
   useFocusEffect(
@@ -53,7 +60,11 @@ export function OwnerGate({ children }: { children: ReactNode }) {
           <AppText variant="body" tone="muted">
             只有创建空间的人可以进行管理操作。
           </AppText>
-          <AppButton title="返回" variant="secondary" onPress={() => router.back()} />
+          <AppButton
+            title="返回"
+            variant="secondary"
+            onPress={() => goBackOrReplace(router, fallbackHref)}
+          />
         </View>
       </Screen>
     );

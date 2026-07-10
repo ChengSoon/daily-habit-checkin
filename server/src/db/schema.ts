@@ -146,6 +146,84 @@ CREATE TABLE IF NOT EXISTS admin_settings (
   value TEXT NOT NULL,
   PRIMARY KEY (space_id, key)
 );
+
+CREATE TABLE IF NOT EXISTS adventure_campaigns (
+  space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (space_id, id),
+  UNIQUE (space_id)
+);
+
+CREATE TABLE IF NOT EXISTS adventure_stations (
+  space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  campaign_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  sort_order INTEGER NOT NULL,
+  unlock_at INTEGER NOT NULL CHECK (unlock_at > 0),
+  xp_enabled BOOLEAN NOT NULL DEFAULT false,
+  xp_amount INTEGER NOT NULL DEFAULT 0 CHECK (xp_amount >= 0),
+  badge_enabled BOOLEAN NOT NULL DEFAULT false,
+  badge_title TEXT,
+  badge_image_key TEXT,
+  badge_icon TEXT,
+  badge_color TEXT,
+  story_enabled BOOLEAN NOT NULL DEFAULT false,
+  story_title TEXT,
+  story_body TEXT,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (space_id, id),
+  FOREIGN KEY (space_id, campaign_id)
+    REFERENCES adventure_campaigns(space_id, id) ON DELETE CASCADE,
+  UNIQUE (space_id, campaign_id, sort_order),
+  UNIQUE (space_id, campaign_id, unlock_at)
+);
+CREATE INDEX IF NOT EXISTS idx_adventure_stations_campaign
+  ON adventure_stations(space_id, campaign_id, sort_order);
+
+CREATE TABLE IF NOT EXISTS adventure_point_transactions (
+  id TEXT PRIMARY KEY,
+  space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  unique_key TEXT NOT NULL,
+  amount INTEGER NOT NULL,
+  reason TEXT NOT NULL,
+  habit_id TEXT,
+  check_in_id TEXT,
+  date_key TEXT NOT NULL,
+  account_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(space_id, unique_key)
+);
+CREATE INDEX IF NOT EXISTS idx_adventure_points_space ON adventure_point_transactions(space_id);
+
+CREATE TABLE IF NOT EXISTS adventure_progress (
+  space_id TEXT PRIMARY KEY REFERENCES spaces(id) ON DELETE CASCADE,
+  campaign_id TEXT NOT NULL,
+  chapter_id TEXT NOT NULL,
+  total_points INTEGER NOT NULL,
+  current_station_id TEXT NOT NULL,
+  next_station_id TEXT,
+  segment_points INTEGER NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS adventure_station_rewards (
+  id TEXT PRIMARY KEY,
+  space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  station_id TEXT NOT NULL,
+  xp_transaction_key TEXT,
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reversed_at TIMESTAMPTZ,
+  UNIQUE(space_id, station_id)
+);
+CREATE INDEX IF NOT EXISTS idx_adventure_rewards_space ON adventure_station_rewards(space_id);
 `;
 
 export async function runSchema(): Promise<void> {

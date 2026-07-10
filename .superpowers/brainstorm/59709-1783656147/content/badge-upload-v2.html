@@ -1,0 +1,99 @@
+<style>
+  .review-grid { display:grid; grid-template-columns:minmax(330px,.95fr) minmax(360px,1.05fr); gap:24px; margin-top:24px; }
+  .panel { background:#fff; border:1px solid #dfe3e9; border-radius:18px; box-shadow:0 16px 45px rgba(31,39,51,.1); overflow:hidden; }
+  .bar { align-items:center; border-bottom:1px solid #e7e9ee; display:flex; gap:12px; padding:17px 19px; }
+  .bar h3 { color:#202833; flex:1; font-size:17px; margin:0; }
+  .icon-btn { align-items:center; background:#f0f2f5; border-radius:9px; color:#3f4855; display:flex; height:36px; justify-content:center; width:36px; }
+  .save { background:#e9507a; border-radius:9px; color:#fff; font-size:13px; font-weight:800; padding:10px 14px; }
+  .body { display:flex; flex-direction:column; gap:17px; padding:20px; }
+  .reward-head { align-items:center; display:flex; gap:10px; }
+  .reward-head strong { color:#26303c; flex:1; font-size:15px; }
+  .toggle { background:#e9507a; border-radius:999px; height:22px; padding:3px; width:40px; }
+  .toggle:after { background:#fff; border-radius:50%; content:""; display:block; height:16px; margin-left:18px; width:16px; }
+  .field { display:flex; flex-direction:column; gap:7px; }
+  .field label { color:#505a67; font-size:12px; font-weight:800; }
+  .input { background:#f7f8fa; border:1px solid #dfe3e9; border-radius:9px; color:#252d38; padding:12px; }
+  .upload { align-items:center; background:#fbfcfd; border:1.5px dashed #cf7893; border-radius:12px; display:flex; flex-direction:column; gap:8px; justify-content:center; min-height:154px; padding:18px; text-align:center; }
+  .upload-icon { align-items:center; background:#fff0f4; border-radius:999px; color:#c83e65; display:flex; font-size:23px; height:48px; justify-content:center; width:48px; }
+  .upload strong { color:#26303c; font-size:14px; }
+  .upload span { color:#7a8492; font-size:12px; line-height:1.5; }
+  .upload-button { background:#2d3745; border-radius:8px; color:#fff; font-size:12px; font-weight:800; padding:9px 12px; }
+  .preview-row { display:grid; gap:14px; grid-template-columns:108px 1fr; }
+  .badge-preview { align-items:center; background:linear-gradient(145deg,#ffdf7c,#e9507a); border:5px solid #fff; border-radius:24px; box-shadow:0 8px 24px rgba(116,45,66,.22); color:#fff; display:flex; flex-direction:column; font-weight:900; height:108px; justify-content:center; text-align:center; width:108px; }
+  .badge-preview .star { font-size:32px; line-height:1; }
+  .badge-preview small { font-size:9px; margin-top:7px; }
+  .preview-actions { display:flex; flex-direction:column; gap:8px; justify-content:center; }
+  .action { border:1px solid #dfe3e9; border-radius:8px; color:#46505d; font-size:12px; font-weight:750; padding:9px 11px; }
+  .action.danger { color:#bd3d61; }
+  .fallback { background:#f7f8fa; border-radius:10px; color:#65707e; font-size:12px; line-height:1.55; padding:12px; }
+  .rules { display:grid; gap:10px; }
+  .rule { align-items:flex-start; background:#fff; border:1px solid #e1e5eb; border-radius:10px; color:#4e5865; display:flex; font-size:12px; gap:10px; line-height:1.55; padding:12px; }
+  .rule b { color:#c84269; }
+  .collection { background:#f7f8fb; min-height:620px; padding:20px; }
+  .collection-title { align-items:end; display:flex; justify-content:space-between; margin-bottom:16px; }
+  .collection-title strong { color:#202833; font-size:18px; }
+  .collection-title span { color:#7a8492; font-size:12px; }
+  .badge-grid { display:grid; gap:12px; grid-template-columns:1fr 1fr; }
+  .tile { background:#fff; border:1px solid #e1e5eb; border-radius:10px; display:flex; flex-direction:column; gap:10px; min-height:174px; padding:14px; }
+  .tile-image { align-items:center; align-self:flex-start; background:#fff2f5; border-radius:16px; color:#d44870; display:flex; font-size:28px; height:68px; justify-content:center; overflow:hidden; width:68px; }
+  .tile-image.custom { background:linear-gradient(145deg,#ffdf7c,#e9507a); border:3px solid #fff; box-shadow:0 5px 14px rgba(116,45,66,.2); color:#fff; flex-direction:column; font-size:22px; font-weight:900; }
+  .tile-image.custom small { font-size:6px; margin-top:4px; }
+  .tile strong { color:#26303c; font-size:13px; }
+  .tile span { color:#7a8492; font-size:11px; }
+  .decision { background:#fff; border:1px solid #e1e5eb; border-radius:12px; margin-top:22px; padding:18px; }
+  @media (max-width:820px) { .review-grid { grid-template-columns:1fr; } }
+</style>
+
+<h2>勋章升级：支持上传自己的设计</h2>
+<p class="subtitle">自定义图片作为主要展示方式，同时保留内置图标作为没有上传图片时的兜底。</p>
+
+<div class="review-grid">
+  <div class="panel">
+    <div class="bar"><div class="icon-btn">‹</div><h3>勋章奖励</h3><div class="save">保存</div></div>
+    <div class="body">
+      <div class="reward-head"><span>◆</span><strong>启用勋章奖励</strong><div class="toggle"></div></div>
+      <div class="field"><label>勋章名称</label><div class="input">花园守望者</div></div>
+      <div class="field">
+        <label>上传勋章设计</label>
+        <div class="upload">
+          <div class="upload-icon">↑</div>
+          <strong>上传自己的勋章图片</strong>
+          <span>支持 PNG、JPG、WebP，最大 5 MB<br>建议使用 1:1 方形图片，支持裁切预览</span>
+          <div class="upload-button">选择图片</div>
+        </div>
+      </div>
+      <div class="field">
+        <label>上传后预览</label>
+        <div class="preview-row">
+          <div class="badge-preview"><div class="star">✦</div><small>花园守望者</small></div>
+          <div class="preview-actions"><div class="action">裁切与调整</div><div class="action">重新上传</div><div class="action danger">移除自定义图片</div></div>
+        </div>
+      </div>
+      <div class="fallback">未上传图片时，才使用内置图标和颜色。移除图片后会自动恢复默认样式，不会让已获得的勋章消失。</div>
+    </div>
+  </div>
+
+  <div class="panel collection">
+    <div class="collection-title"><strong>勋章册展示效果</strong><span>自定义图与默认图可共存</span></div>
+    <div class="badge-grid">
+      <div class="tile"><div class="tile-image">◆</div><strong>灯塔徽章</strong><span>默认图标样式 · 月光灯塔</span></div>
+      <div class="tile"><div class="tile-image custom">✦<small>守望者</small></div><strong>花园守望者</strong><span>自定义上传 · 云端花园</span></div>
+      <div class="tile"><div class="tile-image">◇</div><strong>水晶桥徽章</strong><span>默认图标样式 · 水晶桥</span></div>
+      <div class="tile"><div class="tile-image" style="filter:grayscale(1);opacity:.48">⌁</div><strong style="color:#8a929d">尚未命名</strong><span>累计 36 点解锁</span></div>
+    </div>
+    <div class="rules" style="margin-top:18px">
+      <div class="rule"><b>替换规则</b><span>已解锁关卡仍允许替换勋章图片，因为只改变展示，不影响行动力和奖励结算。</span></div>
+      <div class="rule"><b>存储规则</b><span>图片沿用项目现有 R2 上传链路，数据库只保存对象 key；替换或删除时清理旧图片。</span></div>
+      <div class="rule"><b>显示规则</b><span>勋章册、下一站奖励和解锁弹层统一读取同一张图片，加载失败时显示默认图标。</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="decision">
+  <h3>更新后的功能边界</h3>
+  <p>关卡编辑器其余部分保持不变，只把勋章配置升级为“自定义图片优先、内置样式兜底”。</p>
+  <div class="options">
+    <div class="option" data-choice="approve-badge-upload" onclick="toggleSelect(this)"><div class="letter">✓</div><div class="content"><h3>确认设计</h3><p>按这个版本整理完整设计文档。</p></div></div>
+    <div class="option" data-choice="revise-badge-upload" onclick="toggleSelect(this)"><div class="letter">↺</div><div class="content"><h3>继续调整</h3><p>在终端说明还需要增加的勋章能力。</p></div></div>
+  </div>
+</div>

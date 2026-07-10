@@ -7,6 +7,8 @@ export type XpReason =
   | "plan_complete"
   | "return_bonus"
   | "checkin_undo"
+  | "adventure_station"
+  | "adventure_station_undo"
   | "reward_redeem"
   | "redemption_cancel";
 

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>真实场景地图方向</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; padding:36px 24px 52px; color:#281d23; background:#f6f3f4; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif; }
+    header { max-width:1040px; margin:0 auto 24px; }
+    .kicker { color:#c84f77; font-size:13px; font-weight:800; }
+    h1 { margin:7px 0 9px; font-size:clamp(26px,4vw,40px); line-height:1.16; }
+    .intro { margin:0; color:#74636c; line-height:1.7; }
+    .grid { display:grid; grid-template-columns:1fr 1fr; gap:22px; max-width:1040px; margin:0 auto; }
+    .choice { overflow:hidden; border:1px solid #e5dce1; border-radius:16px; background:#fff; box-shadow:0 16px 42px rgba(42,27,36,.10); cursor:pointer; transition:.2s ease; }
+    .choice:hover { transform:translateY(-4px); box-shadow:0 23px 55px rgba(42,27,36,.15); }
+    .choice.selected { border-color:#e86a92; box-shadow:0 0 0 3px rgba(232,106,146,.16),0 23px 55px rgba(42,27,36,.15); }
+    .top { display:flex; align-items:center; gap:10px; padding:16px 17px 13px; }
+    .letter { display:grid; place-items:center; width:30px; height:30px; border-radius:8px; color:#fff; background:#2a1b24; font-weight:900; }
+    h2 { margin:0; font-size:18px; }
+    .recommend { margin-left:auto; padding:5px 8px; border-radius:999px; color:#725410; background:#fff0b3; font-size:11px; font-weight:800; }
+    .phone { padding:0 14px; }
+    .screen { overflow:hidden; border-radius:14px; background:#fdf6fa; }
+    .screen-head { padding:16px 16px 12px; }
+    .screen-head small { color:#8b7681; font-weight:700; }
+    .screen-head strong { display:block; margin-top:5px; font-size:22px; }
+    .screen-head p { margin:5px 0 0; color:#745e69; font-size:12px; }
+    .map { position:relative; height:390px; overflow:hidden; background-size:cover; background-position:center; isolation:isolate; }
+    .map::before { content:""; position:absolute; inset:0; z-index:1; background:linear-gradient(180deg,rgba(20,29,37,.03),rgba(17,27,32,.2)); }
+    .map::after { content:""; position:absolute; inset:0; z-index:9; pointer-events:none; box-shadow:inset 0 0 0 1px rgba(255,255,255,.28); }
+    .a { background-image:url('https://images.unsplash.com/photo-1544435821-c1ba75df1e27?auto=format&fit=crop&w=1100&h=900&q=88'); background-position:42% 50%; }
+    .b { background-image:url('https://images.unsplash.com/photo-1533241818630-edad657eb3da?auto=format&fit=crop&w=1100&h=900&q=88'); background-position:50% 50%; }
+    svg { position:absolute; inset:0; z-index:3; width:100%; height:100%; }
+    .station { position:absolute; z-index:5; display:grid; place-items:center; width:42px; height:42px; border:3px solid rgba(255,255,255,.96); border-radius:50%; color:#fff; background:#e86a92; box-shadow:0 5px 18px rgba(0,0,0,.28); font-size:16px; font-weight:900; }
+    .station.locked { color:#705dc4; background:rgba(255,255,255,.92); border-color:#8b7bd8; }
+    .label { position:absolute; z-index:6; padding:5px 8px; border-radius:7px; color:#35272e; background:rgba(255,255,255,.90); box-shadow:0 4px 13px rgba(0,0,0,.17); font-size:10px; font-weight:800; white-space:nowrap; }
+    .couple { position:absolute; z-index:7; display:flex; gap:2px; padding:4px; border-radius:999px; background:white; box-shadow:0 6px 17px rgba(0,0,0,.25); }
+    .face { display:grid; place-items:center; width:22px; height:22px; border-radius:50%; color:white; font-size:9px; font-weight:900; }
+    .a .s1{left:12%;bottom:12%}.a .s2{left:25%;bottom:36%}.a .s3{left:30%;top:31%}.a .s4{left:42%;top:10%}
+    .a .l1{left:8%;bottom:4%}.a .l2{left:17%;bottom:28%}.a .l3{left:20%;top:22%}.a .l4{left:36%;top:3%}.a .couple{left:18%;bottom:24%}
+    .b .s1{left:10%;bottom:13%}.b .s2{left:31%;bottom:31%}.b .s3{left:55%;top:39%}.b .s4{right:12%;top:12%}
+    .b .l1{left:5%;bottom:5%}.b .l2{left:23%;bottom:23%}.b .l3{left:46%;top:30%}.b .l4{right:4%;top:4%}.b .couple{left:19%;bottom:24%}
+    .copy { padding:16px 18px 20px; }
+    .copy p { margin:0 0 10px; color:#725f69; font-size:13px; line-height:1.65; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .chip { padding:5px 8px; border:1px solid #e7dfe3; border-radius:999px; color:#765e69; font-size:11px; font-weight:700; }
+    .note { max-width:1040px; margin:19px auto 0; padding:13px 15px; border-left:3px solid #e86a92; color:#725f69; background:#fff; font-size:12px; line-height:1.7; }
+    @media (max-width:800px){.grid{grid-template-columns:1fr}.map{height:430px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div class="kicker">真实场景参考 · 这次图片可见</div>
+    <h1>路线还是 UI，但世界必须先像一个真实存在的地方</h1>
+    <p class="intro">下面用真实航拍照片验证“真实感”的档位。最终不会直接拿这两张照片上线，而是制作一张与你们章节完全匹配的专属场景底图。</p>
+  </header>
+
+  <main class="grid">
+    <article class="choice" data-choice="a-aerial-map" onclick="toggleSelect(this)">
+      <div class="top"><div class="letter">A</div><h2>航拍地图感</h2></div>
+      <div class="phone"><div class="screen">
+        <div class="screen-head"><small>双人冒险</small><strong>沿海岸去灯塔</strong><p>今天还差 2 点行动力到下一站</p></div>
+        <div class="map a">
+          <svg viewBox="0 0 470 390" preserveAspectRatio="none"><path d="M71 338 C100 302 105 251 130 222 C157 190 126 149 153 116 C171 94 184 63 207 40" fill="none" stroke="rgba(255,255,255,.88)" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 18"/><path d="M71 338 C100 302 105 251 130 222" fill="none" stroke="#ff759e" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 18"/></svg>
+          <div class="station s1">旗</div><div class="station s2">灯</div><div class="station locked s3">◇</div><div class="station locked s4">★</div>
+          <div class="label l1">启程</div><div class="label l2">下一站 · 2 点</div><div class="label l3">水晶湾</div><div class="label l4">观星台</div>
+          <div class="couple"><span class="face" style="background:#e86a92">C</span><span class="face" style="background:#7a68ce">Z</span></div>
+        </div>
+      </div></div>
+      <div class="copy"><p>接近俯视地图，海岸线和地形关系最清楚，进度点位也最好读；真实，但情绪和故事感相对克制。</p><div class="chips"><span class="chip">地图辨识强</span><span class="chip">适合多站点</span><span class="chip">偏工具感</span></div></div>
+    </article>
+
+    <article class="choice" data-choice="b-cinematic-scene" onclick="toggleSelect(this)">
+      <div class="top"><div class="letter">B</div><h2>电影场景感</h2><span class="recommend">推荐</span></div>
+      <div class="phone"><div class="screen">
+        <div class="screen-head"><small>双人冒险</small><strong>去月光灯塔</strong><p>今天还差 2 点行动力到下一站</p></div>
+        <div class="map b">
+          <svg viewBox="0 0 470 390" preserveAspectRatio="none"><path d="M62 334 C103 314 126 278 159 259 C203 234 216 197 265 171 C316 144 347 94 410 55" fill="none" stroke="rgba(255,255,255,.88)" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 18"/><path d="M62 334 C103 314 126 278 159 259" fill="none" stroke="#ff759e" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 18"/></svg>
+          <div class="station s1">旗</div><div class="station s2">灯</div><div class="station locked s3">◇</div><div class="station locked s4">★</div>
+          <div class="label l1">启程</div><div class="label l2">下一站 · 2 点</div><div class="label l3">水晶桥</div><div class="label l4">月光灯塔</div>
+          <div class="couple"><span class="face" style="background:#e86a92">C</span><span class="face" style="background:#7a68ce">Z</span></div>
+        </div>
+      </div></div>
+      <div class="copy"><p>采用高视角真实场景构图，灯塔成为明确终点，路线穿过真实地貌。它更像一次共同旅行，也更符合“冒险主线”。</p><div class="chips"><span class="chip">场景真实</span><span class="chip">目标明确</span><span class="chip">情绪更强</span></div></div>
+    </article>
+  </main>
+  <div class="note">说明：图片仅用于确定真实感和构图。正式实现会使用专属生成/绘制资产，预留四个站点、安全文字区、亮暗主题遮罩与路线叠加区域。</div>
+</body>
+</html>

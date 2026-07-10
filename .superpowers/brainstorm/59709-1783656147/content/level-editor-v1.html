@@ -1,0 +1,118 @@
+<style>
+  .prototype-grid { display:grid; grid-template-columns:minmax(300px, 0.9fr) minmax(340px, 1.1fr); gap:24px; margin-top:24px; }
+  .phone { background:#f7f8fb; border:1px solid #dfe3ea; border-radius:26px; box-shadow:0 18px 50px rgba(26,32,44,.12); min-height:700px; overflow:hidden; }
+  .phone-bar { align-items:center; background:#fff; border-bottom:1px solid #e7e9ee; display:flex; gap:12px; padding:18px 20px; }
+  .phone-title { flex:1; font-size:18px; font-weight:800; color:#18202a; }
+  .icon-btn { align-items:center; background:#f1f3f6; border-radius:10px; color:#303845; display:flex; height:36px; justify-content:center; width:36px; }
+  .primary-btn { background:#e9507a; border-radius:10px; color:#fff; font-size:13px; font-weight:800; padding:10px 14px; }
+  .screen-body { display:flex; flex-direction:column; gap:16px; padding:18px; }
+  .summary { background:#222b38; border-radius:12px; color:#fff; padding:18px; }
+  .summary-top { align-items:center; display:flex; justify-content:space-between; }
+  .summary strong { font-size:19px; }
+  .summary p { color:#c9d0da; font-size:13px; margin:8px 0 0; }
+  .pill { background:#3c4655; border-radius:999px; color:#fff; font-size:12px; font-weight:700; padding:6px 10px; }
+  .section-title { align-items:center; display:flex; justify-content:space-between; }
+  .section-title strong { color:#202833; font-size:16px; }
+  .section-title span { color:#7a8492; font-size:12px; }
+  .level { align-items:center; background:#fff; border:1px solid #e1e5eb; border-radius:10px; display:grid; gap:12px; grid-template-columns:28px 46px 1fr auto; padding:14px; }
+  .drag { color:#adb4bf; font-size:18px; letter-spacing:-2px; }
+  .level-icon { align-items:center; background:#fff0f4; border-radius:12px; color:#d8436b; display:flex; font-size:21px; height:46px; justify-content:center; width:46px; }
+  .level-name { color:#202833; font-size:14px; font-weight:800; }
+  .level-meta { color:#7c8591; font-size:12px; margin-top:4px; }
+  .state { border-radius:999px; font-size:11px; font-weight:800; padding:5px 8px; }
+  .state.done { background:#e7f6ed; color:#247348; }
+  .state.future { background:#edf1f5; color:#67717f; }
+  .add-level { align-items:center; background:#fff; border:1px dashed #d15a7d; border-radius:10px; color:#c64269; display:flex; font-size:14px; font-weight:800; gap:8px; justify-content:center; padding:16px; }
+  .form { background:#fff; min-height:700px; }
+  .form-body { display:flex; flex-direction:column; gap:18px; padding:20px; }
+  .field { display:flex; flex-direction:column; gap:7px; }
+  .field label { color:#4f5967; font-size:12px; font-weight:800; }
+  .input { background:#f7f8fa; border:1px solid #dfe3e9; border-radius:9px; color:#252d38; font-size:14px; padding:12px; }
+  .threshold { align-items:center; display:grid; gap:10px; grid-template-columns:1fr auto; }
+  .threshold-note { color:#737d8a; font-size:12px; line-height:1.5; }
+  .reward { border:1px solid #e1e5eb; border-radius:10px; overflow:hidden; }
+  .reward-head { align-items:center; background:#fafbfc; display:flex; gap:10px; padding:13px 14px; }
+  .reward-head strong { color:#26303c; flex:1; font-size:14px; }
+  .toggle { background:#e9507a; border-radius:999px; height:22px; padding:3px; width:40px; }
+  .toggle:after { background:#fff; border-radius:50%; content:""; display:block; height:16px; margin-left:18px; width:16px; }
+  .reward-fields { display:grid; gap:12px; grid-template-columns:1fr 1fr; padding:14px; }
+  .reward-fields.full { grid-template-columns:1fr; }
+  .badge-preview { align-items:center; background:#fff0f4; border:1px solid #f2c7d3; border-radius:9px; color:#c83e65; display:flex; font-weight:800; gap:9px; padding:11px; }
+  .lock-note { background:#fff8df; border:1px solid #ead98d; border-radius:10px; color:#705f1d; font-size:12px; line-height:1.55; padding:12px 14px; }
+  .decision { background:#fff; border:1px solid #e1e5eb; border-radius:12px; margin-top:22px; padding:18px; }
+  @media (max-width: 820px) { .prototype-grid { grid-template-columns:1fr; } }
+</style>
+
+<h2>推荐方案：单路线关卡设计器</h2>
+<p class="subtitle">空间创建者可以新增、编辑和排序未解锁关卡；所有门槛都按累计行动力填写。</p>
+
+<div class="prototype-grid">
+  <div class="phone">
+    <div class="phone-bar">
+      <div class="icon-btn">‹</div>
+      <div class="phone-title">关卡设计</div>
+      <div class="primary-btn">保存排序</div>
+    </div>
+    <div class="screen-body">
+      <div class="summary">
+        <div class="summary-top"><strong>星河海岸</strong><span class="pill">当前路线</span></div>
+        <p>3 个关卡 · 最终累计 24 点 · 已解锁 1 关</p>
+      </div>
+      <div class="section-title"><strong>关卡列表</strong><span>拖动调整未解锁关卡</span></div>
+      <div class="level">
+        <div class="drag">••</div><div class="level-icon">◆</div>
+        <div><div class="level-name">月光灯塔</div><div class="level-meta">累计 6 点 · 80 XP · 勋章 · 来信</div></div>
+        <span class="state done">已解锁</span>
+      </div>
+      <div class="level">
+        <div class="drag">••</div><div class="level-icon">◇</div>
+        <div><div class="level-name">水晶桥</div><div class="level-meta">累计 14 点 · 100 XP · 勋章 · 来信</div></div>
+        <span class="state future">可编辑</span>
+      </div>
+      <div class="level">
+        <div class="drag">••</div><div class="level-icon">✦</div>
+        <div><div class="level-name">观星台</div><div class="level-meta">累计 24 点 · 120 XP · 勋章 · 来信</div></div>
+        <span class="state future">可编辑</span>
+      </div>
+      <div class="add-level">＋ 添加关卡</div>
+    </div>
+  </div>
+
+  <div class="phone form">
+    <div class="phone-bar">
+      <div class="icon-btn">×</div>
+      <div class="phone-title">添加关卡</div>
+      <div class="primary-btn">创建</div>
+    </div>
+    <div class="form-body">
+      <div class="field"><label>关卡名称</label><div class="input">云端花园</div></div>
+      <div class="field">
+        <label>累计行动力门槛</label>
+        <div class="threshold"><div class="input">30</div><span class="pill">累计点数</span></div>
+        <div class="threshold-note">必须高于上一关的 24 点。创建后会显示“累计 30 点解锁”。</div>
+      </div>
+      <div class="reward">
+        <div class="reward-head"><span>✦</span><strong>XP 奖励</strong><div class="toggle"></div></div>
+        <div class="reward-fields"><div class="field"><label>奖励数量</label><div class="input">150 XP</div></div><div class="field"><label>到账时机</label><div class="input">解锁时自动发放</div></div></div>
+      </div>
+      <div class="reward">
+        <div class="reward-head"><span>◆</span><strong>勋章奖励</strong><div class="toggle"></div></div>
+        <div class="reward-fields"><div class="field"><label>勋章名称</label><div class="input">花园守望者</div></div><div class="field"><label>图标与颜色</label><div class="badge-preview">◆ 珊瑚红</div></div></div>
+      </div>
+      <div class="reward">
+        <div class="reward-head"><span>✉</span><strong>来信奖励</strong><div class="toggle"></div></div>
+        <div class="reward-fields full"><div class="field"><label>来信标题</label><div class="input">云端寄来的信</div></div><div class="field"><label>来信正文</label><div class="input">一起坚持的每一步，都让这座花园长出新的花……</div></div></div>
+      </div>
+      <div class="lock-note">已解锁后，累计门槛、XP 数量和删除操作将被锁定；名称、勋章样式和来信内容仍可修改。</div>
+    </div>
+  </div>
+</div>
+
+<div class="decision">
+  <h3>请确认这个编辑流程</h3>
+  <p>关卡列表负责新增、排序和查看状态；点击关卡进入同一套编辑表单。地图位置由系统自动排布，首版不开放拖拽地图坐标。</p>
+  <div class="options">
+    <div class="option" data-choice="approve-editor" onclick="toggleSelect(this)"><div class="letter">✓</div><div class="content"><h3>确认这个方向</h3><p>继续完善数据结构、权限和异常处理设计。</p></div></div>
+    <div class="option" data-choice="revise-editor" onclick="toggleSelect(this)"><div class="letter">↺</div><div class="content"><h3>需要调整</h3><p>在终端告诉我希望修改的布局或字段。</p></div></div>
+  </div>
+</div>

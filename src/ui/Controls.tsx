@@ -350,7 +350,8 @@ export function TextField({
   keyboardType,
   multiline = false,
   autoFocus = false,
-  secureTextEntry = false
+  secureTextEntry = false,
+  disabled = false
 }: {
   label?: string;
   value: string;
@@ -361,6 +362,7 @@ export function TextField({
   multiline?: boolean;
   autoFocus?: boolean;
   secureTextEntry?: boolean;
+  disabled?: boolean;
 }) {
   const { colors } = useTheme();
 
@@ -377,18 +379,22 @@ export function TextField({
         multiline={multiline}
         autoFocus={autoFocus}
         secureTextEntry={secureTextEntry}
-        style={{
-          minHeight: multiline ? 92 : 50,
-          borderRadius: radius.md,
-          borderWidth: 1,
-          borderColor: colors.line,
-          backgroundColor: colors.inputBackground,
-          color: colors.ink,
-          fontSize: 16,
-          paddingHorizontal: spacing.md,
-          paddingVertical: spacing.md,
-          textAlignVertical: multiline ? "top" : "center"
-        }}
+        editable={!disabled}
+        style={[
+          {
+            minHeight: multiline ? 92 : 50,
+            borderRadius: radius.md,
+            borderWidth: 1,
+            borderColor: colors.line,
+            backgroundColor: colors.inputBackground,
+            color: colors.ink,
+            fontSize: 16,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.md,
+            textAlignVertical: multiline ? "top" : "center"
+          },
+          disabled ? { opacity: 0.55 } : null
+        ]}
       />
     </View>
   );
@@ -581,12 +587,14 @@ export function SwitchRow({
   label,
   description,
   value,
-  onValueChange
+  onValueChange,
+  disabled = false
 }: {
   label: string;
   description?: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+  disabled?: boolean;
 }) {
   const { colors } = useTheme();
   return (
@@ -598,6 +606,7 @@ export function SwitchRow({
       <Switch
         value={value}
         onValueChange={onValueChange}
+        disabled={disabled}
         trackColor={{ false: colors.lineStrong, true: colors.primary }}
         thumbColor={colors.surface}
       />

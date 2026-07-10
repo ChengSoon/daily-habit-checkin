@@ -28,6 +28,8 @@ function ThemedStack() {
         <Stack.Screen name="shop/redemptions" options={{ title: "兑换记录" }} />
         <Stack.Screen name="admin/rewards" options={{ title: "奖励管理" }} />
         <Stack.Screen name="admin/redemptions" options={{ title: "兑现管理" }} />
+        <Stack.Screen name="adventure/manage" options={{ headerShown: false }} />
+        <Stack.Screen name="adventure/station/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="account" options={{ title: "账号与同步" }} />
       </Stack>
     </>

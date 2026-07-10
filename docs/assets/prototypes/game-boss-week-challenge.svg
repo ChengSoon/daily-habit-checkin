@@ -1,0 +1,108 @@
+<svg width="390" height="844" viewBox="0 0 390 844" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="390" y2="844" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFF7FB"/>
+      <stop offset="0.54" stop-color="#FDF1F7"/>
+      <stop offset="1" stop-color="#F8EDF9"/>
+    </linearGradient>
+    <linearGradient id="boss" x1="108" y1="126" x2="290" y2="320" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F08DAD"/>
+      <stop offset="0.48" stop-color="#E86A92"/>
+      <stop offset="1" stop-color="#8B7BD8"/>
+    </linearGradient>
+    <linearGradient id="hp" x1="60" y1="375" x2="330" y2="375" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6C84C"/>
+      <stop offset="0.55" stop-color="#E86A92"/>
+      <stop offset="1" stop-color="#8B7BD8"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#8B7681" flood-opacity="0.22"/>
+    </filter>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#8B7681" flood-opacity="0.16"/>
+    </filter>
+    <style>
+      .screen { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", sans-serif; }
+      .title { font-size: 28px; font-weight: 800; fill: #2A1B24; }
+      .section { font-size: 17px; font-weight: 800; fill: #2A1B24; }
+      .body { font-size: 14px; font-weight: 600; fill: #5A4650; }
+      .small { font-size: 12px; font-weight: 600; fill: #8B7681; }
+      .tiny { font-size: 10px; font-weight: 700; fill: #8B7681; }
+      .white { fill: #FFFFFF; }
+      .primary { fill: #C24A73; }
+      .partner { fill: #6A57BF; }
+    </style>
+  </defs>
+
+  <rect width="390" height="844" fill="url(#bg)"/>
+  <g class="screen">
+    <rect x="14" y="12" width="362" height="820" rx="32" fill="#FFFFFF" stroke="#F0E2EA"/>
+    <rect x="34" y="28" width="64" height="6" rx="3" fill="#2A1B24" opacity="0.1"/>
+    <text x="34" y="72" class="small">本周挑战</text>
+    <text x="34" y="107" class="title">击破拖延核心</text>
+    <text x="34" y="132" class="body">完成习惯造成伤害，周日结算战果</text>
+
+    <g filter="url(#shadow)">
+      <rect x="34" y="155" width="322" height="238" rx="22" fill="#2A1B24"/>
+      <path d="M48 349C92 310 98 262 72 218C112 230 148 206 165 170C188 208 230 212 268 188C262 231 286 267 332 281C292 300 281 338 296 379C252 351 208 363 177 389C163 350 111 339 48 349Z" fill="#3B2430"/>
+      <circle cx="196" cy="254" r="78" fill="url(#boss)"/>
+      <path d="M143 215C154 180 181 166 196 166C211 166 238 180 249 215" stroke="#F6C84C" stroke-width="10" stroke-linecap="round"/>
+      <circle cx="170" cy="245" r="9" fill="#FFFFFF"/>
+      <circle cx="222" cy="245" r="9" fill="#FFFFFF"/>
+      <circle cx="170" cy="245" r="4" fill="#2A1B24"/>
+      <circle cx="222" cy="245" r="4" fill="#2A1B24"/>
+      <path d="M172 285C186 298 206 298 220 285" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+      <rect x="60" y="359" width="270" height="18" rx="9" fill="#FFFFFF" opacity="0.18"/>
+      <rect x="60" y="359" width="194" height="18" rx="9" fill="url(#hp)"/>
+      <text x="60" y="342" font-size="12" font-weight="800" fill="#FFFFFF">HP 720 / 1000</text>
+      <text x="284" y="342" font-size="12" font-weight="800" fill="#F6C84C">72%</text>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <rect x="34" y="413" width="322" height="86" rx="18" fill="#FFFFFF" stroke="#F0E2EA"/>
+      <text x="54" y="443" class="section">今日战斗</text>
+      <text x="54" y="468" class="small">完成 3 个习惯即可触发一次合击</text>
+      <rect x="250" y="430" width="82" height="40" rx="14" fill="#FBE7EF"/>
+      <text x="266" y="455" font-size="16" font-weight="900" fill="#C24A73">+40 伤害</text>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <rect x="34" y="515" width="322" height="180" rx="18" fill="#FFFFFF" stroke="#F0E2EA"/>
+      <text x="54" y="547" class="section">攻击来源</text>
+      <g transform="translate(54 570)">
+        <rect width="282" height="30" rx="10" fill="#FDF6FA"/>
+        <circle cx="15" cy="15" r="8" fill="#E86A92"/>
+        <text x="34" y="20" class="body">早睡</text>
+        <text x="228" y="20" class="primary" font-size="13" font-weight="900">+10</text>
+      </g>
+      <g transform="translate(54 608)">
+        <rect width="282" height="30" rx="10" fill="#FDF6FA"/>
+        <circle cx="15" cy="15" r="8" fill="#8B7BD8"/>
+        <text x="34" y="20" class="body">阅读</text>
+        <text x="228" y="20" class="partner" font-size="13" font-weight="900">+10</text>
+      </g>
+      <g transform="translate(54 646)">
+        <rect width="282" height="30" rx="10" fill="#FDF6FA"/>
+        <circle cx="15" cy="15" r="8" fill="#F6C84C"/>
+        <text x="34" y="20" class="body">双人全勤暴击</text>
+        <text x="222" y="20" fill="#B97700" font-size="13" font-weight="900">+30</text>
+      </g>
+    </g>
+
+    <g filter="url(#softShadow)">
+      <rect x="34" y="711" width="322" height="62" rx="18" fill="#E86A92"/>
+      <text x="58" y="738" font-size="14" font-weight="800" fill="#FFFFFF">击败奖励</text>
+      <text x="58" y="759" font-size="12" font-weight="700" fill="#FFFFFF" opacity="0.82">150 积分 · 周挑战徽章 · 商城折扣券</text>
+      <circle cx="316" cy="742" r="18" fill="#FFFFFF" opacity="0.2"/>
+      <path d="M309 742H323M316 735V749" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+    </g>
+
+    <g transform="translate(60 797)">
+      <circle cx="0" cy="0" r="4" fill="#E86A92"/>
+      <circle cx="72" cy="0" r="4" fill="#B7A6B0"/>
+      <circle cx="144" cy="0" r="4" fill="#B7A6B0"/>
+      <circle cx="216" cy="0" r="4" fill="#B7A6B0"/>
+      <circle cx="288" cy="0" r="4" fill="#B7A6B0"/>
+    </g>
+  </g>
+</svg>

@@ -65,6 +65,29 @@ describe("uploadImage", () => {
       "图片上传失败（403）"
     );
   });
+
+  it("上传自定义勋章时提交文件大小", async () => {
+    mocks.apiRequest.mockResolvedValue({
+      key: "adventure_badges/space-1/badge.png",
+      uploadUrl: "https://r2-upload.example/badge.png"
+    });
+    mocks.fileUpload.mockResolvedValue({ status: 200, body: "", headers: {} });
+
+    await uploadImage("adventure_badge", {
+      uri: "file:///tmp/badge.png",
+      mime: "image/png",
+      sizeBytes: 320_000
+    });
+
+    expect(mocks.apiRequest).toHaveBeenCalledWith("/api/uploads/presign", {
+      method: "POST",
+      body: {
+        kind: "adventure_badge",
+        contentType: "image/png",
+        sizeBytes: 320_000
+      }
+    });
+  });
 });
 
 describe("publicUrl", () => {

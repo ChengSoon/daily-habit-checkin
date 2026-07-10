@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>冒险地图视觉方向</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #2a1b24;
+      --soft: #725f69;
+      --line: #eadde5;
+      --pink: #e86a92;
+      --purple: #7a68ce;
+      --gold: #f6c84c;
+      --mint: #ccece1;
+      --paper: #fffafd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 42px 28px 56px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(232,106,146,.10), transparent 26%),
+        radial-gradient(circle at 88% 4%, rgba(122,104,206,.11), transparent 25%),
+        #f7f3f6;
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    }
+    header { max-width: 1240px; margin: 0 auto 26px; }
+    .eyebrow { color: var(--pink); font-size: 13px; font-weight: 800; }
+    h1 { margin: 7px 0 8px; font-size: clamp(26px, 4vw, 42px); line-height: 1.1; }
+    .intro { margin: 0; color: var(--soft); font-size: 15px; line-height: 1.7; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(260px, 1fr));
+      gap: 18px;
+      max-width: 1240px;
+      margin: 0 auto;
+    }
+    .choice {
+      position: relative;
+      overflow: hidden;
+      min-width: 0;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(255,255,255,.92);
+      box-shadow: 0 14px 40px rgba(68, 42, 58, .08);
+      cursor: pointer;
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    .choice:hover { transform: translateY(-4px); box-shadow: 0 22px 55px rgba(68,42,58,.14); }
+    .choice.selected { border-color: var(--pink); box-shadow: 0 0 0 3px rgba(232,106,146,.15), 0 22px 55px rgba(68,42,58,.14); }
+    .choice-head { display: flex; align-items: center; gap: 10px; padding: 16px 17px 13px; }
+    .letter { display:grid; place-items:center; width:30px; height:30px; border-radius:9px; color:white; background:var(--ink); font-weight:900; }
+    .choice h2 { margin: 0; font-size: 18px; }
+    .badge { margin-left:auto; border-radius:999px; padding:5px 8px; color:#6d5510; background:#fff1b9; font-size:11px; font-weight:800; }
+    .map-wrap { padding: 0 13px; }
+    .map {
+      position: relative;
+      height: 360px;
+      overflow: hidden;
+      border-radius: 14px;
+      background: #ece7fa;
+      isolation: isolate;
+    }
+    .map::after { content:""; position:absolute; inset:0; pointer-events:none; box-shadow: inset 0 0 0 1px rgba(70,45,60,.05); border-radius:inherit; }
+    .copy { padding: 16px 18px 20px; }
+    .copy p { margin:0 0 10px; min-height:44px; color:var(--soft); font-size:13px; line-height:1.65; }
+    .tags { display:flex; flex-wrap:wrap; gap:6px; }
+    .tag { border:1px solid var(--line); border-radius:999px; padding:5px 8px; color:#765d69; background:#fff; font-size:11px; font-weight:700; }
+
+    /* Shared route */
+    svg.route { position:absolute; inset:0; z-index:5; width:100%; height:100%; overflow:visible; }
+    .station { position:absolute; z-index:8; display:grid; place-items:center; width:44px; height:44px; border:4px solid white; border-radius:50%; color:white; box-shadow:0 6px 16px rgba(67,45,58,.18); font-size:19px; font-weight:900; }
+    .station-label { position:absolute; z-index:9; padding:5px 8px; border-radius:8px; color:#4e3c46; background:rgba(255,255,255,.88); box-shadow:0 4px 12px rgba(68,42,58,.08); font-size:10px; font-weight:800; white-space:nowrap; }
+    .travelers { position:absolute; z-index:12; display:flex; align-items:center; gap:3px; padding:4px; border:3px solid white; border-radius:999px; background:white; box-shadow:0 7px 17px rgba(68,42,58,.2); }
+    .face { display:grid; place-items:center; width:22px; height:22px; border-radius:50%; color:white; font-size:9px; font-weight:900; }
+
+    /* A */
+    .map-a { background: linear-gradient(155deg,#e8e3f8 0 58%,#fefcff 58% 69%,#d9f0e8 69%); }
+    .map-a .moon { position:absolute; right:24px; top:23px; width:72px; height:72px; border-radius:50%; background:rgba(255,255,255,.76); box-shadow:0 0 32px rgba(255,255,255,.75); }
+    .map-a .spark { position:absolute; width:3px; height:3px; border-radius:50%; background:white; box-shadow:0 0 8px white; }
+    .map-a .s1{left:14%;bottom:18%}.map-a .s2{left:36%;bottom:32%}.map-a .s3{left:59%;top:35%}.map-a .s4{right:13%;top:14%}
+    .map-a .l1{left:8%;bottom:8%}.map-a .l2{left:29%;bottom:21%}.map-a .l3{left:53%;top:25%}.map-a .l4{right:4%;top:6%}
+    .map-a .travelers{left:20%;bottom:25%}
+
+    /* B */
+    .map-b { background: linear-gradient(#cfe7ed 0 44%,#f5dfd8 44% 46%,#d5eadf 46% 100%); }
+    .map-b .sunset { position:absolute; inset:0 0 54% 0; background:linear-gradient(180deg,#bcdbe6,#e2d9f2 70%,#f5d6d5); }
+    .map-b .stars { position:absolute; inset:0; opacity:.7; background-image:radial-gradient(circle,#fff 0 1px,transparent 1.5px); background-size:31px 29px; }
+    .map-b .coast { position:absolute; right:-30px; bottom:-20px; width:88%; height:61%; border-radius:62% 0 0 0; background:linear-gradient(150deg,#d9f0e8,#b9ddcf); transform:rotate(-5deg); }
+    .map-b .water { position:absolute; left:-18%; bottom:4%; width:75%; height:40%; border-radius:50%; background:linear-gradient(155deg,#d8eef2,#b9dce6); transform:rotate(9deg); }
+    .map-b .lighthouse { position:absolute; z-index:4; right:31px; top:36px; width:58px; height:114px; }
+    .map-b .beam { position:absolute; right:53px; top:49px; width:130px; height:34px; background:linear-gradient(90deg,rgba(255,243,178,0),rgba(255,243,178,.62)); clip-path:polygon(0 37%,100% 0,100% 100%,0 63%); transform:rotate(-7deg); }
+    .tower { position:absolute; right:17px; bottom:0; width:25px; height:75px; background:#fff8ef; clip-path:polygon(26% 0,74% 0,100% 100%,0 100%); box-shadow:inset 0 -18px #f0a6a4; }
+    .tower::before { content:""; position:absolute; left:-6px; top:-13px; width:37px; height:14px; border-radius:4px 4px 1px 1px; background:#675779; }
+    .tower::after { content:""; position:absolute; left:9px; top:27px; width:7px; height:14px; border-radius:999px 999px 2px 2px; background:#8b7bd8; }
+    .map-b .bridge { position:absolute; z-index:3; left:40%; top:42%; width:96px; height:38px; border:7px solid rgba(255,255,255,.78); border-bottom:0; border-radius:50px 50px 0 0; transform:rotate(-8deg); }
+    .map-b .s1{left:10%;bottom:17%}.map-b .s2{left:32%;bottom:32%}.map-b .s3{left:56%;top:40%}.map-b .s4{right:14%;top:20%}
+    .map-b .l1{left:5%;bottom:8%}.map-b .l2{left:26%;bottom:21%}.map-b .l3{left:48%;top:32%}.map-b .l4{right:5%;top:11%}
+    .map-b .travelers{left:18%;bottom:26%}
+
+    /* C */
+    .map-c { background:linear-gradient(180deg,#18263d 0%,#344b62 46%,#204a48 100%); }
+    .map-c .aurora { position:absolute; inset:-20% -45% 40% -40%; border-radius:50%; background:conic-gradient(from 210deg,transparent,#8fe3c9,#b8a6ff,#f297b0,transparent 65%); filter:blur(18px); opacity:.55; transform:rotate(-8deg); }
+    .map-c .moon-c { position:absolute; right:25px; top:25px; width:62px; height:62px; border-radius:50%; background:#fff7d0; box-shadow:0 0 38px rgba(255,247,208,.55); }
+    .map-c .island { position:absolute; left:-10%; right:-18%; bottom:-11%; height:55%; border-radius:52% 50% 0 0; background:linear-gradient(160deg,#396e63,#173b3c); transform:rotate(-5deg); }
+    .map-c .crystals { position:absolute; z-index:4; left:48%; top:44%; width:70px; height:60px; background:linear-gradient(135deg,#b9efff,#8f84ee); clip-path:polygon(0 100%,18% 29%,35% 72%,53% 0,67% 68%,86% 23%,100% 100%); filter:drop-shadow(0 0 12px rgba(171,220,255,.6)); }
+    .map-c .s1{left:9%;bottom:16%}.map-c .s2{left:31%;bottom:33%}.map-c .s3{left:57%;top:39%}.map-c .s4{right:12%;top:18%}
+    .map-c .l1{left:4%;bottom:7%}.map-c .l2{left:24%;bottom:22%}.map-c .l3{left:50%;top:30%}.map-c .l4{right:3%;top:9%}
+    .map-c .travelers{left:17%;bottom:25%}
+    .map-c .station-label { color:#f6f2f5; background:rgba(25,35,52,.82); }
+
+    .foot { max-width:1240px; margin:20px auto 0; color:#806c77; font-size:12px; text-align:center; }
+    @media (max-width: 960px) { .grid{grid-template-columns:1fr}.map{height:390px}.copy p{min-height:0} }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="eyebrow">双人冒险地图 · 视觉方向</div>
+    <h1>不是“加点装饰”，而是让地图讲出正在发生的旅程</h1>
+    <p class="intro">点击一个方向。三种方案都保留现有粉紫品牌色，差别在于场景叙事、资产成本与后续章节扩展能力。</p>
+  </header>
+
+  <main class="grid">
+    <article class="choice" data-choice="a-polish" onclick="toggleSelect(this)">
+      <div class="choice-head"><div class="letter">A</div><h2>轻量精修</h2></div>
+      <div class="map-wrap"><div class="map map-a">
+        <div class="moon"></div><i class="spark" style="left:18%;top:17%"></i><i class="spark" style="left:45%;top:11%"></i><i class="spark" style="left:69%;top:24%"></i>
+        <svg class="route" viewBox="0 0 330 360" preserveAspectRatio="none"><path d="M44 288 C86 277,102 247,126 238 S174 194,197 160 S249 111,285 72" fill="none" stroke="rgba(255,255,255,.72)" stroke-width="15" stroke-linecap="round" stroke-dasharray="1 23"/><path d="M44 288 C86 277,102 247,126 238" fill="none" stroke="#e86a92" stroke-width="15" stroke-linecap="round" stroke-dasharray="1 23"/></svg>
+        <div class="station s1" style="background:#e86a92">旗</div><div class="station s2" style="background:#f6c84c;color:#4f3900">电</div><div class="station s3" style="background:#fff;color:#7a68ce;border-color:#7a68ce">◇</div><div class="station s4" style="background:#fff;color:#7a68ce;border-color:#7a68ce">★</div>
+        <div class="station-label l1">启程</div><div class="station-label l2">月光灯塔</div><div class="station-label l3">水晶桥</div><div class="station-label l4">观星台</div>
+        <div class="travelers"><span class="face" style="background:#e86a92">C</span><span class="face" style="background:#7a68ce">Z</span></div>
+      </div></div>
+      <div class="copy"><p>保留当前抽象地图，只补曲线路径、站名、光影和更清楚的当前位置。改动最小，但“月光灯塔”的故事感仍较弱。</p><div class="tags"><span class="tag">低成本</span><span class="tag">无新图片资产</span><span class="tag">1 个组件内完成</span></div></div>
+    </article>
+
+    <article class="choice" data-choice="b-scene" onclick="toggleSelect(this)">
+      <div class="choice-head"><div class="letter">B</div><h2>场景化地图</h2><span class="badge">推荐</span></div>
+      <div class="map-wrap"><div class="map map-b">
+        <div class="sunset"></div><div class="stars"></div><div class="coast"></div><div class="water"></div><div class="beam"></div><div class="bridge"></div><div class="lighthouse"><div class="tower"></div></div>
+        <svg class="route" viewBox="0 0 330 360" preserveAspectRatio="none"><path d="M42 292 C74 275,90 254,118 242 C150 227,161 190,195 174 C231 156,246 116,286 82" fill="none" stroke="rgba(255,255,255,.84)" stroke-width="10" stroke-linecap="round" stroke-dasharray="1 18"/><path d="M42 292 C74 275,90 254,118 242" fill="none" stroke="#e86a92" stroke-width="10" stroke-linecap="round" stroke-dasharray="1 18"/></svg>
+        <div class="station s1" style="background:#e86a92">旗</div><div class="station s2" style="background:#f6c84c;color:#4f3900">灯</div><div class="station s3" style="background:#8b7bd8">◇</div><div class="station s4" style="background:#6152a5">★</div>
+        <div class="station-label l1">启程</div><div class="station-label l2">下一站 · 2 点</div><div class="station-label l3">水晶桥</div><div class="station-label l4">观星台</div>
+        <div class="travelers"><span class="face" style="background:#e86a92">C</span><span class="face" style="background:#7a68ce">Z</span></div>
+      </div></div>
+      <div class="copy"><p>每章有一个可识别地貌和终点地标，路线仍由代码绘制。用户一眼知道“我们正沿海岸去灯塔”，兼顾氛围与维护成本。</p><div class="tags"><span class="tag">中等成本</span><span class="tag">章节可复用</span><span class="tag">叙事最平衡</span></div></div>
+    </article>
+
+    <article class="choice" data-choice="c-illustrated" onclick="toggleSelect(this)">
+      <div class="choice-head"><div class="letter">C</div><h2>插画型地图</h2></div>
+      <div class="map-wrap"><div class="map map-c">
+        <div class="aurora"></div><div class="moon-c"></div><div class="island"></div><div class="crystals"></div>
+        <svg class="route" viewBox="0 0 330 360" preserveAspectRatio="none"><path d="M40 294 C78 280,91 250,118 240 C154 226,165 195,199 172 C233 149,249 112,288 78" fill="none" stroke="rgba(255,232,175,.82)" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 18"/><path d="M40 294 C78 280,91 250,118 240" fill="none" stroke="#ff85ad" stroke-width="9" stroke-linecap="round" stroke-dasharray="1 18"/></svg>
+        <div class="station s1" style="background:#e86a92">旗</div><div class="station s2" style="background:#f6c84c;color:#4f3900">灯</div><div class="station s3" style="background:#8b7bd8">◇</div><div class="station s4" style="background:#fff0ae;color:#443962">★</div>
+        <div class="station-label l1">启程</div><div class="station-label l2">月光灯塔</div><div class="station-label l3">水晶桥</div><div class="station-label l4">观星台</div>
+        <div class="travelers"><span class="face" style="background:#e86a92">C</span><span class="face" style="background:#7a68ce">Z</span></div>
+      </div></div>
+      <div class="copy"><p>使用定制位图插画承载世界观，路线和站点叠加其上。最有游戏感，但需要为亮/暗主题和每个章节维护美术资产。</p><div class="tags"><span class="tag">高成本</span><span class="tag">沉浸感最高</span><span class="tag">需美术资产管线</span></div></div>
+    </article>
+  </main>
+  <p class="foot">建议先选视觉骨架；动效、站点交互和暗色模式会在下一步设计里确定。</p>
+</body>
+</html>

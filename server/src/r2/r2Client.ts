@@ -24,7 +24,13 @@ const EXT_BY_MIME: Record<string, string> = {
 /** presigned URL 有效期（秒）。够客户端压缩后上传，又不至于长期有效。 */
 const UPLOAD_URL_TTL_SECONDS = 300;
 
-export type UploadKind = "avatar" | "reward";
+export type UploadKind = "avatar" | "reward" | "adventure_badge";
+
+const PREFIX_BY_KIND: Record<UploadKind, string> = {
+  avatar: "avatars",
+  reward: "rewards",
+  adventure_badge: "adventure_badges"
+};
 
 let client: S3Client | null = null;
 
@@ -81,7 +87,7 @@ export async function createPresignedUpload(
     throw new Error("不支持的图片类型");
   }
 
-  const prefix = kind === "avatar" ? "avatars" : "rewards";
+  const prefix = PREFIX_BY_KIND[kind];
   const key = `${prefix}/${scope}/${randomUUID()}.${ext}`;
 
   const { s3, bucket } = getClient();
@@ -92,6 +98,10 @@ export async function createPresignedUpload(
   );
 
   return { key, uploadUrl };
+}
+
+export function isAdventureBadgeKeyForSpace(key: string, spaceId: string): boolean {
+  return key.startsWith(`adventure_badges/${spaceId}/`);
 }
 
 /**

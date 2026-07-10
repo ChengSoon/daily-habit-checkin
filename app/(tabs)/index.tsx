@@ -3,6 +3,11 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  AwardAdventureInput,
+  awardAdventureForCheckIn,
+  revokeAdventureForCheckIn
+} from "../../src/adventure/adventureClient";
 import { completeCheckIn, listCheckInsForHabit, undoCheckIn } from "../../src/checkins/checkinRepository";
 import { CheckIn } from "../../src/checkins/types";
 import { getStreakMilestone } from "../../src/checkins/milestones";
@@ -13,7 +18,7 @@ import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { Habit } from "../../src/habits/types";
 import { rescheduleHabitReminders, rescheduleTodayEveningSummary } from "../../src/reminders/reminderService";
 import { getAppSettings } from "../../src/settings/settingsRepository";
-import { AppButton, AppText, Card, TextField } from "../../src/ui/Controls";
+import { AppButton, AppText, Card, HelperText, TextField } from "../../src/ui/Controls";
 import { CheckInCelebration, FullCelebration, MiniCheckInBurst } from "../../src/ui/CheckInCelebration";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { HabitCompleter, HabitRow } from "../../src/ui/HabitRow";
@@ -28,6 +33,18 @@ import { getWallet } from "../../src/xp/xpRepository";
 import { awardXpForCheckIn, revokeXpForCheckIn } from "../../src/xp/xpService";
 import { XpAwardResult } from "../../src/xp/types";
 
+type PendingAdventureSync = {
+  kind: "award" | "revoke";
+  input: AwardAdventureInput;
+  failureMessage: string;
+};
+
+function syncAdventure(request: PendingAdventureSync) {
+  return request.kind === "award"
+    ? awardAdventureForCheckIn(request.input)
+    : revokeAdventureForCheckIn(request.input);
+}
+
 export default function TodayScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -40,6 +57,9 @@ export default function TodayScreen() {
   const [fullCelebration, setFullCelebration] = useState<FullCelebration | null>(null);
   const [xpBalance, setXpBalance] = useState(0);
   const [lastXpResult, setLastXpResult] = useState<XpAwardResult | null>(null);
+  const [adventureSyncWarning, setAdventureSyncWarning] = useState<string | null>(null);
+  const [pendingAdventureSync, setPendingAdventureSync] = useState<PendingAdventureSync | null>(null);
+  const [isRetryingAdventure, setIsRetryingAdventure] = useState(false);
   const [isUndoing, setIsUndoing] = useState(false);
   const [undoNow, setUndoNow] = useState(() => new Date());
   const miniBurstKey = useRef(0);
@@ -57,6 +77,31 @@ export default function TodayScreen() {
   const hideFullCelebration = useCallback(() => {
     setFullCelebration(null);
   }, []);
+
+  async function runAdventureSync(request: PendingAdventureSync): Promise<boolean> {
+    try {
+      await syncAdventure(request);
+      setAdventureSyncWarning(null);
+      setPendingAdventureSync(null);
+      return true;
+    } catch {
+      setAdventureSyncWarning(request.failureMessage);
+      setPendingAdventureSync(request);
+      return false;
+    }
+  }
+
+  async function retryAdventureSync() {
+    if (!pendingAdventureSync || isRetryingAdventure) {
+      return;
+    }
+    setIsRetryingAdventure(true);
+    try {
+      await runAdventureSync(pendingAdventureSync);
+    } finally {
+      setIsRetryingAdventure(false);
+    }
+  }
 
   useEffect(() => {
     const undoableCheckIns = checkIns.filter((checkIn) => checkIn.status === "completed" && canUndoCheckIn(checkIn, undoNow));
@@ -139,6 +184,11 @@ export default function TodayScreen() {
 
     const checkIn = await completeCheckIn({ habitId: habit.id, date: today, value, note: null });
     const xpResult = await awardXpForCheckIn({ habitId: habit.id, dateKey: today, checkInId: checkIn.id });
+    await runAdventureSync({
+      kind: "award",
+      input: { habitId: habit.id, dateKey: today, checkInId: checkIn.id },
+      failureMessage: "打卡已保存，冒险行动力暂未同步。"
+    });
 
     // 用打卡后的完整记录重算连续天数，判断是否命中里程碑
     const habitStart = habit.createdAt.slice(0, 10);
@@ -188,6 +238,11 @@ export default function TodayScreen() {
           habitId: habit.id,
           dateKey: today,
           checkInId: removed.id
+        });
+        await runAdventureSync({
+          kind: "revoke",
+          input: { habitId: habit.id, dateKey: today, checkInId: removed.id },
+          failureMessage: "打卡已撤销，冒险行动力暂未同步。"
         });
         setXpBalance(xpResult.wallet.balance);
         setLastXpResult(null);
@@ -267,6 +322,23 @@ export default function TodayScreen() {
           ) : null}
           <Ionicons name="chevron-forward" size={16} color={colors.faint} />
         </Card>
+
+        {adventureSyncWarning ? (
+          <View style={{ alignItems: "center", flexDirection: "row", gap: spacing.sm }}>
+            <View style={{ flex: 1 }}>
+              <HelperText tone="danger">{adventureSyncWarning}</HelperText>
+            </View>
+            <AppButton
+              title="重试"
+              compact
+              disabled={isRetryingAdventure}
+              icon="refresh-outline"
+              iconSpin={isRetryingAdventure}
+              variant="secondary"
+              onPress={() => void retryAdventureSync()}
+            />
+          </View>
+        ) : null}
 
         {habits.length === 0 ? (
           <>
