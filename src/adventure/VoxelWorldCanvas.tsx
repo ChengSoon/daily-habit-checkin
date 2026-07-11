@@ -9,7 +9,7 @@ import {
 import { PixelRatio } from "react-native";
 import * as THREE from "three";
 import { cameraPositionFor, clampCameraTarget, type QualityTier } from "./cameraMath";
-import type { CeremonyPhase } from "./ceremonyTimeline";
+import { type CeremonyPhase } from "./ceremonyTimeline";
 import type { MapCameraState } from "./useMapCamera";
 import {
   createIslandRecipe,
@@ -212,28 +212,50 @@ function IslandClouds({ center, dark, reducedMotion, dense }: {
   );
 }
 
-function IslandGroup({ island, palette, dark, reducedMotion, qualityTier }: {
+function IslandGroup({ island, palette, dark, reducedMotion, qualityTier, ceremony }: {
   island: IslandPlacement;
   palette: ThemePalette;
   dark: boolean;
   reducedMotion: boolean;
   qualityTier: QualityTier;
+  ceremony: ActiveCeremony | null;
 }) {
   const recipe = useMemo(
     () => createIslandRecipe(island.index, island.themeIndex, island.isTeaser),
     [island.index, island.themeIndex, island.isTeaser]
   );
   const groundBuckets = useMemo(() => [...groupByMaterial(recipe.ground).entries()], [recipe]);
-  const opacity = island.fogged ? 0.35 : 1;
+  const baseOpacity = island.fogged ? 0.35 : 1;
+  const groupRef = useRef<THREE.Group>(null);
+
+  // islandRise：目标岛在解锁仪式中从 -18 升到 0
+  const risesThisCeremony = ceremony?.phases.some(
+    (p) => p.kind === "islandRise" && p.islandIndex === island.index
+  ) ?? false;
+  useFrame(() => {
+    if (!groupRef.current) return;
+    if (!risesThisCeremony) {
+      groupRef.current.position.y = 0;
+      return;
+    }
+    const { status, t } = ceremonyPhaseProgress(
+      ceremony,
+      (p) => p.kind === "islandRise" && p.islandIndex === island.index
+    );
+    if (status === "before") groupRef.current.position.y = -18;
+    else if (status === "during") groupRef.current.position.y = -18 + easeInOut(t) * 18;
+    else groupRef.current.position.y = 0;
+  });
+
   return (
-    <group>
+    <group ref={groupRef}>
       {groundBuckets.map(([material, list]) => (
         <InstancedBlocks
           key={material}
           blocks={list}
           color={palette[material]}
           offset={island.center}
-          opacity={opacity}
+          opacity={baseOpacity}
           castShadow={qualityTier === 0 && !island.fogged}
         />
       ))}
@@ -242,14 +264,14 @@ function IslandGroup({ island, palette, dark, reducedMotion, qualityTier }: {
         palette={palette}
         offset={island.center}
         islandIndex={island.index}
-        opacity={opacity}
+        opacity={baseOpacity}
         reducedMotion={reducedMotion}
       />
       <RippleWater
         blocks={recipe.water}
         palette={palette}
         offset={island.center}
-        opacity={opacity}
+        opacity={baseOpacity}
         reducedMotion={reducedMotion}
       />
       {island.fogged ? (
@@ -317,7 +339,28 @@ function StationNodeMesh({ node, palette, reducedMotion, onNodePress }: {
   );
 }
 
-function ChapterGateMesh({ gate, palette }: { gate: GatePlacement; palette: ThemePalette }) {
+function ChapterGateMesh({ gate, palette, ceremony }: {
+  gate: GatePlacement;
+  palette: ThemePalette;
+  ceremony: ActiveCeremony | null;
+}) {
+  const doorRef = useRef<THREE.Group>(null);
+  const opensThisCeremony = ceremony?.phases.some(
+    (p) => p.kind === "gateOpen" && p.chapterIndex === gate.chapterIndex
+  ) ?? false;
+  useFrame(() => {
+    if (!doorRef.current || !opensThisCeremony) return;
+    const { status, t } = ceremonyPhaseProgress(
+      ceremony,
+      (p) => p.kind === "gateOpen" && p.chapterIndex === gate.chapterIndex
+    );
+    // 门扇绕左柱旋转打开
+    if (status === "before") doorRef.current.rotation.y = 0;
+    else if (status === "during") doorRef.current.rotation.y = -easeInOut(t) * (Math.PI / 2);
+    else doorRef.current.rotation.y = -Math.PI / 2;
+  });
+  // passed 且不在本次仪式中开门 → 门洞敞开无门扇
+  const showDoor = !gate.passed || opensThisCeremony;
   return (
     <group position={gate.position}>
       {/* 两柱 */}
@@ -334,13 +377,81 @@ function ChapterGateMesh({ gate, palette }: { gate: GatePlacement; palette: Them
         <boxGeometry args={[4, 0.7, 1]} />
         <meshStandardMaterial color={palette.roof} flatShading />
       </mesh>
-      {/* 未通过时门扇封住 */}
-      {!gate.passed ? (
-        <mesh position={[0, 1.4, 0]}>
-          <boxGeometry args={[2, 2.8, 0.3]} />
-          <meshStandardMaterial color={palette.wall} flatShading />
-        </mesh>
+      {/* 门扇：铰链在左柱 */}
+      {showDoor ? (
+        <group ref={doorRef} position={[-1, 0, 0]}>
+          <mesh position={[1, 1.4, 0]}>
+            <boxGeometry args={[2, 2.8, 0.3]} />
+            <meshStandardMaterial color={palette.wall} flatShading />
+          </mesh>
+        </group>
       ) : null}
+    </group>
+  );
+}
+
+const PARTICLE_COUNT = 30;
+const PARTICLE_COLORS = ["#f5c542", "#f7bcd4", "#6ec6f5", "#8fdc9f", "#b478e8", "#f0907c"];
+
+function CelebrationParticles({ ceremony }: { ceremony: ActiveCeremony | null }) {
+  const refs = useRef<(THREE.Mesh | null)[]>([]);
+  const celebrate = ceremony?.phases.find(
+    (p): p is Extract<CeremonyPhase, { kind: "celebrate" }> => p.kind === "celebrate"
+  );
+  // 每个粒子的固定初速（由 index 派生，恒定）
+  const seeds = useMemo(
+    () =>
+      Array.from({ length: PARTICLE_COUNT }, (_, i) => {
+        const angle = (i / PARTICLE_COUNT) * Math.PI * 2;
+        const speed = 2.2 + (i % 5) * 0.5;
+        return {
+          vx: Math.cos(angle) * speed * 0.5,
+          vy: 4.5 + (i % 7) * 0.4,
+          vz: Math.sin(angle) * speed * 0.5,
+          color: PARTICLE_COLORS[i % PARTICLE_COLORS.length]
+        };
+      }),
+    []
+  );
+  useFrame(() => {
+    if (!celebrate || !ceremony) {
+      refs.current.forEach((mesh) => mesh && (mesh.visible = false));
+      return;
+    }
+    const { status, t } = ceremonyPhaseProgress(ceremony, (p) => p.kind === "celebrate");
+    if (status !== "during") {
+      refs.current.forEach((mesh) => mesh && (mesh.visible = false));
+      return;
+    }
+    const seconds = t * (celebrate.durationMs / 1000);
+    const [nx, ny, nz] = celebrate.nodePosition;
+    seeds.forEach((seed, i) => {
+      const mesh = refs.current[i];
+      if (!mesh) return;
+      mesh.visible = true;
+      mesh.position.set(
+        nx + seed.vx * seconds,
+        ny + 0.8 + seed.vy * seconds - 4.9 * seconds * seconds,
+        nz + seed.vz * seconds
+      );
+      mesh.rotation.set(seconds * 3 + i, seconds * 2, 0);
+    });
+  });
+  if (!celebrate) return null;
+  return (
+    <group>
+      {seeds.map((seed, i) => (
+        <mesh
+          key={i}
+          ref={(mesh) => {
+            refs.current[i] = mesh;
+          }}
+          visible={false}
+        >
+          <boxGeometry args={[0.22, 0.22, 0.22]} />
+          <meshStandardMaterial color={seed.color} emissive={seed.color} emissiveIntensity={0.4} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -385,15 +496,47 @@ function CloudBanks({ layout, dark, reducedMotion }: {
   );
 }
 
-function Traveler({ basePosition, color, phase, reducedMotion }: {
+function Traveler({ basePosition, color, phase, reducedMotion, ceremony }: {
   basePosition: Vec3;
   color: string;
   phase: number;
   reducedMotion: boolean;
+  ceremony: ActiveCeremony | null;
 }) {
   const ref = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
     if (!ref.current) return;
+    // walk 阶段：沿路径插值 + 起跳弧线
+    const walk = ceremony?.phases.find(
+      (p): p is Extract<CeremonyPhase, { kind: "walk" }> => p.kind === "walk"
+    );
+    if (ceremony && walk && walk.path.length > 0) {
+      const { status, t } = ceremonyPhaseProgress(ceremony, (p) => p.kind === "walk");
+      if (status === "during") {
+        const segFloat = t * walk.path.length;
+        const segIndex = Math.min(walk.path.length - 1, Math.floor(segFloat));
+        const segT = segFloat - segIndex;
+        const from = segIndex === 0 ? basePosition : walk.path[segIndex - 1];
+        const to = walk.path[segIndex];
+        const hop = Math.sin(segT * Math.PI) * 0.5;
+        ref.current.position.set(
+          from[0] + (to[0] - from[0]) * segT + (phase === 0 ? -0.35 : 0.35),
+          from[1] + (to[1] - from[1]) * segT + 0.3 + hop,
+          from[2] + (to[2] - from[2]) * segT + 0.6
+        );
+        return;
+      }
+      if (status === "after" || status === "before") {
+        const rest = status === "after" ? walk.path[walk.path.length - 1] : basePosition;
+        const bob = reducedMotion ? 0 : Math.sin(clock.elapsedTime * 2 + phase) * 0.12;
+        ref.current.position.set(
+          rest[0] + (phase === 0 ? -0.7 : 0.7),
+          rest[1] + 0.3 + bob,
+          rest[2] + 0.6
+        );
+        return;
+      }
+    }
     const bob = reducedMotion ? 0 : Math.sin(clock.elapsedTime * 2 + phase) * 0.12;
     ref.current.position.set(basePosition[0], basePosition[1] + bob, basePosition[2]);
   });
@@ -413,11 +556,12 @@ function Traveler({ basePosition, color, phase, reducedMotion }: {
   );
 }
 
-function Travelers({ layout, people, avatarColors, reducedMotion }: {
+function Travelers({ layout, people, avatarColors, reducedMotion, ceremony }: {
   layout: VoxelWorldLayout;
   people: { name: string; tone: "primary" | "partner" }[];
   avatarColors: { primary: string; partner: string };
   reducedMotion: boolean;
+  ceremony: ActiveCeremony | null;
 }) {
   const anchor = layout.currentNodePosition;
   return (
@@ -427,8 +571,9 @@ function Travelers({ layout, people, avatarColors, reducedMotion }: {
           key={person.tone + person.name}
           basePosition={[anchor[0] + (i === 0 ? -0.7 : 0.7), anchor[1] + 0.3, anchor[2] + 0.6]}
           color={avatarColors[person.tone]}
-          phase={i * 1.7}
+          phase={i}
           reducedMotion={reducedMotion}
+          ceremony={ceremony}
         />
       ))}
     </group>
@@ -438,6 +583,24 @@ function Travelers({ layout, people, avatarColors, reducedMotion }: {
 function easeInOut(t: number): number {
   return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
 }
+
+// 定位仪式中某类阶段的进度：before（未到）/ during 0..1 / after（已过）
+function ceremonyPhaseProgress(
+  ceremony: ActiveCeremony | null,
+  match: (phase: CeremonyPhase) => boolean
+): { status: "none" | "before" | "during" | "after"; t: number; phase: CeremonyPhase | null } {
+  if (!ceremony) return { status: "none", t: 0, phase: null };
+  const index = ceremony.phases.findIndex(match);
+  if (index < 0) return { status: "none", t: 0, phase: null };
+  const elapsed = Date.now() - ceremony.startedAt;
+  let cursor = 0;
+  for (let i = 0; i < index; i++) cursor += ceremony.phases[i].durationMs;
+  const phase = ceremony.phases[index];
+  if (elapsed < cursor) return { status: "before", t: 0, phase };
+  if (elapsed >= cursor + phase.durationMs) return { status: "after", t: 1, phase };
+  return { status: "during", t: (elapsed - cursor) / phase.durationMs, phase };
+}
+
 
 function CameraRig({ stateRef, cameraApi }: {
   stateRef: MutableRefObject<MapCameraState>;
@@ -487,10 +650,8 @@ function CameraRig({ stateRef, cameraApi }: {
 export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
   const {
     layout, people, avatarColors, dark, reducedMotion, qualityTier,
-    cameraApi, cameraStateRef, onNodePress
+    cameraApi, cameraStateRef, onNodePress, ceremony
   } = props;
-  // ceremony prop 由 Task 10 消费；本任务保持签名稳定
-  void props.ceremony;
   const currentIsland = layout.islands.find(
     (island) => !island.fogged && !island.isTeaser
   );
@@ -533,6 +694,7 @@ export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
           dark={dark}
           reducedMotion={reducedMotion}
           qualityTier={qualityTier}
+          ceremony={ceremony}
         />
       ))}
       <RouteTube routePoints={layout.routePoints} palette={palette} />
@@ -546,14 +708,16 @@ export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
         />
       ))}
       {layout.gates.map((gate) => (
-        <ChapterGateMesh key={gate.chapterIndex} gate={gate} palette={palette} />
+        <ChapterGateMesh key={gate.chapterIndex} gate={gate} palette={palette} ceremony={ceremony} />
       ))}
       <CloudBanks layout={layout} dark={dark} reducedMotion={reducedMotion} />
+      <CelebrationParticles ceremony={ceremony} />
       <Travelers
         layout={layout}
         people={people}
         avatarColors={avatarColors}
         reducedMotion={reducedMotion}
+        ceremony={ceremony}
       />
     </Canvas>
   );
