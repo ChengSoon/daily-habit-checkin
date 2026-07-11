@@ -48,26 +48,27 @@ export function AdventureCollection({
         ]}
         onChange={setMode}
       />
-
-      {mode === "badges" ? (
-        modeItems.length > 0 ? (
-          <View style={styles.badgeGrid}>
-            {modeItems.map((item) => (
-              <BadgeTile key={item.stationId} item={item} />
-            ))}
-          </View>
-        ) : <AppText variant="body" tone="muted">这条路线还没有勋章奖励。</AppText>
-      ) : (
-        modeItems.length > 0 ? (
-          <View style={{ gap: spacing.sm }}>
-            {modeItems.map((item) => (
-              <LetterRow key={item.stationId} item={item} onOpen={() => setOpenLetter(item)} />
-            ))}
-          </View>
-        ) : <AppText variant="body" tone="muted">这条路线还没有来信奖励。</AppText>
-      )}
-
+      <CollectionItems mode={mode} items={modeItems} onOpenLetter={setOpenLetter} />
       <LetterModal item={openLetter} onClose={() => setOpenLetter(null)} />
+    </View>
+  );
+}
+
+function CollectionItems({ mode, items, onOpenLetter }: {
+  mode: CollectionMode;
+  items: AdventureCollectionItem[];
+  onOpenLetter: (item: AdventureCollectionItem) => void;
+}) {
+  if (items.length === 0) {
+    const message = mode === "badges" ? "这条路线还没有勋章奖励。" : "这条路线还没有来信奖励。";
+    return <AppText variant="body" tone="muted">{message}</AppText>;
+  }
+  if (mode === "badges") {
+    return <View style={styles.badgeGrid}>{items.map((item) => <BadgeTile key={item.stationId} item={item} />)}</View>;
+  }
+  return (
+    <View style={{ gap: spacing.sm }}>
+      {items.map((item) => <LetterRow key={item.stationId} item={item} onOpen={() => onOpenLetter(item)} />)}
     </View>
   );
 }

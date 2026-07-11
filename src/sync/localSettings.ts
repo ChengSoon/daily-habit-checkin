@@ -10,6 +10,10 @@ const AUTH_TOKEN_KEY = "authToken";
 const ACCOUNT_KEY = "account";
 const authTokenListeners = new Set<() => void>();
 
+function adventureSeenKey(spaceId: string, campaignId: string): string {
+  return `adventure_seen_stations:${spaceId}:${campaignId}`;
+}
+
 function notifyAuthTokenChanged(): void {
   for (const listener of [...authTokenListeners]) {
     listener();
@@ -75,4 +79,29 @@ export async function getStoredAccount<T>(): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+export async function getAdventureSeenStationIds(
+  spaceId: string,
+  campaignId: string
+): Promise<string[] | null> {
+  const raw = await getLocal(adventureSeenKey(spaceId, campaignId));
+  if (raw === null) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.every((value) => typeof value === "string")
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveAdventureSeenStationIds(
+  spaceId: string,
+  campaignId: string,
+  stationIds: string[]
+): Promise<void> {
+  const uniqueStationIds = Array.from(new Set(stationIds));
+  await setLocal(adventureSeenKey(spaceId, campaignId), JSON.stringify(uniqueStationIds));
 }

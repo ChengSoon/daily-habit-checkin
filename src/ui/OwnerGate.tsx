@@ -20,27 +20,7 @@ export function OwnerGate({
   children: ReactNode;
   fallbackHref?: Parameters<typeof router.replace>[0];
 }) {
-  const [access, setAccess] = useState<AccessState>("checking");
-
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
-      getCurrentAccount()
-        .then((account) => {
-          if (active) {
-            setAccess(account?.role === "owner" ? "granted" : "denied");
-          }
-        })
-        .catch(() => {
-          if (active) {
-            setAccess("denied");
-          }
-        });
-      return () => {
-        active = false;
-      };
-    }, [])
-  );
+  const access = useOwnerAccess();
 
   if (access === "checking") {
     return (
@@ -53,22 +33,42 @@ export function OwnerGate({
   }
 
   if (access === "denied") {
-    return (
-      <Screen>
-        <View style={{ gap: spacing.sm }}>
-          <AppText variant="display">无权访问</AppText>
-          <AppText variant="body" tone="muted">
-            只有创建空间的人可以进行管理操作。
-          </AppText>
-          <AppButton
-            title="返回"
-            variant="secondary"
-            onPress={() => goBackOrReplace(router, fallbackHref)}
-          />
-        </View>
-      </Screen>
-    );
+    return <OwnerDenied fallbackHref={fallbackHref} />;
   }
 
   return <>{children}</>;
+}
+
+function useOwnerAccess(): AccessState {
+  const [access, setAccess] = useState<AccessState>("checking");
+  useFocusEffect(useCallback(() => {
+    let active = true;
+    getCurrentAccount()
+      .then((account) => {
+        if (active) setAccess(account?.role === "owner" ? "granted" : "denied");
+      })
+      .catch(() => {
+        if (active) setAccess("denied");
+      });
+    return () => {
+      active = false;
+    };
+  }, []));
+  return access;
+}
+
+function OwnerDenied({ fallbackHref }: { fallbackHref: Parameters<typeof router.replace>[0] }) {
+  return (
+    <Screen>
+      <View style={{ gap: spacing.sm }}>
+        <AppText variant="display">无权访问</AppText>
+        <AppText variant="body" tone="muted">只有创建空间的人可以进行管理操作。</AppText>
+        <AppButton
+          title="返回"
+          variant="secondary"
+          onPress={() => goBackOrReplace(router, fallbackHref)}
+        />
+      </View>
+    </Screen>
+  );
 }

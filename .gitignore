@@ -48,3 +48,6 @@ example
 
 # TLS certs (never commit private keys)
 server/certs/
+
+.superpowers/
+docs/assets/generated/
