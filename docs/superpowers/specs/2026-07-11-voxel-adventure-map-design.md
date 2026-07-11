@@ -130,3 +130,10 @@
 - 岛屿装修/家园经营玩法
 - 多人实时同屏（同步仍走现有打卡数据同步）
 - Web 端 3D 渲染
+
+## 实现偏离记录（2026-07-11 实施后回写）
+
+- 化身色 props 键名沿用现有 `AvatarTone`（`"you" | "partner"`），非设计初稿的 `"primary" | "partner"`；对应色值仍取 `useTheme().colors.primary / partner`
+- 仪式跳过交互实现为「仪式播放中的全屏点按层（含提示文案）」，语义等同"任意手势跳过"
+- 焦点检测使用 `expo-router` 直接导出的 `useIsFocused`（无需显式依赖 `@react-navigation/native`）
+- 岛屿窗口化中"远岛只显示 ground"通过卸载 foliage/water/云组件实现（配方 useMemo 缓存保留，重挂成本可接受）
