@@ -8,8 +8,9 @@ import {
 } from "react";
 import { PixelRatio } from "react-native";
 import * as THREE from "three";
-import { cameraPositionFor, type QualityTier } from "./cameraMath";
+import { cameraPositionFor, clampCameraTarget, type QualityTier } from "./cameraMath";
 import type { CeremonyPhase } from "./ceremonyTimeline";
+import type { MapCameraState } from "./useMapCamera";
 import {
   createIslandRecipe,
   type VoxelBlock,
@@ -37,6 +38,7 @@ export type VoxelWorldCanvasProps = {
   reducedMotion: boolean;
   qualityTier: QualityTier;
   cameraApi: MutableRefObject<MapCameraApi | null>;
+  cameraStateRef: MutableRefObject<MapCameraState>;
   onNodePress: (stationIndex: number) => void;
   ceremony: ActiveCeremony | null;
 };
@@ -433,14 +435,62 @@ function Travelers({ layout, people, avatarColors, reducedMotion }: {
   );
 }
 
+function easeInOut(t: number): number {
+  return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+}
+
+function CameraRig({ stateRef, cameraApi }: {
+  stateRef: MutableRefObject<MapCameraState>;
+  cameraApi: MutableRefObject<MapCameraApi | null>;
+}) {
+  useFrame(({ camera }, delta) => {
+    const s = stateRef.current;
+
+    if (s.flyingTo) {
+      const elapsed = Date.now() - s.flyingTo.startedAt;
+      const t = Math.min(1, elapsed / s.flyingTo.durationMs);
+      const eased = easeInOut(t);
+      const startX = s.targetX;
+      const startZ = s.targetZ;
+      // 以当前位置到目标做线性收敛（每帧向目标推进 eased 比例的剩余量近似）
+      s.targetX = startX + (s.flyingTo.x - startX) * eased * 0.25;
+      s.targetZ = startZ + (s.flyingTo.z - startZ) * eased * 0.25;
+      if (t >= 1) {
+        s.targetX = s.flyingTo.x;
+        s.targetZ = s.flyingTo.z;
+        s.flyingTo = null;
+      }
+    } else if (s.velocityX !== 0 || s.velocityZ !== 0) {
+      // 惯性：每帧按 dt 推进并衰减
+      s.targetX += s.velocityX * delta;
+      s.targetZ += s.velocityZ * delta;
+      [s.targetX, s.targetZ] = clampCameraTarget(s.targetX, s.targetZ, s.bounds);
+      const decay = Math.pow(0.92, delta * 60);
+      s.velocityX *= decay;
+      s.velocityZ *= decay;
+      if (Math.abs(s.velocityX) < 0.01 && Math.abs(s.velocityZ) < 0.01) {
+        s.velocityX = 0;
+        s.velocityZ = 0;
+      }
+    }
+
+    const pos = cameraPositionFor([s.targetX, 0, s.targetZ], s.distance);
+    camera.position.set(pos[0], pos[1], pos[2]);
+    camera.lookAt(s.targetX, 0.75, s.targetZ);
+  });
+
+  // 首帧确保 api 已挂载（api 由 hook 提供，此处仅占位保证引用不被摇树）
+  void cameraApi;
+  return null;
+}
+
 export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
   const {
     layout, people, avatarColors, dark, reducedMotion, qualityTier,
-    cameraApi, onNodePress
+    cameraApi, cameraStateRef, onNodePress
   } = props;
   // ceremony prop 由 Task 10 消费；本任务保持签名稳定
   void props.ceremony;
-  void cameraApi;
   const currentIsland = layout.islands.find(
     (island) => !island.fogged && !island.isTeaser
   );
@@ -461,6 +511,7 @@ export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
         camera.lookAt(...layout.currentNodePosition);
       }}
     >
+      <CameraRig stateRef={cameraStateRef} cameraApi={cameraApi} />
       <hemisphereLight args={[palette.hemiSky, palette.hemiGround, 0.9]} />
       <directionalLight
         position={[18, 30, 12]}
