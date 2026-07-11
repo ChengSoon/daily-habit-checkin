@@ -141,3 +141,22 @@ export function createVoxelWorldLayout(
     currentNodePosition: currentNode?.position ?? fallback
   };
 }
+
+export function getVisibleIslandIndexes(
+  layout: VoxelWorldLayout,
+  cameraTargetZ: number,
+  margin: number = ISLAND_SPACING * 2.5
+): number[] {
+  const visible = layout.islands
+    .filter((island) => Math.abs(island.center[2] - cameraTargetZ) <= margin)
+    .map((island) => island.index);
+  if (visible.length > 0) return visible;
+  // 越界：返回 z 距离最近的岛
+  let nearest = layout.islands[0];
+  for (const island of layout.islands) {
+    if (Math.abs(island.center[2] - cameraTargetZ) < Math.abs(nearest.center[2] - cameraTargetZ)) {
+      nearest = island;
+    }
+  }
+  return [nearest.index];
+}

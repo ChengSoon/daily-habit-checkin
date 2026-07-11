@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useIsFocused } from "expo-router";
 import {
   Component,
   useEffect,
@@ -9,6 +9,7 @@ import {
   type ReactNode
 } from "react";
 import {
+  AppState,
   Platform,
   Pressable,
   ScrollView,
@@ -107,7 +108,16 @@ export function AdventureWorldScreen(props: AdventureWorldScreenProps) {
   const reducedMotion = useReducedMotion();
   const { height: viewportHeight } = useWindowDimensions();
   const [glFailed, setGlFailed] = useState(false);
-  const [qualityTier] = useState<QualityTier>(0);
+  const [qualityTier, setQualityTier] = useState<QualityTier>(0);
+  const [appActive, setAppActive] = useState(true);
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      setAppActive(state === "active");
+    });
+    return () => sub.remove();
+  }, []);
+  const frameloop: "always" | "never" = isFocused && appActive ? "always" : "never";
   const [selectedStationIndex, setSelectedStationIndex] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -174,6 +184,8 @@ export function AdventureWorldScreen(props: AdventureWorldScreenProps) {
                 cameraStateRef={stateRef}
                 onNodePress={setSelectedStationIndex}
                 ceremony={ceremony}
+                frameloop={frameloop}
+                onQualityTierChange={setQualityTier}
               />
             </GLErrorBoundary>
           </View>

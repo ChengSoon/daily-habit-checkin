@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { AdventureStation } from "./types";
 import {
   createVoxelWorldLayout,
+  getVisibleIslandIndexes,
   ISLAND_SPACING,
   type VoxelWorldLayout
 } from "./voxelWorldLayout";
@@ -105,5 +106,23 @@ describe("createVoxelWorldLayout", () => {
 
   it("同输入输出深度相等（确定性）", () => {
     expect(layoutFor(24, 5)).toEqual(layoutFor(24, 5));
+  });
+});
+
+describe("getVisibleIslandIndexes", () => {
+  it("镜头在 0 号岛附近返回前几座岛", () => {
+    const layout = layoutFor(48);
+    expect(getVisibleIslandIndexes(layout, 0)).toEqual([0, 1, 2]);
+  });
+
+  it("镜头在 5 号岛返回前后各 2.5 个间距内的岛", () => {
+    const layout = layoutFor(48);
+    expect(getVisibleIslandIndexes(layout, -5 * ISLAND_SPACING)).toEqual([3, 4, 5, 6, 7]);
+  });
+
+  it("镜头越界时最近岛仍在列", () => {
+    const layout = layoutFor(8);
+    expect(getVisibleIslandIndexes(layout, 500)).toContain(0);
+    expect(getVisibleIslandIndexes(layout, -9999)).toContain(layout.islands.length - 1);
   });
 });

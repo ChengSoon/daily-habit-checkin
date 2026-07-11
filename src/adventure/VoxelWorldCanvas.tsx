@@ -4,11 +4,17 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   type MutableRefObject
 } from "react";
 import { PixelRatio } from "react-native";
 import * as THREE from "three";
-import { cameraPositionFor, clampCameraTarget, type QualityTier } from "./cameraMath";
+import {
+  cameraPositionFor,
+  clampCameraTarget,
+  nextQualityTier,
+  type QualityTier
+} from "./cameraMath";
 import { type CeremonyPhase } from "./ceremonyTimeline";
 import type { MapCameraState } from "./useMapCamera";
 import {
@@ -17,12 +23,14 @@ import {
   type VoxelMaterialKey
 } from "./voxelIslandRecipes";
 import { paletteFor, type ThemePalette } from "./voxelMaterials";
-import type {
-  GatePlacement,
-  IslandPlacement,
-  NodePlacement,
-  Vec3,
-  VoxelWorldLayout
+import {
+  getVisibleIslandIndexes,
+  ISLAND_SPACING,
+  type GatePlacement,
+  type IslandPlacement,
+  type NodePlacement,
+  type Vec3,
+  type VoxelWorldLayout
 } from "./voxelWorldLayout";
 
 export type MapCameraApi = {
@@ -41,6 +49,8 @@ export type VoxelWorldCanvasProps = {
   cameraStateRef: MutableRefObject<MapCameraState>;
   onNodePress: (stationIndex: number) => void;
   ceremony: ActiveCeremony | null;
+  frameloop?: "always" | "never";
+  onQualityTierChange?: (tier: QualityTier) => void;
 };
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -212,19 +222,25 @@ function IslandClouds({ center, dark, reducedMotion, dense }: {
   );
 }
 
-function IslandGroup({ island, palette, dark, reducedMotion, qualityTier, ceremony }: {
+function IslandGroup({ island, palette, dark, reducedMotion, qualityTier, ceremony, detail }: {
   island: IslandPlacement;
   palette: ThemePalette;
   dark: boolean;
   reducedMotion: boolean;
   qualityTier: QualityTier;
   ceremony: ActiveCeremony | null;
+  detail: IslandDetail;
 }) {
   const recipe = useMemo(
     () => createIslandRecipe(island.index, island.themeIndex, island.isTeaser),
     [island.index, island.themeIndex, island.isTeaser]
   );
   const groundBuckets = useMemo(() => [...groupByMaterial(recipe.ground).entries()], [recipe]);
+  // tier 2：按 index 取模隐藏 40% 树叶/花
+  const foliageBlocks = useMemo(
+    () => qualityTier >= 2 ? recipe.foliage.filter((_, i) => i % 5 < 3) : recipe.foliage,
+    [recipe.foliage, qualityTier]
+  );
   const baseOpacity = island.fogged ? 0.35 : 1;
   const groupRef = useRef<THREE.Group>(null);
 
@@ -248,7 +264,7 @@ function IslandGroup({ island, palette, dark, reducedMotion, qualityTier, ceremo
   });
 
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} visible={detail !== "hidden"}>
       {groundBuckets.map(([material, list]) => (
         <InstancedBlocks
           key={material}
@@ -259,28 +275,32 @@ function IslandGroup({ island, palette, dark, reducedMotion, qualityTier, ceremo
           castShadow={qualityTier === 0 && !island.fogged}
         />
       ))}
-      <SwayingFoliage
-        blocks={recipe.foliage}
-        palette={palette}
-        offset={island.center}
-        islandIndex={island.index}
-        opacity={baseOpacity}
-        reducedMotion={reducedMotion}
-      />
-      <RippleWater
-        blocks={recipe.water}
-        palette={palette}
-        offset={island.center}
-        opacity={baseOpacity}
-        reducedMotion={reducedMotion}
-      />
-      {island.fogged ? (
-        <IslandClouds
-          center={island.center}
-          dark={dark}
-          reducedMotion={reducedMotion}
-          dense={island.isTeaser}
-        />
+      {detail === "full" ? (
+        <>
+          <SwayingFoliage
+            blocks={foliageBlocks}
+            palette={palette}
+            offset={island.center}
+            islandIndex={island.index}
+            opacity={baseOpacity}
+            reducedMotion={reducedMotion}
+          />
+          <RippleWater
+            blocks={recipe.water}
+            palette={palette}
+            offset={island.center}
+            opacity={baseOpacity}
+            reducedMotion={reducedMotion}
+          />
+          {island.fogged ? (
+            <IslandClouds
+              center={island.center}
+              dark={dark}
+              reducedMotion={reducedMotion}
+              dense={island.isTeaser}
+            />
+          ) : null}
+        </>
       ) : null}
     </group>
   );
@@ -647,11 +667,58 @@ function CameraRig({ stateRef, cameraApi }: {
   return null;
 }
 
+type IslandDetail = "full" | "groundOnly" | "hidden";
+
+function computeIslandDetails(layout: VoxelWorldLayout, targetZ: number): IslandDetail[] {
+  const visible = new Set(getVisibleIslandIndexes(layout, targetZ));
+  return layout.islands.map((island) => {
+    if (!visible.has(island.index)) return "hidden";
+    return Math.abs(island.center[2] - targetZ) > ISLAND_SPACING * 1.5 ? "groundOnly" : "full";
+  });
+}
+
+// 每 15 帧算一次可见岛集合；每 60 帧算一次平均帧率并回调降级
+function FrameGovernor({ layout, cameraStateRef, qualityTier, onDetails, onQualityTierChange }: {
+  layout: VoxelWorldLayout;
+  cameraStateRef: MutableRefObject<MapCameraState>;
+  qualityTier: QualityTier;
+  onDetails: (details: IslandDetail[]) => void;
+  onQualityTierChange?: (tier: QualityTier) => void;
+}) {
+  const frameCount = useRef(0);
+  const elapsedAccum = useRef(0);
+  const lastKey = useRef("");
+  useFrame((_, delta) => {
+    frameCount.current += 1;
+    elapsedAccum.current += delta;
+    if (frameCount.current % 15 === 0) {
+      const details = computeIslandDetails(layout, cameraStateRef.current.targetZ);
+      const key = details.join(",");
+      if (key !== lastKey.current) {
+        lastKey.current = key;
+        onDetails(details);
+      }
+    }
+    if (frameCount.current >= 60) {
+      const avgFps = frameCount.current / Math.max(elapsedAccum.current, 1e-6);
+      const next = nextQualityTier(qualityTier, avgFps);
+      if (next !== qualityTier) onQualityTierChange?.(next);
+      frameCount.current = 0;
+      elapsedAccum.current = 0;
+    }
+  });
+  return null;
+}
+
 export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
   const {
     layout, people, avatarColors, dark, reducedMotion, qualityTier,
-    cameraApi, cameraStateRef, onNodePress, ceremony
+    cameraApi, cameraStateRef, onNodePress, ceremony,
+    frameloop = "always", onQualityTierChange
   } = props;
+  const [islandDetails, setIslandDetails] = useState<IslandDetail[]>(() =>
+    computeIslandDetails(layout, layout.currentNodePosition[2])
+  );
   const currentIsland = layout.islands.find(
     (island) => !island.fogged && !island.isTeaser
   );
@@ -663,6 +730,7 @@ export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
   return (
     <Canvas
       shadows={qualityTier === 0}
+      frameloop={frameloop}
       gl={{ antialias: true }}
       camera={{ fov: 45, near: 0.1, far: 300, position: initialCamera }}
       onCreated={({ gl, scene, camera }) => {
@@ -673,6 +741,13 @@ export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
       }}
     >
       <CameraRig stateRef={cameraStateRef} cameraApi={cameraApi} />
+      <FrameGovernor
+        layout={layout}
+        cameraStateRef={cameraStateRef}
+        qualityTier={qualityTier}
+        onDetails={setIslandDetails}
+        onQualityTierChange={onQualityTierChange}
+      />
       <hemisphereLight args={[palette.hemiSky, palette.hemiGround, 0.9]} />
       <directionalLight
         position={[18, 30, 12]}
@@ -695,6 +770,7 @@ export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
           reducedMotion={reducedMotion}
           qualityTier={qualityTier}
           ceremony={ceremony}
+          detail={islandDetails[island.index] ?? "full"}
         />
       ))}
       <RouteTube routePoints={layout.routePoints} palette={palette} />
