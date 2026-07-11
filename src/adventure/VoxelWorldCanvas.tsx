@@ -32,8 +32,8 @@ export type MapCameraApi = {
 export type ActiveCeremony = { phases: CeremonyPhase[]; startedAt: number; onDone: () => void };
 export type VoxelWorldCanvasProps = {
   layout: VoxelWorldLayout;
-  people: { name: string; tone: "primary" | "partner" }[];
-  avatarColors: { primary: string; partner: string };
+  people: { name: string; tone: "you" | "partner" }[];
+  avatarColors: { you: string; partner: string };
   dark: boolean;
   reducedMotion: boolean;
   qualityTier: QualityTier;
@@ -558,8 +558,8 @@ function Traveler({ basePosition, color, phase, reducedMotion, ceremony }: {
 
 function Travelers({ layout, people, avatarColors, reducedMotion, ceremony }: {
   layout: VoxelWorldLayout;
-  people: { name: string; tone: "primary" | "partner" }[];
-  avatarColors: { primary: string; partner: string };
+  people: { name: string; tone: "you" | "partner" }[];
+  avatarColors: { you: string; partner: string };
   reducedMotion: boolean;
   ceremony: ActiveCeremony | null;
 }) {
