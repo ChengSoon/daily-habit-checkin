@@ -7,8 +7,9 @@ import {
   useState,
   type MutableRefObject
 } from "react";
-import { PixelRatio } from "react-native";
+import { PixelRatio, StyleSheet } from "react-native";
 import * as THREE from "three";
+import type { Group, InstancedMesh, Mesh } from "three";
 import {
   cameraPositionFor,
   clampCameraTarget,
@@ -45,12 +46,14 @@ export type VoxelWorldCanvasProps = {
   dark: boolean;
   reducedMotion: boolean;
   qualityTier: QualityTier;
+  lowPower: boolean;
   cameraApi: MutableRefObject<MapCameraApi | null>;
   cameraStateRef: MutableRefObject<MapCameraState>;
   onNodePress: (stationIndex: number) => void;
   ceremony: ActiveCeremony | null;
   frameloop?: "always" | "never";
   onQualityTierChange?: (tier: QualityTier) => void;
+  onReady?: () => void;
 };
 
 const BOX = new THREE.BoxGeometry(1, 1, 1);
@@ -61,7 +64,7 @@ const TMP_SCALE = new THREE.Vector3();
 const CLOUD_COLOR_LIGHT = "#ffffff";
 const CLOUD_COLOR_DARK = "#6f6a9c";
 
-function writeBlockMatrices(mesh: THREE.InstancedMesh, blocks: VoxelBlock[], offset: Vec3) {
+function writeBlockMatrices(mesh: InstancedMesh, blocks: VoxelBlock[], offset: Vec3) {
   blocks.forEach((block, i) => {
     TMP_POS.set(
       offset[0] + block.position[0],
@@ -84,7 +87,7 @@ function InstancedBlocks({ blocks, color, offset = [0, 0, 0], opacity = 1, castS
   opacity?: number;
   castShadow?: boolean;
 }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
+  const ref = useRef<InstancedMesh>(null);
   useLayoutEffect(() => {
     if (ref.current) writeBlockMatrices(ref.current, blocks, offset);
   }, [blocks, offset]);
@@ -124,7 +127,7 @@ function SwayingFoliage({ blocks, palette, offset, islandIndex, opacity, reduced
   opacity: number;
   reducedMotion: boolean;
 }) {
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<Group>(null);
   const buckets = useMemo(() => [...groupByMaterial(blocks).entries()], [blocks]);
   useFrame(({ clock }) => {
     if (reducedMotion || !groupRef.current) return;
@@ -152,7 +155,7 @@ function RippleWater({ blocks, palette, offset, opacity, reducedMotion }: {
   opacity: number;
   reducedMotion: boolean;
 }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
+  const ref = useRef<InstancedMesh>(null);
   useLayoutEffect(() => {
     if (ref.current) writeBlockMatrices(ref.current, blocks, offset);
   }, [blocks, offset]);
@@ -205,7 +208,7 @@ function IslandClouds({ center, dark, reducedMotion, dense }: {
   reducedMotion: boolean;
   dense: boolean;
 }) {
-  const ref = useRef<THREE.Group>(null);
+  const ref = useRef<Group>(null);
   const blocks = useMemo(() => makeCloudBlocks(Math.abs(Math.round(center[2])), dense ? 6 : 4), [center, dense]);
   useFrame(({ clock }) => {
     if (reducedMotion || !ref.current) return;
@@ -242,7 +245,7 @@ function IslandGroup({ island, palette, dark, reducedMotion, qualityTier, ceremo
     [recipe.foliage, qualityTier]
   );
   const baseOpacity = island.fogged ? 0.35 : 1;
-  const groupRef = useRef<THREE.Group>(null);
+  const groupRef = useRef<Group>(null);
 
   // islandRise：目标岛在解锁仪式中从 -18 升到 0
   const risesThisCeremony = ceremony?.phases.some(
@@ -328,7 +331,7 @@ function StationNodeMesh({ node, palette, reducedMotion, onNodePress }: {
   reducedMotion: boolean;
   onNodePress: (stationIndex: number) => void;
 }) {
-  const haloRef = useRef<THREE.Mesh>(null);
+  const haloRef = useRef<Mesh>(null);
   const color = node.state === "done"
     ? palette.blossom
     : node.state === "current" ? "#f5c542" : palette.rock;
@@ -364,7 +367,7 @@ function ChapterGateMesh({ gate, palette, ceremony }: {
   palette: ThemePalette;
   ceremony: ActiveCeremony | null;
 }) {
-  const doorRef = useRef<THREE.Group>(null);
+  const doorRef = useRef<Group>(null);
   const opensThisCeremony = ceremony?.phases.some(
     (p) => p.kind === "gateOpen" && p.chapterIndex === gate.chapterIndex
   ) ?? false;
@@ -414,7 +417,7 @@ const PARTICLE_COUNT = 30;
 const PARTICLE_COLORS = ["#f5c542", "#f7bcd4", "#6ec6f5", "#8fdc9f", "#b478e8", "#f0907c"];
 
 function CelebrationParticles({ ceremony }: { ceremony: ActiveCeremony | null }) {
-  const refs = useRef<(THREE.Mesh | null)[]>([]);
+  const refs = useRef<(Mesh | null)[]>([]);
   const celebrate = ceremony?.phases.find(
     (p): p is Extract<CeremonyPhase, { kind: "celebrate" }> => p.kind === "celebrate"
   );
@@ -481,7 +484,7 @@ function CloudBanks({ layout, dark, reducedMotion }: {
   dark: boolean;
   reducedMotion: boolean;
 }) {
-  const ref = useRef<THREE.Group>(null);
+  const ref = useRef<Group>(null);
   const banks = useMemo(() => {
     const minZ = layout.cameraBounds.minZ - 20;
     const maxZ = layout.cameraBounds.maxZ + 20;
@@ -523,7 +526,7 @@ function Traveler({ basePosition, color, phase, reducedMotion, ceremony }: {
   reducedMotion: boolean;
   ceremony: ActiveCeremony | null;
 }) {
-  const ref = useRef<THREE.Group>(null);
+  const ref = useRef<Group>(null);
   useFrame(({ clock }) => {
     if (!ref.current) return;
     // walk 阶段：沿路径插值 + 起跳弧线
@@ -712,9 +715,9 @@ function FrameGovernor({ layout, cameraStateRef, qualityTier, onDetails, onQuali
 
 export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
   const {
-    layout, people, avatarColors, dark, reducedMotion, qualityTier,
+    layout, people, avatarColors, dark, reducedMotion, qualityTier, lowPower,
     cameraApi, cameraStateRef, onNodePress, ceremony,
-    frameloop = "always", onQualityTierChange
+    frameloop = "always", onQualityTierChange, onReady
   } = props;
   const [islandDetails, setIslandDetails] = useState<IslandDetail[]>(() =>
     computeIslandDetails(layout, layout.currentNodePosition[2])
@@ -727,17 +730,26 @@ export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
     () => cameraPositionFor(layout.currentNodePosition, 24),
     [layout.currentNodePosition]
   );
+  const readyNotified = useRef(false);
   return (
     <Canvas
-      shadows={qualityTier === 0}
+      style={StyleSheet.absoluteFill}
+      shadows={!lowPower && qualityTier === 0}
       frameloop={frameloop}
-      gl={{ antialias: true }}
+      gl={{ antialias: !lowPower, powerPreference: "high-performance" }}
       camera={{ fov: 45, near: 0.1, far: 300, position: initialCamera }}
       onCreated={({ gl, scene, camera }) => {
-        gl.setPixelRatio(Math.min(PixelRatio.get(), 2));
+        // expo-gl 默认清屏黑；尽早设天空色，避免首帧黑屏闪烁
+        const sky = new THREE.Color(palette.sky);
+        gl.setClearColor(sky, 1);
+        gl.setPixelRatio(lowPower ? 1 : Math.min(PixelRatio.get(), 2));
         scene.fog = new THREE.Fog(new THREE.Color(palette.fogColor), 55, 130);
-        scene.background = new THREE.Color(palette.sky);
+        scene.background = sky;
         camera.lookAt(...layout.currentNodePosition);
+        if (!readyNotified.current) {
+          readyNotified.current = true;
+          onReady?.();
+        }
       }}
     >
       <CameraRig stateRef={cameraStateRef} cameraApi={cameraApi} />
@@ -753,7 +765,7 @@ export function VoxelWorldCanvas(props: VoxelWorldCanvasProps) {
         position={[18, 30, 12]}
         color={palette.sunColor}
         intensity={dark ? 0.7 : 1.3}
-        castShadow={qualityTier === 0}
+        castShadow={!lowPower && qualityTier === 0}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
         shadow-camera-left={-40}

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useIsFocused } from "expo-router";
+import * as Device from "expo-device";
+import { router } from "expo-router";
 import {
   Component,
   useEffect,
@@ -39,7 +40,11 @@ import { useUnlockCeremony } from "./useUnlockCeremony";
 import type { MapCameraApi, VoxelWorldCanvasProps } from "./VoxelWorldCanvas";
 import { createVoxelWorldLayout } from "./voxelWorldLayout";
 
-// web 不打包 GL 相关模块
+const LOW_POWER_GL = !Device.isDevice;
+// 模拟器/Expo Go 下 GL 可能静默失败不抛错；超时后降级文字进度卡
+const GL_READY_TIMEOUT_MS = 4000;
+
+// web 不初始化 GL 相关模块
 const VoxelWorldCanvasImpl: ((props: VoxelWorldCanvasProps) => ReactNode) | null =
   Platform.OS === "web"
     ? null
@@ -108,16 +113,26 @@ export function AdventureWorldScreen(props: AdventureWorldScreenProps) {
   const reducedMotion = useReducedMotion();
   const { height: viewportHeight } = useWindowDimensions();
   const [glFailed, setGlFailed] = useState(false);
-  const [qualityTier, setQualityTier] = useState<QualityTier>(0);
+  const [glReady, setGlReady] = useState(false);
+  const [qualityTier, setQualityTier] = useState<QualityTier>(LOW_POWER_GL ? 2 : 0);
   const [appActive, setAppActive] = useState(true);
-  const isFocused = useIsFocused();
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {
       setAppActive(state === "active");
     });
     return () => sub.remove();
   }, []);
-  const frameloop: "always" | "never" = isFocused && appActive ? "always" : "never";
+  // 聚焦时始终驱动渲染；避免 isFocused 抖动时 frameloop=never 导致永不出画
+  const frameloop: "always" | "never" = appActive ? "always" : "never";
+  useEffect(() => {
+    if (glFailed || glReady || Platform.OS === "web" || VoxelWorldCanvasImpl === null) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      setGlFailed(true);
+    }, GL_READY_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [glFailed, glReady]);
   const [selectedStationIndex, setSelectedStationIndex] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -180,12 +195,14 @@ export function AdventureWorldScreen(props: AdventureWorldScreenProps) {
                 dark={scheme === "dark"}
                 reducedMotion={reducedMotion}
                 qualityTier={qualityTier}
+                lowPower={LOW_POWER_GL}
                 cameraApi={cameraApiRef}
                 cameraStateRef={stateRef}
                 onNodePress={setSelectedStationIndex}
                 ceremony={ceremony}
                 frameloop={frameloop}
                 onQualityTierChange={setQualityTier}
+                onReady={() => setGlReady(true)}
               />
             </GLErrorBoundary>
           </View>
@@ -366,6 +383,11 @@ const styles = StyleSheet.create({
   rewardRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginTop: spacing.md },
   skipLayer: { bottom: 0, left: 0, position: "absolute", right: 0, top: 0, alignItems: "center", justifyContent: "flex-end", paddingBottom: 90 },
   skipHint: { borderRadius: radius.pill, paddingHorizontal: spacing.md, paddingVertical: spacing.xs },
-  fallbackContent: { gap: spacing.md, padding: spacing.lg },
+  fallbackContent: {
+    gap: spacing.md,
+    paddingBottom: spacing.xxl * 4,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xxl * 4
+  },
   fallbackRow: { alignItems: "center", flexDirection: "row", gap: spacing.sm, paddingVertical: spacing.xs }
 });
