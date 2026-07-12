@@ -51,3 +51,4 @@ server/certs/
 
 # Superpowers brainstorm artifacts
 .superpowers/
+docs/assets/generated/

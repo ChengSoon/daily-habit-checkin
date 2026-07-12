@@ -1,10 +1,10 @@
 import cors from "cors";
 import "./env.js";
 import express from "express";
+import { createAdventureRouter } from "./adventure/adventureRoutes.js";
 import { createAppUpdateRouter } from "./appUpdate/appUpdateRoutes.js";
 import { requireAuth } from "./auth/authMiddleware.js";
 import { authRouter } from "./auth/authRoutes.js";
-import { createAdventureRouter } from "./adventure/adventureRoutes.js";
 import { createDataRouter, createWalletRouter } from "./data/dataRoutes.js";
 import { createSettingsRouter } from "./data/settingsRoutes.js";
 import { runSchema } from "./db/schema.js";
@@ -52,10 +52,10 @@ const notifySyncChange = (spaceId: string, resource: string) => {
   syncChangeHub.notifyChange(spaceId, resource);
 };
 app.use("/api/uploads", createUploadRouter());
+app.use("/api/adventure", requireAuth, createAdventureRouter({ onChange: notifySyncChange }));
 app.use("/api/data", requireAuth, createDataRouter({ onChange: notifySyncChange }));
 app.use("/api/wallet", requireAuth, createWalletRouter({ onChange: notifySyncChange }));
 app.use("/api/settings", requireAuth, createSettingsRouter({ onChange: notifySyncChange }));
-app.use("/api/adventure", requireAuth, createAdventureRouter({ onChange: notifySyncChange }));
 
 async function start(): Promise<void> {
   if (process.env.DATABASE_URL) {

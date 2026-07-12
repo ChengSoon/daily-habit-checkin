@@ -81,7 +81,8 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          # node 24 自带 npm 11，与本地一致；npm 10 会报 lock 不同步（见 ci.yml）。
+          node-version: 24
           # 缓存 ~/.npm，省掉每次重新下载依赖（配合 package-lock.json 做 key）。
           cache: npm
 

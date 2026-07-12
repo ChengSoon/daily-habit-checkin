@@ -5,16 +5,19 @@ import { createPresignedUpload, isAllowedImageMime, UploadKind } from "../r2/r2C
 
 /**
  * 图片上传路由。客户端「先要签名、再直传 R2」：
- *   POST /api/uploads/presign  { kind, contentType } → { key, uploadUrl }
+ *   POST /api/uploads/presign  { kind, contentType, sizeBytes? } → { key, uploadUrl }
  * 客户端拿 uploadUrl 直接 PUT 图片到 R2，落库只存 key。图片字节不经过本服务。
  *
- * 全部需登录（requireAuth）。头像作用域用 accountId、奖励用 spaceId，
- * 仅用于组织对象路径，不做额外越权校验（key 含随机 UUID、桶按空间量级极小）。
+ * 全部需登录（requireAuth）。头像作用域用 accountId、奖励/闯关用 spaceId。
+ * adventure 图仅 owner 可传，并限制 5MB。
  */
+
+const MAX_ADVENTURE_BYTES = 5 * 1024 * 1024;
 
 const PresignSchema = z.object({
   kind: z.enum(["avatar", "reward", "adventure"]),
-  contentType: z.string().min(1).max(64)
+  contentType: z.string().min(1).max(64),
+  sizeBytes: z.number().int().positive().optional()
 });
 
 export function createUploadRouter(): Router {
@@ -23,13 +26,22 @@ export function createUploadRouter(): Router {
   router.post("/presign", requireAuth, async (request, response) => {
     try {
       const input = PresignSchema.parse(request.body);
+      if (input.kind === "adventure") {
+        if (request.role !== "owner") {
+          response.status(403).json({ error: "仅空间创建者可上传闯关图片" });
+          return;
+        }
+        if (input.sizeBytes !== undefined && input.sizeBytes > MAX_ADVENTURE_BYTES) {
+          response.status(400).json({ error: "闯关图片不能超过 5 MB" });
+          return;
+        }
+      }
       if (!isAllowedImageMime(input.contentType)) {
         response.status(400).json({ error: "不支持的图片类型（仅 jpeg/png/webp）" });
         return;
       }
 
       const kind = input.kind as UploadKind;
-      // 头像归账号目录；奖励/闯关图归空间目录。
       const scope = kind === "avatar" ? request.accountId! : request.spaceId!;
       const result = await createPresignedUpload(kind, scope, input.contentType);
       response.json(result);

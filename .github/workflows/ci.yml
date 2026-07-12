@@ -21,7 +21,9 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          # node 24 自带 npm 11：package-lock.json 由本地 npm 11 维护，
+          # npm 10（node 22）会因 @emnapi peer 依赖校验规则不同而报 lock 不同步。
+          node-version: 24
           package-manager-cache: false
 
       - name: Install deps
@@ -47,7 +49,7 @@ jobs:
 
       - uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           package-manager-cache: false
 
       - name: Install deps

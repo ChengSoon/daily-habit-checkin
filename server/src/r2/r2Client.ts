@@ -94,6 +94,10 @@ export async function createPresignedUpload(
   return { key, uploadUrl };
 }
 
+export function isAdventureBadgeKeyForSpace(key: string, spaceId: string): boolean {
+  return key.startsWith(`adventure_badges/${spaceId}/`);
+}
+
 /**
  * 删除一个 R2 对象（换头像/换奖励图/删奖励后清理旧图，避免孤儿对象长期堆积）。
  * best-effort：删除失败只记日志、不抛出，绝不因清理旧图而阻断主流程。

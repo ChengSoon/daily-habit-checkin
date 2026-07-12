@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../src/ui/ThemeContext";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
-type TabMotion = "drop" | "repeat" | "gift" | "person";
+type TabMotion = "adventure" | "drop" | "repeat" | "gift" | "person";
 
 type TabIconProps = {
   active: IoniconName;
@@ -37,6 +37,7 @@ const shouldUseNativeDriver = Platform.OS !== "web";
 
 const TAB_ITEMS: TabItem[] = [
   { active: "today", inactive: "today-outline", motion: "drop", name: "index", title: "今日" },
+  { active: "map", inactive: "map-outline", motion: "adventure", name: "adventure", title: "冒险" },
   { active: "repeat", inactive: "repeat-outline", motion: "repeat", name: "habits", title: "习惯" },
   { active: "map", inactive: "map-outline", motion: "gift", name: "adventure", title: "闯关" },
   { active: "gift", inactive: "gift-outline", motion: "gift", name: "shop", title: "商城" },
@@ -122,6 +123,15 @@ function getIconMotion(kick: Animated.Value, motion: TabMotion) {
       scale: kick.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [1, 1.2, 0.98, 1] }),
       translateX: kick.interpolate({ inputRange: [0, 0.28, 0.56, 0.82, 1], outputRange: [0, -3, 3, -1, 0] }),
       translateY: kick.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0, -7, 2, 0] })
+    };
+  }
+
+  if (motion === "adventure") {
+    return {
+      rotate: kick.interpolate({ inputRange: [0, 0.45, 1], outputRange: ["0deg", "-8deg", "0deg"] }),
+      scale: kick.interpolate({ inputRange: [0, 0.34, 0.72, 1], outputRange: [1, 1.18, 0.96, 1] }),
+      translateX: kick.interpolate({ inputRange: [0, 0.45, 1], outputRange: [0, 4, 0] }),
+      translateY: kick.interpolate({ inputRange: [0, 0.34, 0.72, 1], outputRange: [0, -7, 1, 0] })
     };
   }
 
@@ -249,6 +259,7 @@ export default function TabLayout() {
           }}
         />
       ))}
+      <Tabs.Screen name="shop" options={{ href: null }} />
     </Tabs>
   );
 }

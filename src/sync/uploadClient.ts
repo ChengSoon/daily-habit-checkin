@@ -21,10 +21,17 @@ type PresignResponse = { key: string; uploadUrl: string };
  * 上传一张已选好的本地图片到 R2，返回落库用的对象 key。
  * picked.uri 是本地文件 URI（相册/相机选完并压缩后的产物）。
  */
-export async function uploadImage(kind: UploadKind, picked: PickedImage): Promise<string> {
+export async function uploadImage(
+  kind: UploadKind,
+  picked: PickedImage & { sizeBytes?: number }
+): Promise<string> {
   const { key, uploadUrl } = await apiRequest<PresignResponse>("/api/uploads/presign", {
     method: "POST",
-    body: { kind, contentType: picked.mime }
+    body: {
+      kind,
+      contentType: picked.mime,
+      ...(picked.sizeBytes === undefined ? {} : { sizeBytes: picked.sizeBytes })
+    }
   });
 
   // 走 expo-file-system 的原生文件上传，避开 RN Blob 对 ArrayBuffer 的限制。
