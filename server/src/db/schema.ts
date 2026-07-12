@@ -146,6 +146,42 @@ CREATE TABLE IF NOT EXISTS admin_settings (
   value TEXT NOT NULL,
   PRIMARY KEY (space_id, key)
 );
+
+CREATE TABLE IF NOT EXISTS adventure_chapters (
+  id TEXT PRIMARY KEY,
+  space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  sort_order INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  story_text TEXT NOT NULL,
+  threshold_lifetime_xp INTEGER NOT NULL,
+  badge_name TEXT NOT NULL,
+  badge_description TEXT,
+  badge_emoji TEXT,
+  reward_type TEXT NOT NULL DEFAULT 'badge_story',
+  map_theme_key TEXT,
+  status TEXT NOT NULL DEFAULT 'published',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(space_id, sort_order)
+);
+CREATE INDEX IF NOT EXISTS idx_adventure_chapters_space ON adventure_chapters(space_id);
+
+CREATE TABLE IF NOT EXISTS adventure_progress (
+  space_id TEXT PRIMARY KEY REFERENCES spaces(id) ON DELETE CASCADE,
+  highest_unlocked_order INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS adventure_claims (
+  id TEXT PRIMARY KEY,
+  space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  chapter_id TEXT NOT NULL REFERENCES adventure_chapters(id) ON DELETE CASCADE,
+  claimed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  claimed_by TEXT,
+  UNIQUE(space_id, chapter_id)
+);
+CREATE INDEX IF NOT EXISTS idx_adventure_claims_space ON adventure_claims(space_id);
 `;
 
 export async function runSchema(): Promise<void> {
