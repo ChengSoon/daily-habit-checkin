@@ -1,6 +1,6 @@
 # Adventure Chapter Unlock Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 为每个 space 增加线性世界地图章节：累计获得 XP（`lifetimeEarned`）达标自动解锁，手动领取徽章/叙事奖励；第 5 Tab 展示进度舱与地图。
 
@@ -61,7 +61,7 @@
 - Create: `server/src/adventure/adventureRules.ts`
 - Create: `server/src/adventure/adventureRules.test.ts`
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 ```ts
 import { describe, expect, it } from "vitest";
@@ -114,13 +114,13 @@ describe("buildChapterViews", () => {
 });
 ```
 
-- [ ] **Step 2: 跑测确认 RED**
+- [x] **Step 2: 跑测确认 RED**
 
 Run: `cd server && npm test -- src/adventure/adventureRules.test.ts`
 
 Expected: FAIL（模块不存在）
 
-- [ ] **Step 3: 实现规则**
+- [x] **Step 3: 实现规则**
 
 ```ts
 export type AdventureChapterStatus = "published" | "draft" | "archived";
@@ -193,13 +193,13 @@ export function countClaimable(views: ChapterView[]): number {
 }
 ```
 
-- [ ] **Step 4: 跑测确认 GREEN**
+- [x] **Step 4: 跑测确认 GREEN**
 
 Run: `cd server && npm test -- src/adventure/adventureRules.test.ts`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/adventure/adventureRules.ts server/src/adventure/adventureRules.test.ts
@@ -214,7 +214,7 @@ git commit -m "feat(adventure): 添加线性解锁纯函数与单测"
 - Modify: `server/src/db/schema.ts`
 - Create: `server/src/adventure/adventureSeed.ts`
 
-- [ ] **Step 1: 在 SCHEMA_SQL 末尾（admin_settings 后）追加三表**
+- [x] **Step 1: 在 SCHEMA_SQL 末尾（admin_settings 后）追加三表**
 
 ```sql
 CREATE TABLE IF NOT EXISTS adventure_chapters (
@@ -254,7 +254,7 @@ CREATE TABLE IF NOT EXISTS adventure_claims (
 CREATE INDEX IF NOT EXISTS idx_adventure_claims_space ON adventure_claims(space_id);
 ```
 
-- [ ] **Step 2: 实现种子**
+- [x] **Step 2: 实现种子**
 
 `adventureSeed.ts` 导出：
 
@@ -342,7 +342,7 @@ export const DEFAULT_ADVENTURE_SEED: SeedChapter[] = [
 ];
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add server/src/db/schema.ts server/src/adventure/adventureSeed.ts
@@ -358,7 +358,7 @@ git commit -m "feat(adventure): 添加章节表结构与默认种子"
 - Create: `server/src/adventure/adventureService.ts`
 - Create: `server/src/adventure/adventureService.test.ts`
 
-- [ ] **Step 1: Repository 最小接口**
+- [x] **Step 1: Repository 最小接口**
 
 ```ts
 // adventureRepository.ts 关键能力：
@@ -374,7 +374,7 @@ git commit -m "feat(adventure): 添加章节表结构与默认种子"
 
 插入种子时用 `randomUUID()` 生成 chapter id；`reward_type` 固定 `badge_story`；`status` 固定 `published`。
 
-- [ ] **Step 2: Service API**
+- [x] **Step 2: Service API**
 
 ```ts
 export async function ensureAdventureForSpace(spaceId: string): Promise<void>
@@ -401,7 +401,7 @@ export async function claimAdventureChapter(
 - 未解锁 → 400 `"章节尚未解锁"`
 - 已领取（冲突）→ 200 幂等返回最新 state，或 409；**推荐 200 + 已 claimed 状态**（客户端更好处理）
 
-- [ ] **Step 3: 服务测试要点（不连真库时测纯编排；若项目惯用真逻辑则测 rules+分支）**
+- [x] **Step 3: 服务测试要点（不连真库时测纯编排；若项目惯用真逻辑则测 rules+分支）**
 
 至少覆盖（可把 DB 侧抽成 interface mock）：
 
@@ -412,7 +412,7 @@ export async function claimAdventureChapter(
 
 若 server 测试目前偏纯函数，可先测 `adventureRules` + service 内对 mock repo 的调用；有集成环境再补 SQL 测试。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add server/src/adventure/
@@ -428,7 +428,7 @@ git commit -m "feat(adventure): 实现章节种子、推进与领奖服务"
 - Modify: `server/src/index.ts`
 - Modify: `server/src/auth/accountRepository.ts`
 
-- [ ] **Step 1: 路由**
+- [x] **Step 1: 路由**
 
 ```ts
 // GET  /api/adventure/state   -> getAdventureState(spaceId)
@@ -437,7 +437,7 @@ git commit -m "feat(adventure): 实现章节种子、推进与领奖服务"
 
 鉴权：与 data 路由相同，使用 `requireAuth`（从 `request.spaceId` / `request.accountId` 取，字段名与现有 middleware 一致——实现时对照 `authMiddleware` 实际挂载属性）。
 
-- [ ] **Step 2: index 挂载**
+- [x] **Step 2: index 挂载**
 
 ```ts
 import { createAdventureRouter } from "./adventure/adventureRoutes.js";
@@ -447,7 +447,7 @@ app.use("/api/adventure", requireAuth, createAdventureRouter({ onChange: notifyS
 
 claim / advance 写库后 `onChange?.(spaceId, "adventure")`。
 
-- [ ] **Step 3: 注册 space 时 seed**
+- [x] **Step 3: 注册 space 时 seed**
 
 在 `registerAccount` 与「创建新 space」路径（`INSERT INTO spaces` 成功后）调用：
 
@@ -458,11 +458,11 @@ await ensureAdventureForSpace(spaceId);
 注意：`join space` **不要**重复 seed 另一套章节。  
 「迁出新建 space」路径同样在新 spaceId 上 ensure。
 
-- [ ] **Step 4: 历史 space 懒迁移**
+- [x] **Step 4: 历史 space 懒迁移**
 
 `getAdventureState` 内 `ensureAdventureForSpace` 已覆盖：老 space 第一次打开闯关时补种并 advance。无需单独 migration job。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add server/src/adventure/adventureRoutes.ts server/src/index.ts server/src/auth/accountRepository.ts
@@ -476,7 +476,7 @@ git commit -m "feat(adventure): 暴露闯关 API 并在建 space 时播种"
 **Files:**
 - Modify: `server/src/data/dataRoutes.ts`（`createWalletRouter`）
 
-- [ ] **Step 1: 在 POST `/transactions` 成功且 `earnedDelta > 0` 时 advance**
+- [x] **Step 1: 在 POST `/transactions` 成功且 `earnedDelta > 0` 时 advance**
 
 在返回 JSON 前（事务已提交后）：
 
@@ -494,13 +494,13 @@ if (earnedDelta > 0) {
 
 实现时避免循环依赖：优先在 `adventureService` 导出 `advanceAdventureProgress(spaceId)`，由 wallet 路由动态 import 或从 adventure 模块静态 import（`dataRoutes` → `adventureService` 可以；**禁止** adventure 再 import dataRoutes）。
 
-- [ ] **Step 2: 手动验证思路**
+- [x] **Step 2: 手动验证思路**
 
 1. 钱包 lifetime 提到 ≥50  
 2. `GET /api/adventure/state` → highestUnlockedOrder >= 1  
 3. 商城 spend 不降 highest  
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add server/src/data/dataRoutes.ts server/src/adventure/adventureService.ts
@@ -517,7 +517,7 @@ git commit -m "feat(adventure): XP 入账后幂等推进章节解锁"
 - Create: `src/adventure/adventureService.ts`
 - Create: `src/adventure/adventureService.test.ts`
 
-- [ ] **Step 1: 类型对齐服务端 DTO**
+- [x] **Step 1: 类型对齐服务端 DTO**
 
 ```ts
 export type ChapterViewStatus = "locked" | "claimable" | "claimed";
@@ -546,7 +546,7 @@ export type AdventureState = {
 };
 ```
 
-- [ ] **Step 2: Client**
+- [x] **Step 2: Client**
 
 ```ts
 import { apiRequest } from "../sync/apiClient";
@@ -566,7 +566,7 @@ export function claimAdventureChapter(chapterId: string): Promise<AdventureState
 
 （若 `apiRequest` 对错误抛错，claim 已领幂等应由服务端 200 返回 state。）
 
-- [ ] **Step 3: Service 薄封装**
+- [x] **Step 3: Service 薄封装**
 
 ```ts
 export async function loadAdventureState(): Promise<AdventureState> {
@@ -580,7 +580,7 @@ export async function claimChapter(chapterId: string): Promise<AdventureState> {
 
 测试：mock `adventureClient`，断言透传。
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/adventure
@@ -596,7 +596,7 @@ git commit -m "feat(adventure): 添加客户端闯关 API 封装"
 - Modify: `app/(tabs)/_layout.tsx`
 - Modify: `app/_layout.tsx`（若 stack 需要；Tab 内页可先自包含）
 
-- [ ] **Step 1: Tab 配置**
+- [x] **Step 1: Tab 配置**
 
 在 `TAB_ITEMS` 增加一项（插在「商城」前或后，推荐商城前强调成长）：
 
@@ -606,7 +606,7 @@ git commit -m "feat(adventure): 添加客户端闯关 API 封装"
 
 `motion` 若类型不允许新值，复用现有 `"gift"` 或扩展 `TabMotion`（扩展时同步动画分支，给 map 一个轻缩放即可）。
 
-- [ ] **Step 2: 进度舱页面结构**
+- [x] **Step 2: 进度舱页面结构**
 
 `adventure.tsx`：
 
@@ -621,17 +621,17 @@ git commit -m "feat(adventure): 添加客户端闯关 API 封装"
   6. 次按钮「打开地图」→ `router.push("/adventure/map")`
 - 加载中 / 错误态 / 未登录态：与商城页一致处理（无 token 提示去账号页）
 
-- [ ] **Step 3: 视觉要求（阶段 1）**
+- [x] **Step 3: 视觉要求（阶段 1）**
 
 - 禁止整页纯 `FlatList` 白卡片堆叠作为主表达
 - 至少：渐变头图区 + 进度环/条 + 当前章强调卡片 + 地图 CTA
 - 节点精致插画可后补；颜色与圆角跟随 `ThemeContext`
 
-- [ ] **Step 4: 手动 smoke**
+- [x] **Step 4: 手动 smoke**
 
 Run: `npm run web` 或 Expo；登录后看到 5 个 Tab，「闯关」可加载（后端需已部署 schema）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add app/(tabs)/adventure.tsx app/(tabs)/_layout.tsx
@@ -647,14 +647,14 @@ git commit -m "feat(adventure): 新增闯关 Tab 与进度舱"
 - Create: `app/adventure/[chapterId].tsx`
 - Modify: `app/_layout.tsx`
 
-- [ ] **Step 1: Stack 注册**
+- [x] **Step 1: Stack 注册**
 
 ```ts
 <Stack.Screen name="adventure/map" options={{ title: "世界地图" }} />
 <Stack.Screen name="adventure/[chapterId]" options={{ title: "章节" }} />
 ```
 
-- [ ] **Step 2: 地图页**
+- [x] **Step 2: 地图页**
 
 - 竖向 `ScrollView` 路径：每个 published 章一个节点
 - 节点视觉：
@@ -665,14 +665,14 @@ git commit -m "feat(adventure): 新增闯关 Tab 与进度舱"
 - 点击 → `router.push(`/adventure/${id}`)`
 - 顶部简要：累计 XP、claimableCount
 
-- [ ] **Step 3: 章节页**
+- [x] **Step 3: 章节页**
 
 - 展示 title、subtitle、storyText、门槛、徽章预览
 - `claimable`：主按钮「领取徽章」→ `claimChapter` → 更新本地 state → 轻提示
 - `claimed`：展示「已获得」与领取时间不必强求（state 无时间可省略）
 - `locked`：禁用按钮，说明还差 XP 或需先完成上一章
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add app/adventure app/_layout.tsx
@@ -687,7 +687,7 @@ git commit -m "feat(adventure): 世界地图与章节领取页"
 - Modify: 今日页或 XP 成功回调处（`app/(tabs)/index.tsx` 中发 XP 成功后的逻辑）——若 WS 已推 `wallet`/`adventure`，闯关页 focus 刷新即可；可选在 XP toast 增加「旅程有新进展」当 claimable 增加（YAGNI 则可跳过 toast）
 - 确认双端：`server` 与 `app` 测试
 
-- [ ] **Step 1: 服务端测试**
+- [x] **Step 1: 服务端测试**
 
 Run:
 
@@ -697,7 +697,7 @@ cd server && npm test
 
 Expected: 全绿（含 adventureRules）
 
-- [ ] **Step 2: 客户端测试**
+- [x] **Step 2: 客户端测试**
 
 Run:
 
@@ -708,7 +708,7 @@ npx tsc --noEmit
 
 Expected: 相关测试通过；无类型错误
 
-- [ ] **Step 3: 手工验收清单（对照 spec）**
+- [x] **Step 3: 手工验收清单（对照 spec）**
 
 1. 新注册 space：6 章种子，highest=0  
 2. 打卡攒 XP 到 50：自动解锁第 1 章，地图 claimable  
@@ -718,7 +718,7 @@ Expected: 相关测试通过；无类型错误
 6. 第二账号同 space：同步后状态一致  
 7. UI：进度舱 + 路径地图，非纯卡片墙  
 
-- [ ] **Step 4: 最终 Commit（若有修复）**
+- [x] **Step 4: 最终 Commit（若有修复）**
 
 ```bash
 git add -A
