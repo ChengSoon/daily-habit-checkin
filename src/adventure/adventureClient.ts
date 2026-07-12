@@ -3,6 +3,7 @@ import type {
   AdminAdventureChapter,
   AdventureChapterAdminInput,
   AdventureChapterStatus,
+  AdventureClaim,
   AdventureState
 } from "./types";
 
@@ -55,4 +56,23 @@ export async function reorderAdminChapters(orderedIds: string[]): Promise<AdminA
     body: { orderedIds }
   });
   return result.chapters;
+}
+
+export async function fetchAdminAdventureClaims(): Promise<AdventureClaim[]> {
+  const result = await apiRequest<{ claims: AdventureClaim[] }>("/api/adventure/admin/claims");
+  return result.claims;
+}
+
+export function fulfillAdminAdventureClaim(claimId: string, note?: string | null): Promise<AdventureClaim> {
+  return apiRequest<AdventureClaim>(`/api/adventure/admin/claims/${claimId}/fulfill`, {
+    method: "POST",
+    body: { note: note ?? null }
+  });
+}
+
+export function cancelAdminAdventureClaim(claimId: string, note?: string | null): Promise<AdventureClaim> {
+  return apiRequest<AdventureClaim>(`/api/adventure/admin/claims/${claimId}/cancel`, {
+    method: "POST",
+    body: { note: note ?? null }
+  });
 }

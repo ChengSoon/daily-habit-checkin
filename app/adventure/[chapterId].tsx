@@ -2,8 +2,10 @@ import { useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { claimChapter, loadAdventureState } from "../../src/adventure/adventureService";
+import { publicUrl } from "../../src/sync/publicUrl";
 import type { AdventureChapterView, AdventureState } from "../../src/adventure/types";
 import { AppButton, AppText, Card, HelperText } from "../../src/ui/Controls";
+import { RewardImage } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { spacing } from "../../src/ui/theme";
@@ -73,6 +75,13 @@ export default function AdventureChapterScreen() {
 
       <Card style={{ marginTop: spacing.md, gap: spacing.sm }}>
         <AppText variant="section">章节徽章</AppText>
+        {chapter.badgeImageKey ? (
+          <RewardImage
+            uri={publicUrl(chapter.badgeImageKey)}
+            type={chapter.rewardType === "real_pending" ? "real_world" : "virtual"}
+            height={160}
+          />
+        ) : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
           <AppText variant="display">{chapter.badgeEmoji ?? "🏅"}</AppText>
           <View style={{ flex: 1, gap: 2 }}>
@@ -88,7 +97,7 @@ export default function AdventureChapterScreen() {
 
       <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
         {chapter.viewStatus === "claimable" ? (
-          <AppButton title={claiming ? "领取中…" : "领取徽章"} onPress={() => void onClaim()} disabled={claiming} />
+          <AppButton title={claiming ? "领取中…" : chapter.rewardType === "real_pending" ? "领取现实惊喜" : "领取徽章"} onPress={() => void onClaim()} disabled={claiming} />
         ) : null}
         {chapter.viewStatus === "claimed" ? (
           <AppText variant="bodyStrong" tone="primary">

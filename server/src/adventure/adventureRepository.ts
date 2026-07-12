@@ -16,6 +16,8 @@ export type AdventureChapterRow = {
   badgeName: string;
   badgeDescription: string | null;
   badgeEmoji: string | null;
+  badgeImageKey: string | null;
+  nodeImageKey: string | null;
   rewardType: string;
   mapThemeKey: string | null;
   status: AdventureChapterStatus;
@@ -38,6 +40,8 @@ type ChapterDbRow = {
   badge_name: string;
   badge_description: string | null;
   badge_emoji: string | null;
+  badge_image_key: string | null;
+  node_image_key: string | null;
   reward_type: string;
   map_theme_key: string | null;
   status: AdventureChapterStatus;
@@ -55,6 +59,8 @@ function mapChapter(row: ChapterDbRow): AdventureChapterRow {
     badgeName: row.badge_name,
     badgeDescription: row.badge_description,
     badgeEmoji: row.badge_emoji,
+    badgeImageKey: row.badge_image_key,
+    nodeImageKey: row.node_image_key,
     rewardType: row.reward_type,
     mapThemeKey: row.map_theme_key,
     status: row.status
@@ -72,7 +78,7 @@ export async function countChapters(client: Queryable, spaceId: string): Promise
 export async function listChapters(client: Queryable, spaceId: string): Promise<AdventureChapterRow[]> {
   const { rows } = await client.query<ChapterDbRow>(
     `SELECT id, space_id, sort_order, title, subtitle, story_text, threshold_lifetime_xp,
-            badge_name, badge_description, badge_emoji, reward_type, map_theme_key, status
+            badge_name, badge_description, badge_emoji, badge_image_key, node_image_key, reward_type, map_theme_key, status
      FROM adventure_chapters
      WHERE space_id = $1
      ORDER BY sort_order ASC`,
@@ -193,7 +199,7 @@ export async function getChapterById(
 ): Promise<AdventureChapterRow | null> {
   const { rows } = await client.query<ChapterDbRow>(
     `SELECT id, space_id, sort_order, title, subtitle, story_text, threshold_lifetime_xp,
-            badge_name, badge_description, badge_emoji, reward_type, map_theme_key, status
+            badge_name, badge_description, badge_emoji, badge_image_key, node_image_key, reward_type, map_theme_key, status
      FROM adventure_chapters
      WHERE space_id = $1 AND id = $2`,
     [spaceId, chapterId]
@@ -210,6 +216,8 @@ export type ChapterWriteInput = {
   badgeName: string;
   badgeDescription: string | null;
   badgeEmoji: string | null;
+  badgeImageKey: string | null;
+  nodeImageKey: string | null;
   rewardType: string;
   mapThemeKey: string | null;
   status: AdventureChapterStatus;
@@ -224,8 +232,9 @@ export async function insertChapter(
   await client.query(
     `INSERT INTO adventure_chapters (
        id, space_id, sort_order, title, subtitle, story_text, threshold_lifetime_xp,
-       badge_name, badge_description, badge_emoji, reward_type, map_theme_key, status, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now())`,
+       badge_name, badge_description, badge_emoji, badge_image_key, node_image_key,
+       reward_type, map_theme_key, status, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now())`,
     [
       id,
       spaceId,
@@ -237,6 +246,8 @@ export async function insertChapter(
       input.badgeName,
       input.badgeDescription,
       input.badgeEmoji,
+      input.badgeImageKey,
+      input.nodeImageKey,
       input.rewardType,
       input.mapThemeKey,
       input.status
@@ -265,9 +276,11 @@ export async function updateChapter(
        badge_name = $8,
        badge_description = $9,
        badge_emoji = $10,
-       reward_type = $11,
-       map_theme_key = $12,
-       status = $13,
+       badge_image_key = $11,
+       node_image_key = $12,
+       reward_type = $13,
+       map_theme_key = $14,
+       status = $15,
        updated_at = now()
      WHERE space_id = $1 AND id = $2`,
     [
@@ -281,6 +294,8 @@ export async function updateChapter(
       input.badgeName,
       input.badgeDescription,
       input.badgeEmoji,
+      input.badgeImageKey,
+      input.nodeImageKey,
       input.rewardType,
       input.mapThemeKey,
       input.status
@@ -328,3 +343,113 @@ export async function countClaimsForChapter(
   return Number(rows[0]?.count ?? 0);
 }
 
+
+
+export type AdventureFulfillmentStatus = "none" | "pending" | "fulfilled" | "cancelled";
+
+export type AdventureClaimRow = {
+  id: string;
+  spaceId: string;
+  chapterId: string;
+  claimedAt: string;
+  claimedBy: string | null;
+  fulfillmentStatus: AdventureFulfillmentStatus;
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
+  note: string | null;
+  chapterTitle?: string;
+  badgeName?: string;
+  rewardType?: string;
+};
+
+export async function insertClaimWithFulfillment(
+  client: Queryable,
+  input: {
+    id: string;
+    spaceId: string;
+    chapterId: string;
+    claimedBy: string | null;
+    fulfillmentStatus: AdventureFulfillmentStatus;
+  }
+): Promise<"inserted" | "exists"> {
+  const result = await client.query(
+    `INSERT INTO adventure_claims (
+       id, space_id, chapter_id, claimed_at, claimed_by, fulfillment_status
+     ) VALUES ($1, $2, $3, now(), $4, $5)
+     ON CONFLICT (space_id, chapter_id) DO NOTHING
+     RETURNING id`,
+    [input.id, input.spaceId, input.chapterId, input.claimedBy, input.fulfillmentStatus]
+  );
+  return result.rows.length > 0 ? "inserted" : "exists";
+}
+
+export async function listClaims(client: Queryable, spaceId: string): Promise<AdventureClaimRow[]> {
+  const { rows } = await client.query<{
+    id: string;
+    space_id: string;
+    chapter_id: string;
+    claimed_at: string;
+    claimed_by: string | null;
+    fulfillment_status: AdventureFulfillmentStatus;
+    fulfilled_at: string | null;
+    cancelled_at: string | null;
+    note: string | null;
+    chapter_title: string | null;
+    badge_name: string | null;
+    reward_type: string | null;
+  }>(
+    `SELECT c.id, c.space_id, c.chapter_id, c.claimed_at, c.claimed_by,
+            c.fulfillment_status, c.fulfilled_at, c.cancelled_at, c.note,
+            ch.title AS chapter_title, ch.badge_name, ch.reward_type
+     FROM adventure_claims c
+     JOIN adventure_chapters ch ON ch.id = c.chapter_id
+     WHERE c.space_id = $1
+     ORDER BY c.claimed_at DESC`,
+    [spaceId]
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    spaceId: row.space_id,
+    chapterId: row.chapter_id,
+    claimedAt: row.claimed_at,
+    claimedBy: row.claimed_by,
+    fulfillmentStatus: row.fulfillment_status,
+    fulfilledAt: row.fulfilled_at,
+    cancelledAt: row.cancelled_at,
+    note: row.note,
+    chapterTitle: row.chapter_title ?? undefined,
+    badgeName: row.badge_name ?? undefined,
+    rewardType: row.reward_type ?? undefined
+  }));
+}
+
+export async function updateClaimFulfillment(
+  client: Queryable,
+  spaceId: string,
+  claimId: string,
+  status: Extract<AdventureFulfillmentStatus, "fulfilled" | "cancelled">,
+  note: string | null
+): Promise<AdventureClaimRow | null> {
+  const result = await client.query(
+    status === "fulfilled"
+      ? `UPDATE adventure_claims SET
+           fulfillment_status = 'fulfilled',
+           fulfilled_at = now(),
+           cancelled_at = NULL,
+           note = $3
+         WHERE space_id = $1 AND id = $2
+         RETURNING id`
+      : `UPDATE adventure_claims SET
+           fulfillment_status = 'cancelled',
+           cancelled_at = now(),
+           note = $3
+         WHERE space_id = $1 AND id = $2
+         RETURNING id`,
+    [spaceId, claimId, note]
+  );
+  if (result.rows.length === 0) {
+    return null;
+  }
+  const claims = await listClaims(client, spaceId);
+  return claims.find((claim) => claim.id === claimId) ?? null;
+}

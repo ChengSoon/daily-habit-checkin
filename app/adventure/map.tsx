@@ -2,8 +2,10 @@ import { router } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
 import { loadAdventureState } from "../../src/adventure/adventureService";
+import { publicUrl } from "../../src/sync/publicUrl";
 import type { AdventureChapterView, AdventureState } from "../../src/adventure/types";
 import { AppText, Card } from "../../src/ui/Controls";
+import { RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { radius, spacing } from "../../src/ui/theme";
@@ -78,20 +80,28 @@ export default function AdventureMapScreen() {
                 }}
               >
                 <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-                  <View
-                    style={{
-                      width: 48,
-                      height: 48,
-                      borderRadius: 24,
-                      alignItems: "center",
-                      justifyContent: "center",
-                      backgroundColor: nodeColor
-                    }}
-                  >
-                    <AppText variant="title">
-                      {chapter.badgeEmoji ?? String(chapter.sortOrder)}
-                    </AppText>
-                  </View>
+                  {chapter.nodeImageKey || chapter.badgeImageKey ? (
+                    <RewardThumb
+                      uri={publicUrl(chapter.nodeImageKey ?? chapter.badgeImageKey)}
+                      type={chapter.rewardType === "real_pending" ? "real_world" : "virtual"}
+                      size={48}
+                    />
+                  ) : (
+                    <View
+                      style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 24,
+                        alignItems: "center",
+                        justifyContent: "center",
+                        backgroundColor: nodeColor
+                      }}
+                    >
+                      <AppText variant="title">
+                        {chapter.badgeEmoji ?? String(chapter.sortOrder)}
+                      </AppText>
+                    </View>
+                  )}
                   <View style={{ flex: 1, gap: 2 }}>
                     <AppText variant="bodyStrong">
                       第 {chapter.sortOrder} 章 · {chapter.title}

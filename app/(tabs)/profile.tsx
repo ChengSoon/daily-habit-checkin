@@ -265,6 +265,12 @@ export default function ProfileScreen() {
               onPress={() => router.push("/admin/adventure")}
             />
             <AppButton
+              title="章节兑现"
+              variant="secondary"
+              icon="checkmark-done-outline"
+              onPress={() => router.push("/admin/adventure-claims")}
+            />
+            <AppButton
               title="奖励管理"
               variant="secondary"
               icon="construct-outline"

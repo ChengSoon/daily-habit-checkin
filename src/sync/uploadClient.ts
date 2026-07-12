@@ -13,7 +13,7 @@ export { publicUrl } from "./publicUrl";
  * 彻底解放出来的关键。
  */
 
-export type UploadKind = "avatar" | "reward";
+export type UploadKind = "avatar" | "reward" | "adventure";
 
 type PresignResponse = { key: string; uploadUrl: string };
 

@@ -14,6 +14,8 @@ function chapter(
     badgeName: "badge",
     badgeDescription: null,
     badgeEmoji: "🏅",
+    badgeImageKey: null,
+    nodeImageKey: null,
     rewardType: "badge_story",
     mapThemeKey: null,
     status: "published",

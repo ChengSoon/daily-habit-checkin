@@ -13,7 +13,7 @@ import { createPresignedUpload, isAllowedImageMime, UploadKind } from "../r2/r2C
  */
 
 const PresignSchema = z.object({
-  kind: z.enum(["avatar", "reward"]),
+  kind: z.enum(["avatar", "reward", "adventure"]),
   contentType: z.string().min(1).max(64)
 });
 
@@ -29,7 +29,7 @@ export function createUploadRouter(): Router {
       }
 
       const kind = input.kind as UploadKind;
-      // 头像归到本账号目录、奖励归到空间目录。
+      // 头像归账号目录；奖励/闯关图归空间目录。
       const scope = kind === "avatar" ? request.accountId! : request.spaceId!;
       const result = await createPresignedUpload(kind, scope, input.contentType);
       response.json(result);

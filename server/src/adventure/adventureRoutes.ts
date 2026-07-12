@@ -1,9 +1,12 @@
 import { Router } from "express";
 import type { AdventureChapterStatus } from "./adventureRules.js";
 import {
+  cancelAdventureClaim,
   claimAdventureChapter,
   createAdminChapter,
+  fulfillAdventureClaim,
   getAdventureState,
+  listAdminAdventureClaims,
   listAdminChapters,
   reorderAdminChapters,
   setAdminChapterStatus,
@@ -17,7 +20,10 @@ type AdventureRouterOptions = {
   onChange?: ChangeNotifier;
 };
 
-function requireOwner(request: { role?: string }, response: { status: (code: number) => { json: (body: unknown) => void } }): boolean {
+function requireOwner(
+  request: { role?: string },
+  response: { status: (code: number) => { json: (body: unknown) => void } }
+): boolean {
   if (request.role !== "owner") {
     response.status(403).json({ error: "仅空间创建者可管理章节" });
     return false;
@@ -68,6 +74,8 @@ function parseAdminInput(body: unknown): ChapterAdminInput {
     subtitle: optionalText(record.subtitle),
     badgeDescription: optionalText(record.badgeDescription),
     badgeEmoji: optionalText(record.badgeEmoji),
+    badgeImageKey: optionalText(record.badgeImageKey),
+    nodeImageKey: optionalText(record.nodeImageKey),
     mapThemeKey: optionalText(record.mapThemeKey),
     rewardType: typeof record.rewardType === "string" ? record.rewardType : undefined,
     status: typeof record.status === "string" ? (record.status as AdventureChapterStatus) : undefined,
@@ -96,11 +104,7 @@ export function createAdventureRouter(options: AdventureRouterOptions = {}): Rou
     }
 
     try {
-      const result = await claimAdventureChapter(
-        request.spaceId!,
-        chapterId,
-        request.accountId!
-      );
+      const result = await claimAdventureChapter(request.spaceId!, chapterId, request.accountId!);
       if (!result.ok) {
         response.status(result.status).json({ error: result.error });
         return;
@@ -114,14 +118,10 @@ export function createAdventureRouter(options: AdventureRouterOptions = {}): Rou
   });
 
   router.get("/admin/chapters", async (request, response) => {
-    if (!requireOwner(request, response)) {
-      return;
-    }
+    if (!requireOwner(request, response)) return;
     try {
-      const chapters = await listAdminChapters(request.spaceId!);
-      response.json({ chapters });
+      response.json({ chapters: await listAdminChapters(request.spaceId!) });
     } catch (error) {
-      console.error("list admin chapters failed", error);
       response.status(serviceErrorStatus(error)).json({
         error: serviceErrorMessage(error, "读取章节列表失败")
       });
@@ -129,16 +129,12 @@ export function createAdventureRouter(options: AdventureRouterOptions = {}): Rou
   });
 
   router.post("/admin/chapters", async (request, response) => {
-    if (!requireOwner(request, response)) {
-      return;
-    }
+    if (!requireOwner(request, response)) return;
     try {
-      const input = parseAdminInput(request.body);
-      const chapter = await createAdminChapter(request.spaceId!, input);
+      const chapter = await createAdminChapter(request.spaceId!, parseAdminInput(request.body));
       options.onChange?.(request.spaceId!, "adventure");
       response.status(201).json(chapter);
     } catch (error) {
-      console.error("create admin chapter failed", error);
       response.status(serviceErrorStatus(error)).json({
         error: serviceErrorMessage(error, "创建章节失败")
       });
@@ -146,16 +142,16 @@ export function createAdventureRouter(options: AdventureRouterOptions = {}): Rou
   });
 
   router.put("/admin/chapters/:id", async (request, response) => {
-    if (!requireOwner(request, response)) {
-      return;
-    }
+    if (!requireOwner(request, response)) return;
     try {
-      const input = parseAdminInput(request.body);
-      const chapter = await updateAdminChapter(request.spaceId!, request.params.id, input);
+      const chapter = await updateAdminChapter(
+        request.spaceId!,
+        request.params.id,
+        parseAdminInput(request.body)
+      );
       options.onChange?.(request.spaceId!, "adventure");
       response.json(chapter);
     } catch (error) {
-      console.error("update admin chapter failed", error);
       response.status(serviceErrorStatus(error)).json({
         error: serviceErrorMessage(error, "更新章节失败")
       });
@@ -163,9 +159,7 @@ export function createAdventureRouter(options: AdventureRouterOptions = {}): Rou
   });
 
   router.post("/admin/chapters/:id/status", async (request, response) => {
-    if (!requireOwner(request, response)) {
-      return;
-    }
+    if (!requireOwner(request, response)) return;
     const status = (request.body as { status?: unknown })?.status;
     if (typeof status !== "string") {
       response.status(400).json({ error: "缺少 status" });
@@ -180,7 +174,6 @@ export function createAdventureRouter(options: AdventureRouterOptions = {}): Rou
       options.onChange?.(request.spaceId!, "adventure");
       response.json(chapter);
     } catch (error) {
-      console.error("set chapter status failed", error);
       response.status(serviceErrorStatus(error)).json({
         error: serviceErrorMessage(error, "更新章节状态失败")
       });
@@ -188,9 +181,7 @@ export function createAdventureRouter(options: AdventureRouterOptions = {}): Rou
   });
 
   router.post("/admin/chapters/reorder", async (request, response) => {
-    if (!requireOwner(request, response)) {
-      return;
-    }
+    if (!requireOwner(request, response)) return;
     const orderedIds = (request.body as { orderedIds?: unknown })?.orderedIds;
     if (!Array.isArray(orderedIds) || !orderedIds.every((id) => typeof id === "string")) {
       response.status(400).json({ error: "orderedIds 必须是字符串数组" });
@@ -201,9 +192,55 @@ export function createAdventureRouter(options: AdventureRouterOptions = {}): Rou
       options.onChange?.(request.spaceId!, "adventure");
       response.json({ chapters });
     } catch (error) {
-      console.error("reorder chapters failed", error);
       response.status(serviceErrorStatus(error)).json({
         error: serviceErrorMessage(error, "章节排序失败")
+      });
+    }
+  });
+
+  router.get("/admin/claims", async (request, response) => {
+    if (!requireOwner(request, response)) return;
+    try {
+      response.json({ claims: await listAdminAdventureClaims(request.spaceId!) });
+    } catch (error) {
+      response.status(serviceErrorStatus(error)).json({
+        error: serviceErrorMessage(error, "读取领取记录失败")
+      });
+    }
+  });
+
+  router.post("/admin/claims/:id/fulfill", async (request, response) => {
+    if (!requireOwner(request, response)) return;
+    const note = (request.body as { note?: unknown })?.note;
+    try {
+      const claim = await fulfillAdventureClaim(
+        request.spaceId!,
+        request.params.id,
+        typeof note === "string" ? note : null
+      );
+      options.onChange?.(request.spaceId!, "adventure");
+      response.json(claim);
+    } catch (error) {
+      response.status(serviceErrorStatus(error)).json({
+        error: serviceErrorMessage(error, "确认兑现失败")
+      });
+    }
+  });
+
+  router.post("/admin/claims/:id/cancel", async (request, response) => {
+    if (!requireOwner(request, response)) return;
+    const note = (request.body as { note?: unknown })?.note;
+    try {
+      const claim = await cancelAdventureClaim(
+        request.spaceId!,
+        request.params.id,
+        typeof note === "string" ? note : null
+      );
+      options.onChange?.(request.spaceId!, "adventure");
+      response.json(claim);
+    } catch (error) {
+      response.status(serviceErrorStatus(error)).json({
+        error: serviceErrorMessage(error, "取消兑现失败")
       });
     }
   });

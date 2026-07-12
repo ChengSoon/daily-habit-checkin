@@ -16,6 +16,9 @@ import {
   getProgress,
   insertChapter,
   insertClaim,
+  insertClaimWithFulfillment,
+  listClaims,
+  updateClaimFulfillment,
   insertSeedChapters,
   listChapters,
   listClaimedChapterIds,
@@ -39,6 +42,8 @@ export type ChapterViewDto = {
   badgeName: string;
   badgeDescription: string | null;
   badgeEmoji: string | null;
+  badgeImageKey: string | null;
+  nodeImageKey: string | null;
   mapThemeKey: string | null;
   rewardType: string;
   viewStatus: ChapterView["viewStatus"];
@@ -72,6 +77,8 @@ function toDto(row: AdventureChapterRow, viewStatus: ChapterView["viewStatus"]):
     badgeName: row.badgeName,
     badgeDescription: row.badgeDescription,
     badgeEmoji: row.badgeEmoji,
+    badgeImageKey: row.badgeImageKey,
+    nodeImageKey: row.nodeImageKey,
     mapThemeKey: row.mapThemeKey,
     rewardType: row.rewardType,
     viewStatus
@@ -191,11 +198,13 @@ export async function claimAdventureChapter(
       return { ok: false, error: "章节尚未解锁", status: 400 };
     }
 
-    await insertClaim(client, {
+    const fulfillmentStatus = chapter.rewardType === "real_pending" ? "pending" : "none";
+    await insertClaimWithFulfillment(client, {
       id: randomUUID(),
       spaceId,
       chapterId,
-      claimedBy: accountId
+      claimedBy: accountId,
+      fulfillmentStatus
     });
 
     const claimedIds = new Set(await listClaimedChapterIds(client, spaceId));
@@ -255,6 +264,8 @@ export type AdminChapterDto = {
   badgeName: string;
   badgeDescription: string | null;
   badgeEmoji: string | null;
+  badgeImageKey: string | null;
+  nodeImageKey: string | null;
   mapThemeKey: string | null;
   rewardType: string;
   status: AdventureChapterStatus;
@@ -269,6 +280,8 @@ export type ChapterAdminInput = {
   badgeName: string;
   badgeDescription?: string | null;
   badgeEmoji?: string | null;
+  badgeImageKey?: string | null;
+  nodeImageKey?: string | null;
   mapThemeKey?: string | null;
   rewardType?: string;
   status?: AdventureChapterStatus;
@@ -286,6 +299,8 @@ function toAdminDto(row: AdventureChapterRow, claimCount: number): AdminChapterD
     badgeName: row.badgeName,
     badgeDescription: row.badgeDescription,
     badgeEmoji: row.badgeEmoji,
+    badgeImageKey: row.badgeImageKey,
+    nodeImageKey: row.nodeImageKey,
     mapThemeKey: row.mapThemeKey,
     rewardType: row.rewardType,
     status: row.status,
@@ -323,6 +338,12 @@ function normalizeAdminInput(raw: ChapterAdminInput, fallbackSortOrder: number):
     throw Object.assign(new Error("奖励类型不合法"), { status: 400 });
   }
 
+  const optionalKey = (value: string | null | undefined): string | null => {
+    if (value === undefined || value === null) return null;
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  };
+
   return {
     sortOrder,
     title,
@@ -332,6 +353,8 @@ function normalizeAdminInput(raw: ChapterAdminInput, fallbackSortOrder: number):
     badgeName,
     badgeDescription: raw.badgeDescription?.trim() ? raw.badgeDescription.trim() : null,
     badgeEmoji: raw.badgeEmoji?.trim() ? raw.badgeEmoji.trim() : null,
+    badgeImageKey: optionalKey(raw.badgeImageKey),
+    nodeImageKey: optionalKey(raw.nodeImageKey),
     rewardType,
     mapThemeKey: raw.mapThemeKey?.trim() ? raw.mapThemeKey.trim() : null,
     status
@@ -412,6 +435,8 @@ export async function setAdminChapterStatus(
       badgeName: existing.badgeName,
       badgeDescription: existing.badgeDescription,
       badgeEmoji: existing.badgeEmoji,
+      badgeImageKey: existing.badgeImageKey,
+      nodeImageKey: existing.nodeImageKey,
       rewardType: existing.rewardType,
       mapThemeKey: existing.mapThemeKey,
       status
@@ -454,5 +479,107 @@ export async function reorderAdminChapters(
       result.push(toAdminDto(chapter, claimCount));
     }
     return result;
+  });
+}
+
+export type AdventureClaimDto = {
+  id: string;
+  chapterId: string;
+  chapterTitle: string;
+  badgeName: string;
+  rewardType: string;
+  claimedAt: string;
+  claimedBy: string | null;
+  fulfillmentStatus: "none" | "pending" | "fulfilled" | "cancelled";
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
+  note: string | null;
+};
+
+export async function listAdminAdventureClaims(spaceId: string): Promise<AdventureClaimDto[]> {
+  return withTransaction(async (client) => {
+    await ensureAdventureForSpace(spaceId, client);
+    const claims = await listClaims(client, spaceId);
+    return claims.map((claim) => ({
+      id: claim.id,
+      chapterId: claim.chapterId,
+      chapterTitle: claim.chapterTitle ?? "",
+      badgeName: claim.badgeName ?? "",
+      rewardType: claim.rewardType ?? "badge_story",
+      claimedAt: claim.claimedAt,
+      claimedBy: claim.claimedBy,
+      fulfillmentStatus: claim.fulfillmentStatus,
+      fulfilledAt: claim.fulfilledAt,
+      cancelledAt: claim.cancelledAt,
+      note: claim.note
+    }));
+  });
+}
+
+export async function fulfillAdventureClaim(
+  spaceId: string,
+  claimId: string,
+  note?: string | null
+): Promise<AdventureClaimDto> {
+  return withTransaction(async (client) => {
+    const claims = await listClaims(client, spaceId);
+    const current = claims.find((claim) => claim.id === claimId);
+    if (!current) {
+      throw Object.assign(new Error("领取记录不存在"), { status: 404 });
+    }
+    if (current.fulfillmentStatus !== "pending") {
+      throw Object.assign(new Error("仅待兑现记录可确认兑现"), { status: 400 });
+    }
+    const updated = await updateClaimFulfillment(client, spaceId, claimId, "fulfilled", note ?? null);
+    if (!updated) {
+      throw Object.assign(new Error("领取记录不存在"), { status: 404 });
+    }
+    return {
+      id: updated.id,
+      chapterId: updated.chapterId,
+      chapterTitle: updated.chapterTitle ?? "",
+      badgeName: updated.badgeName ?? "",
+      rewardType: updated.rewardType ?? "badge_story",
+      claimedAt: updated.claimedAt,
+      claimedBy: updated.claimedBy,
+      fulfillmentStatus: updated.fulfillmentStatus,
+      fulfilledAt: updated.fulfilledAt,
+      cancelledAt: updated.cancelledAt,
+      note: updated.note
+    };
+  });
+}
+
+export async function cancelAdventureClaim(
+  spaceId: string,
+  claimId: string,
+  note?: string | null
+): Promise<AdventureClaimDto> {
+  return withTransaction(async (client) => {
+    const claims = await listClaims(client, spaceId);
+    const current = claims.find((claim) => claim.id === claimId);
+    if (!current) {
+      throw Object.assign(new Error("领取记录不存在"), { status: 404 });
+    }
+    if (current.fulfillmentStatus !== "pending") {
+      throw Object.assign(new Error("仅待兑现记录可取消"), { status: 400 });
+    }
+    const updated = await updateClaimFulfillment(client, spaceId, claimId, "cancelled", note ?? null);
+    if (!updated) {
+      throw Object.assign(new Error("领取记录不存在"), { status: 404 });
+    }
+    return {
+      id: updated.id,
+      chapterId: updated.chapterId,
+      chapterTitle: updated.chapterTitle ?? "",
+      badgeName: updated.badgeName ?? "",
+      rewardType: updated.rewardType ?? "badge_story",
+      claimedAt: updated.claimedAt,
+      claimedBy: updated.claimedBy,
+      fulfillmentStatus: updated.fulfillmentStatus,
+      fulfilledAt: updated.fulfilledAt,
+      cancelledAt: updated.cancelledAt,
+      note: updated.note
+    };
   });
 }

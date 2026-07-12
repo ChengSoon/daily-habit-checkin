@@ -1,5 +1,7 @@
 export type ChapterViewStatus = "locked" | "claimable" | "claimed";
 export type AdventureChapterStatus = "published" | "draft" | "archived";
+export type AdventureRewardType = "badge_story" | "real_pending";
+export type AdventureFulfillmentStatus = "none" | "pending" | "fulfilled" | "cancelled";
 
 export type AdventureChapterView = {
   id: string;
@@ -11,6 +13,8 @@ export type AdventureChapterView = {
   badgeName: string;
   badgeDescription: string | null;
   badgeEmoji: string | null;
+  badgeImageKey: string | null;
+  nodeImageKey: string | null;
   mapThemeKey: string | null;
   rewardType: string;
   viewStatus: ChapterViewStatus;
@@ -34,6 +38,8 @@ export type AdminAdventureChapter = {
   badgeName: string;
   badgeDescription: string | null;
   badgeEmoji: string | null;
+  badgeImageKey: string | null;
+  nodeImageKey: string | null;
   mapThemeKey: string | null;
   rewardType: string;
   status: AdventureChapterStatus;
@@ -48,7 +54,23 @@ export type AdventureChapterAdminInput = {
   badgeName: string;
   badgeDescription?: string | null;
   badgeEmoji?: string | null;
+  badgeImageKey?: string | null;
+  nodeImageKey?: string | null;
   mapThemeKey?: string | null;
-  rewardType?: string;
+  rewardType?: AdventureRewardType | string;
   status?: AdventureChapterStatus;
+};
+
+export type AdventureClaim = {
+  id: string;
+  chapterId: string;
+  chapterTitle: string;
+  badgeName: string;
+  rewardType: string;
+  claimedAt: string;
+  claimedBy: string | null;
+  fulfillmentStatus: AdventureFulfillmentStatus;
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
+  note: string | null;
 };

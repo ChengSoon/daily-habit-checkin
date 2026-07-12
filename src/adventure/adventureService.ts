@@ -1,8 +1,11 @@
 import {
+  cancelAdminAdventureClaim,
   claimAdventureChapter,
   createAdminChapter,
+  fetchAdminAdventureClaims,
   fetchAdminChapters,
   fetchAdventureState,
+  fulfillAdminAdventureClaim,
   reorderAdminChapters,
   setAdminChapterStatus,
   updateAdminChapter
@@ -11,6 +14,7 @@ import type {
   AdminAdventureChapter,
   AdventureChapterAdminInput,
   AdventureChapterStatus,
+  AdventureClaim,
   AdventureState
 } from "./types";
 
@@ -60,4 +64,16 @@ export async function moveAdminChapter(
   const [removed] = ordered.splice(index, 1);
   ordered.splice(target, 0, removed);
   return reorderAdminChapters(ordered);
+}
+
+export async function loadAdminAdventureClaims(): Promise<AdventureClaim[]> {
+  return fetchAdminAdventureClaims();
+}
+
+export async function fulfillAdventureClaim(claimId: string, note?: string | null): Promise<AdventureClaim> {
+  return fulfillAdminAdventureClaim(claimId, note);
+}
+
+export async function cancelAdventureClaim(claimId: string, note?: string | null): Promise<AdventureClaim> {
+  return cancelAdminAdventureClaim(claimId, note);
 }

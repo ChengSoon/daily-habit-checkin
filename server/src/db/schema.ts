@@ -158,6 +158,8 @@ CREATE TABLE IF NOT EXISTS adventure_chapters (
   badge_name TEXT NOT NULL,
   badge_description TEXT,
   badge_emoji TEXT,
+  badge_image_key TEXT,
+  node_image_key TEXT,
   reward_type TEXT NOT NULL DEFAULT 'badge_story',
   map_theme_key TEXT,
   status TEXT NOT NULL DEFAULT 'published',
@@ -179,9 +181,21 @@ CREATE TABLE IF NOT EXISTS adventure_claims (
   chapter_id TEXT NOT NULL REFERENCES adventure_chapters(id) ON DELETE CASCADE,
   claimed_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   claimed_by TEXT,
+  fulfillment_status TEXT NOT NULL DEFAULT 'none',
+  fulfilled_at TIMESTAMPTZ,
+  cancelled_at TIMESTAMPTZ,
+  note TEXT,
   UNIQUE(space_id, chapter_id)
 );
 CREATE INDEX IF NOT EXISTS idx_adventure_claims_space ON adventure_claims(space_id);
+
+-- 阶段 2 兼容已有库：补徽章图/节点图与现实惊喜兑现字段
+ALTER TABLE adventure_chapters ADD COLUMN IF NOT EXISTS badge_image_key TEXT;
+ALTER TABLE adventure_chapters ADD COLUMN IF NOT EXISTS node_image_key TEXT;
+ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS fulfillment_status TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS fulfilled_at TIMESTAMPTZ;
+ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS note TEXT;
 `;
 
 export async function runSchema(): Promise<void> {
