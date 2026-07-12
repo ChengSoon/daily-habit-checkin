@@ -37,9 +37,8 @@ const shouldUseNativeDriver = Platform.OS !== "web";
 
 const TAB_ITEMS: TabItem[] = [
   { active: "today", inactive: "today-outline", motion: "drop", name: "index", title: "今日" },
-  { active: "map", inactive: "map-outline", motion: "adventure", name: "adventure", title: "冒险" },
   { active: "repeat", inactive: "repeat-outline", motion: "repeat", name: "habits", title: "习惯" },
-  { active: "map", inactive: "map-outline", motion: "gift", name: "adventure", title: "闯关" },
+  { active: "map", inactive: "map-outline", motion: "adventure", name: "adventure", title: "闯关" },
   { active: "gift", inactive: "gift-outline", motion: "gift", name: "shop", title: "商城" },
   { active: "person", inactive: "person-outline", motion: "person", name: "profile", title: "我的" }
 ];
@@ -259,7 +258,6 @@ export default function TabLayout() {
           }}
         />
       ))}
-      <Tabs.Screen name="shop" options={{ href: null }} />
     </Tabs>
   );
 }
