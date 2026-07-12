@@ -4,6 +4,7 @@ import express from "express";
 import { createAppUpdateRouter } from "./appUpdate/appUpdateRoutes.js";
 import { requireAuth } from "./auth/authMiddleware.js";
 import { authRouter } from "./auth/authRoutes.js";
+import { createAdventureRouter } from "./adventure/adventureRoutes.js";
 import { createDataRouter, createWalletRouter } from "./data/dataRoutes.js";
 import { createSettingsRouter } from "./data/settingsRoutes.js";
 import { runSchema } from "./db/schema.js";
@@ -54,6 +55,7 @@ app.use("/api/uploads", createUploadRouter());
 app.use("/api/data", requireAuth, createDataRouter({ onChange: notifySyncChange }));
 app.use("/api/wallet", requireAuth, createWalletRouter({ onChange: notifySyncChange }));
 app.use("/api/settings", requireAuth, createSettingsRouter({ onChange: notifySyncChange }));
+app.use("/api/adventure", requireAuth, createAdventureRouter({ onChange: notifySyncChange }));
 
 async function start(): Promise<void> {
   if (process.env.DATABASE_URL) {

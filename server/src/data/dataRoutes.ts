@@ -4,6 +4,7 @@ import type { PoolClient } from "pg";
 import { getPool, withTransaction } from "../db/pool.js";
 import { deleteObject } from "../r2/r2Client.js";
 import { OwnerWritePolicy, requiresOwner } from "./ownerWrite.js";
+import { advanceAdventureProgress } from "../adventure/adventureService.js";
 import { walletDelta, WalletTxType } from "./walletMath.js";
 
 /**
@@ -423,13 +424,22 @@ export function createWalletRouter(options: DataRouterOptions = {}): Router {
       }
 
       const wallet = await readWalletWith(client, spaceId);
-      return { inserted, wallet };
+      return { inserted, wallet, earnedDelta };
     });
 
     if (result.inserted.length > 0) {
       options.onChange?.(spaceId, "wallet");
+      if (result.earnedDelta > 0) {
+        try {
+          await advanceAdventureProgress(spaceId);
+          options.onChange?.(spaceId, "adventure");
+        } catch (error) {
+          console.warn("adventure advance failed", error);
+        }
+      }
     }
-    response.json(result);
+    // 保持响应形状与旧客户端兼容
+    response.json({ inserted: result.inserted, wallet: result.wallet });
   });
 
   return router;

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { ensureAdventureForSpace } from "../adventure/adventureService.js";
 import { query, withTransaction } from "../db/pool.js";
 import { deleteObject } from "../r2/r2Client.js";
 
@@ -112,6 +113,7 @@ export async function registerAccount(input: {
        VALUES ($1, $2, $3, $4, $5, 'owner', $6)`,
       [accountId, input.email.toLowerCase(), input.displayName, input.passwordHash, spaceId, now]
     );
+    await ensureAdventureForSpace(spaceId, client);
 
     return {
       id: accountId,
@@ -278,6 +280,7 @@ export async function leaveSpace(accountId: string): Promise<Account> {
       newSpaceId,
       accountId
     ]);
+    await ensureAdventureForSpace(newSpaceId, client);
 
     const movedResult = await client.query<AccountRow>(
       `SELECT ${ACCOUNT_COLUMNS} FROM accounts WHERE id = $1`,
