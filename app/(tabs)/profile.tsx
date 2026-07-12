@@ -257,12 +257,20 @@ export default function ProfileScreen() {
           onPress={() => router.push("/shop/redemptions")}
         />
         {isOwner ? (
-          <AppButton
-            title="奖励管理"
-            variant="secondary"
-            icon="construct-outline"
-            onPress={() => router.push("/admin/rewards")}
-          />
+          <>
+            <AppButton
+              title="章节管理"
+              variant="secondary"
+              icon="map-outline"
+              onPress={() => router.push("/admin/adventure")}
+            />
+            <AppButton
+              title="奖励管理"
+              variant="secondary"
+              icon="construct-outline"
+              onPress={() => router.push("/admin/rewards")}
+            />
+          </>
         ) : null}
       </SectionCard>
 

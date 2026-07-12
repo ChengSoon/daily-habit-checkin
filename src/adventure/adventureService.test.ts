@@ -2,14 +2,31 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchAdventureState = vi.fn();
 const claimAdventureChapter = vi.fn();
+const fetchAdminChapters = vi.fn();
+const createAdminChapter = vi.fn();
+const updateAdminChapter = vi.fn();
+const setAdminChapterStatus = vi.fn();
+const reorderAdminChapters = vi.fn();
 
 vi.mock("./adventureClient", () => ({
   fetchAdventureState: (...args: unknown[]) => fetchAdventureState(...args),
-  claimAdventureChapter: (...args: unknown[]) => claimAdventureChapter(...args)
+  claimAdventureChapter: (...args: unknown[]) => claimAdventureChapter(...args),
+  fetchAdminChapters: (...args: unknown[]) => fetchAdminChapters(...args),
+  createAdminChapter: (...args: unknown[]) => createAdminChapter(...args),
+  updateAdminChapter: (...args: unknown[]) => updateAdminChapter(...args),
+  setAdminChapterStatus: (...args: unknown[]) => setAdminChapterStatus(...args),
+  reorderAdminChapters: (...args: unknown[]) => reorderAdminChapters(...args)
 }));
 
-import { claimChapter, loadAdventureState } from "./adventureService";
-import type { AdventureState } from "./types";
+import {
+  changeAdminChapterStatus,
+  claimChapter,
+  loadAdminChapters,
+  loadAdventureState,
+  moveAdminChapter,
+  saveAdminChapter
+} from "./adventureService";
+import type { AdminAdventureChapter, AdventureState } from "./types";
 
 const sample: AdventureState = {
   lifetimeEarned: 50,
@@ -19,10 +36,31 @@ const sample: AdventureState = {
   nextChapter: null
 };
 
+const adminChapter = (id: string, sortOrder: number): AdminAdventureChapter => ({
+  id,
+  sortOrder,
+  title: id,
+  subtitle: null,
+  storyText: "story",
+  thresholdLifetimeXp: 50 * sortOrder,
+  badgeName: "badge",
+  badgeDescription: null,
+  badgeEmoji: "🏅",
+  mapThemeKey: null,
+  rewardType: "badge_story",
+  status: "published",
+  claimCount: 0
+});
+
 describe("adventureService", () => {
   beforeEach(() => {
     fetchAdventureState.mockReset();
     claimAdventureChapter.mockReset();
+    fetchAdminChapters.mockReset();
+    createAdminChapter.mockReset();
+    updateAdminChapter.mockReset();
+    setAdminChapterStatus.mockReset();
+    reorderAdminChapters.mockReset();
   });
 
   it("loadAdventureState passes through client", async () => {
@@ -35,5 +73,38 @@ describe("adventureService", () => {
     claimAdventureChapter.mockResolvedValue({ ...sample, claimableCount: 0 });
     await expect(claimChapter("c1")).resolves.toMatchObject({ claimableCount: 0 });
     expect(claimAdventureChapter).toHaveBeenCalledWith("c1");
+  });
+
+  it("saveAdminChapter creates or updates", async () => {
+    const input = {
+      title: "A",
+      storyText: "S",
+      thresholdLifetimeXp: 10,
+      badgeName: "B"
+    };
+    createAdminChapter.mockResolvedValue(adminChapter("n1", 1));
+    updateAdminChapter.mockResolvedValue(adminChapter("e1", 1));
+    await saveAdminChapter(input);
+    expect(createAdminChapter).toHaveBeenCalledWith(input);
+    await saveAdminChapter(input, "e1");
+    expect(updateAdminChapter).toHaveBeenCalledWith("e1", input);
+  });
+
+  it("moveAdminChapter reorders neighbors", async () => {
+    const list = [adminChapter("a", 1), adminChapter("b", 2), adminChapter("c", 3)];
+    reorderAdminChapters.mockResolvedValue([adminChapter("b", 1), adminChapter("a", 2), adminChapter("c", 3)]);
+    await moveAdminChapter(list, "b", "up");
+    expect(reorderAdminChapters).toHaveBeenCalledWith(["b", "a", "c"]);
+  });
+
+  it("changeAdminChapterStatus proxies", async () => {
+    setAdminChapterStatus.mockResolvedValue(adminChapter("a", 1));
+    await changeAdminChapterStatus("a", "archived");
+    expect(setAdminChapterStatus).toHaveBeenCalledWith("a", "archived");
+  });
+
+  it("loadAdminChapters proxies", async () => {
+    fetchAdminChapters.mockResolvedValue([adminChapter("a", 1)]);
+    await expect(loadAdminChapters()).resolves.toHaveLength(1);
   });
 });

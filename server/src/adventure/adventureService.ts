@@ -9,17 +9,24 @@ import {
 } from "./adventureRules.js";
 import {
   countChapters,
+  countClaimsForChapter,
   ensureProgress,
+  getChapterById,
   getLifetimeEarned,
   getProgress,
+  insertChapter,
   insertClaim,
   insertSeedChapters,
   listChapters,
   listClaimedChapterIds,
+  replaceChapterOrders,
   setHighestUnlockedOrder,
+  updateChapter,
   type AdventureChapterRow,
+  type ChapterWriteInput,
   type Queryable
 } from "./adventureRepository.js";
+import type { AdventureChapterStatus } from "./adventureRules.js";
 import { DEFAULT_ADVENTURE_SEED } from "./adventureSeed.js";
 
 export type ChapterViewDto = {
@@ -238,3 +245,214 @@ export function buildAdventureStateFromParts(input: {
   });
 }
 
+export type AdminChapterDto = {
+  id: string;
+  sortOrder: number;
+  title: string;
+  subtitle: string | null;
+  storyText: string;
+  thresholdLifetimeXp: number;
+  badgeName: string;
+  badgeDescription: string | null;
+  badgeEmoji: string | null;
+  mapThemeKey: string | null;
+  rewardType: string;
+  status: AdventureChapterStatus;
+  claimCount: number;
+};
+
+export type ChapterAdminInput = {
+  title: string;
+  subtitle?: string | null;
+  storyText: string;
+  thresholdLifetimeXp: number;
+  badgeName: string;
+  badgeDescription?: string | null;
+  badgeEmoji?: string | null;
+  mapThemeKey?: string | null;
+  rewardType?: string;
+  status?: AdventureChapterStatus;
+  sortOrder?: number;
+};
+
+function toAdminDto(row: AdventureChapterRow, claimCount: number): AdminChapterDto {
+  return {
+    id: row.id,
+    sortOrder: row.sortOrder,
+    title: row.title,
+    subtitle: row.subtitle,
+    storyText: row.storyText,
+    thresholdLifetimeXp: row.thresholdLifetimeXp,
+    badgeName: row.badgeName,
+    badgeDescription: row.badgeDescription,
+    badgeEmoji: row.badgeEmoji,
+    mapThemeKey: row.mapThemeKey,
+    rewardType: row.rewardType,
+    status: row.status,
+    claimCount
+  };
+}
+
+function normalizeAdminInput(raw: ChapterAdminInput, fallbackSortOrder: number): ChapterWriteInput {
+  const title = raw.title.trim();
+  const storyText = raw.storyText.trim();
+  const badgeName = raw.badgeName.trim();
+  if (!title) {
+    throw Object.assign(new Error("标题不能为空"), { status: 400 });
+  }
+  if (!storyText) {
+    throw Object.assign(new Error("叙事正文不能为空"), { status: 400 });
+  }
+  if (!badgeName) {
+    throw Object.assign(new Error("徽章名称不能为空"), { status: 400 });
+  }
+  if (!Number.isFinite(raw.thresholdLifetimeXp) || raw.thresholdLifetimeXp < 0) {
+    throw Object.assign(new Error("门槛 XP 必须是非负整数"), { status: 400 });
+  }
+  const status = raw.status ?? "published";
+  if (!["published", "draft", "archived"].includes(status)) {
+    throw Object.assign(new Error("状态不合法"), { status: 400 });
+  }
+  const sortOrder = raw.sortOrder ?? fallbackSortOrder;
+  if (!Number.isInteger(sortOrder) || sortOrder < 1) {
+    throw Object.assign(new Error("排序必须是从 1 开始的整数"), { status: 400 });
+  }
+  const rewardType = (raw.rewardType ?? "badge_story").trim() || "badge_story";
+  // 阶段 2.1 仍只写 badge_story；允许 real_pending 预留，但不做兑现流
+  if (!["badge_story", "real_pending"].includes(rewardType)) {
+    throw Object.assign(new Error("奖励类型不合法"), { status: 400 });
+  }
+
+  return {
+    sortOrder,
+    title,
+    subtitle: raw.subtitle?.trim() ? raw.subtitle.trim() : null,
+    storyText,
+    thresholdLifetimeXp: Math.trunc(raw.thresholdLifetimeXp),
+    badgeName,
+    badgeDescription: raw.badgeDescription?.trim() ? raw.badgeDescription.trim() : null,
+    badgeEmoji: raw.badgeEmoji?.trim() ? raw.badgeEmoji.trim() : null,
+    rewardType,
+    mapThemeKey: raw.mapThemeKey?.trim() ? raw.mapThemeKey.trim() : null,
+    status
+  };
+}
+
+export async function listAdminChapters(spaceId: string): Promise<AdminChapterDto[]> {
+  return withTransaction(async (client) => {
+    await ensureAdventureForSpace(spaceId, client);
+    const chapters = await listChapters(client, spaceId);
+    const result: AdminChapterDto[] = [];
+    for (const chapter of chapters) {
+      const claimCount = await countClaimsForChapter(client, spaceId, chapter.id);
+      result.push(toAdminDto(chapter, claimCount));
+    }
+    return result;
+  });
+}
+
+export async function createAdminChapter(
+  spaceId: string,
+  raw: ChapterAdminInput
+): Promise<AdminChapterDto> {
+  return withTransaction(async (client) => {
+    await ensureAdventureForSpace(spaceId, client);
+    const chapters = await listChapters(client, spaceId);
+    const nextOrder = (chapters[chapters.length - 1]?.sortOrder ?? 0) + 1;
+    const input = normalizeAdminInput(raw, nextOrder);
+    // 新建时默认追加到末尾，避免与现有 sort_order 冲突
+    input.sortOrder = nextOrder;
+    const row = await insertChapter(client, spaceId, input);
+    return toAdminDto(row, 0);
+  });
+}
+
+export async function updateAdminChapter(
+  spaceId: string,
+  chapterId: string,
+  raw: ChapterAdminInput
+): Promise<AdminChapterDto> {
+  return withTransaction(async (client) => {
+    await ensureAdventureForSpace(spaceId, client);
+    const existing = await getChapterById(client, spaceId, chapterId);
+    if (!existing) {
+      throw Object.assign(new Error("章节不存在"), { status: 404 });
+    }
+    const input = normalizeAdminInput(raw, existing.sortOrder);
+    // 更新时保持原排序，排序走 reorder 接口
+    input.sortOrder = existing.sortOrder;
+    const row = await updateChapter(client, spaceId, chapterId, input);
+    if (!row) {
+      throw Object.assign(new Error("章节不存在"), { status: 404 });
+    }
+    const claimCount = await countClaimsForChapter(client, spaceId, chapterId);
+    return toAdminDto(row, claimCount);
+  });
+}
+
+export async function setAdminChapterStatus(
+  spaceId: string,
+  chapterId: string,
+  status: AdventureChapterStatus
+): Promise<AdminChapterDto> {
+  if (!["published", "draft", "archived"].includes(status)) {
+    throw Object.assign(new Error("状态不合法"), { status: 400 });
+  }
+  return withTransaction(async (client) => {
+    const existing = await getChapterById(client, spaceId, chapterId);
+    if (!existing) {
+      throw Object.assign(new Error("章节不存在"), { status: 404 });
+    }
+    const row = await updateChapter(client, spaceId, chapterId, {
+      sortOrder: existing.sortOrder,
+      title: existing.title,
+      subtitle: existing.subtitle,
+      storyText: existing.storyText,
+      thresholdLifetimeXp: existing.thresholdLifetimeXp,
+      badgeName: existing.badgeName,
+      badgeDescription: existing.badgeDescription,
+      badgeEmoji: existing.badgeEmoji,
+      rewardType: existing.rewardType,
+      mapThemeKey: existing.mapThemeKey,
+      status
+    });
+    if (!row) {
+      throw Object.assign(new Error("章节不存在"), { status: 404 });
+    }
+    const claimCount = await countClaimsForChapter(client, spaceId, chapterId);
+    return toAdminDto(row, claimCount);
+  });
+}
+
+export async function reorderAdminChapters(
+  spaceId: string,
+  orderedIds: string[]
+): Promise<AdminChapterDto[]> {
+  if (!Array.isArray(orderedIds) || orderedIds.length === 0) {
+    throw Object.assign(new Error("排序列表不能为空"), { status: 400 });
+  }
+  return withTransaction(async (client) => {
+    await ensureAdventureForSpace(spaceId, client);
+    const chapters = await listChapters(client, spaceId);
+    if (orderedIds.length !== chapters.length) {
+      throw Object.assign(new Error("排序列表必须包含全部章节"), { status: 400 });
+    }
+    const existingIds = new Set(chapters.map((chapter) => chapter.id));
+    for (const id of orderedIds) {
+      if (!existingIds.has(id)) {
+        throw Object.assign(new Error("排序列表包含未知章节"), { status: 400 });
+      }
+    }
+    if (new Set(orderedIds).size !== orderedIds.length) {
+      throw Object.assign(new Error("排序列表不能重复"), { status: 400 });
+    }
+    await replaceChapterOrders(client, spaceId, orderedIds);
+    const next = await listChapters(client, spaceId);
+    const result: AdminChapterDto[] = [];
+    for (const chapter of next) {
+      const claimCount = await countClaimsForChapter(client, spaceId, chapter.id);
+      result.push(toAdminDto(chapter, claimCount));
+    }
+    return result;
+  });
+}

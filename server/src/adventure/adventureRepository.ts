@@ -185,3 +185,146 @@ export async function getLifetimeEarned(client: Queryable, spaceId: string): Pro
   );
   return Number(rows[0]?.lifetime_earned ?? 0);
 }
+
+export async function getChapterById(
+  client: Queryable,
+  spaceId: string,
+  chapterId: string
+): Promise<AdventureChapterRow | null> {
+  const { rows } = await client.query<ChapterDbRow>(
+    `SELECT id, space_id, sort_order, title, subtitle, story_text, threshold_lifetime_xp,
+            badge_name, badge_description, badge_emoji, reward_type, map_theme_key, status
+     FROM adventure_chapters
+     WHERE space_id = $1 AND id = $2`,
+    [spaceId, chapterId]
+  );
+  return rows[0] ? mapChapter(rows[0]) : null;
+}
+
+export type ChapterWriteInput = {
+  sortOrder: number;
+  title: string;
+  subtitle: string | null;
+  storyText: string;
+  thresholdLifetimeXp: number;
+  badgeName: string;
+  badgeDescription: string | null;
+  badgeEmoji: string | null;
+  rewardType: string;
+  mapThemeKey: string | null;
+  status: AdventureChapterStatus;
+};
+
+export async function insertChapter(
+  client: Queryable,
+  spaceId: string,
+  input: ChapterWriteInput
+): Promise<AdventureChapterRow> {
+  const id = randomUUID();
+  await client.query(
+    `INSERT INTO adventure_chapters (
+       id, space_id, sort_order, title, subtitle, story_text, threshold_lifetime_xp,
+       badge_name, badge_description, badge_emoji, reward_type, map_theme_key, status, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13, now())`,
+    [
+      id,
+      spaceId,
+      input.sortOrder,
+      input.title,
+      input.subtitle,
+      input.storyText,
+      input.thresholdLifetimeXp,
+      input.badgeName,
+      input.badgeDescription,
+      input.badgeEmoji,
+      input.rewardType,
+      input.mapThemeKey,
+      input.status
+    ]
+  );
+  const row = await getChapterById(client, spaceId, id);
+  if (!row) {
+    throw new Error("插入章节失败");
+  }
+  return row;
+}
+
+export async function updateChapter(
+  client: Queryable,
+  spaceId: string,
+  chapterId: string,
+  input: ChapterWriteInput
+): Promise<AdventureChapterRow | null> {
+  const result = await client.query(
+    `UPDATE adventure_chapters SET
+       sort_order = $3,
+       title = $4,
+       subtitle = $5,
+       story_text = $6,
+       threshold_lifetime_xp = $7,
+       badge_name = $8,
+       badge_description = $9,
+       badge_emoji = $10,
+       reward_type = $11,
+       map_theme_key = $12,
+       status = $13,
+       updated_at = now()
+     WHERE space_id = $1 AND id = $2`,
+    [
+      spaceId,
+      chapterId,
+      input.sortOrder,
+      input.title,
+      input.subtitle,
+      input.storyText,
+      input.thresholdLifetimeXp,
+      input.badgeName,
+      input.badgeDescription,
+      input.badgeEmoji,
+      input.rewardType,
+      input.mapThemeKey,
+      input.status
+    ]
+  );
+  if (result.rowCount === 0) {
+    return null;
+  }
+  return getChapterById(client, spaceId, chapterId);
+}
+
+export async function replaceChapterOrders(
+  client: Queryable,
+  spaceId: string,
+  orderedIds: string[]
+): Promise<void> {
+  // 两阶段更新避免 UNIQUE(space_id, sort_order) 冲突
+  for (let index = 0; index < orderedIds.length; index += 1) {
+    await client.query(
+      `UPDATE adventure_chapters
+       SET sort_order = $3, updated_at = now()
+       WHERE space_id = $1 AND id = $2`,
+      [spaceId, orderedIds[index], -(index + 1)]
+    );
+  }
+  for (let index = 0; index < orderedIds.length; index += 1) {
+    await client.query(
+      `UPDATE adventure_chapters
+       SET sort_order = $3, updated_at = now()
+       WHERE space_id = $1 AND id = $2`,
+      [spaceId, orderedIds[index], index + 1]
+    );
+  }
+}
+
+export async function countClaimsForChapter(
+  client: Queryable,
+  spaceId: string,
+  chapterId: string
+): Promise<number> {
+  const { rows } = await client.query<{ count: string }>(
+    "SELECT COUNT(*)::text AS count FROM adventure_claims WHERE space_id = $1 AND chapter_id = $2",
+    [spaceId, chapterId]
+  );
+  return Number(rows[0]?.count ?? 0);
+}
+
