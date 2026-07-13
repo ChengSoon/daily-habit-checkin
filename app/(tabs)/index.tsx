@@ -26,7 +26,7 @@ import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, todayKey } from "../../src/utils/date";
 import { getWallet } from "../../src/xp/xpRepository";
 import { awardXpForCheckIn, revokeXpForCheckIn } from "../../src/xp/xpService";
-import { XpAwardResult } from "../../src/xp/types";
+import { BalanceCountText, XpGainLabel } from "../../src/ui/XpGainLabel";
 
 export default function TodayScreen() {
   const { colors } = useTheme();
@@ -39,11 +39,16 @@ export default function TodayScreen() {
   const [miniBurst, setMiniBurst] = useState<{ key: number; habitName: string } | null>(null);
   const [fullCelebration, setFullCelebration] = useState<FullCelebration | null>(null);
   const [xpBalance, setXpBalance] = useState(0);
-  const [lastXpResult, setLastXpResult] = useState<XpAwardResult | null>(null);
+  const [xpGain, setXpGain] = useState<{ amount: number; key: number } | null>(null);
   const [isUndoing, setIsUndoing] = useState(false);
   const [undoNow, setUndoNow] = useState(() => new Date());
   const miniBurstKey = useRef(0);
+  const xpGainKey = useRef(0);
   const today = todayKey();
+
+  const clearXpGain = useCallback(() => {
+    setXpGain(null);
+  }, []);
 
   const showMiniBurst = useCallback((habitName: string) => {
     miniBurstKey.current += 1;
@@ -149,7 +154,19 @@ export default function TodayScreen() {
     const newStreak = calculateCurrentStreak({ today, scheduledDates, checkIns: habitCheckIns });
     const milestone = getStreakMilestone(newStreak);
 
-    setLastXpResult(xpResult);
+    const gainedFromTx = xpResult.insertedTransactions.reduce(
+      (sum, item) => sum + Math.max(item.amount, 0),
+      0
+    );
+    // 兜底：若交易列表空但余额已涨（时序/幂等边界），仍用余额差展示 +N
+    const gainedFromBalance = Math.max(0, xpResult.wallet.balance - xpBalance);
+    const gained = gainedFromTx > 0 ? gainedFromTx : gainedFromBalance;
+    if (gained > 0) {
+      xpGainKey.current += 1;
+      setXpGain({ amount: gained, key: xpGainKey.current });
+    } else {
+      setXpGain(null);
+    }
     setXpBalance(xpResult.wallet.balance);
     setNumericHabit(null);
     setNumericValue("");
@@ -190,7 +207,7 @@ export default function TodayScreen() {
           checkInId: removed.id
         });
         setXpBalance(xpResult.wallet.balance);
-        setLastXpResult(null);
+        setXpGain(null);
       }
       await reload();
       setUndoNow(new Date());
@@ -228,10 +245,6 @@ export default function TodayScreen() {
     return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
   }
 
-  const lastGain = lastXpResult
-    ? lastXpResult.insertedTransactions.reduce((sum, item) => sum + Math.max(item.amount, 0), 0)
-    : 0;
-
   return (
     <>
       <Screen>
@@ -256,14 +269,10 @@ export default function TodayScreen() {
           }}
         >
           <Ionicons name="sparkles" size={16} color={colors.primaryInk} />
-          <AppText variant="bodyStrong" tone="primary">
-            {xpBalance} 积分
-          </AppText>
+          <BalanceCountText balance={xpBalance} toneColor={colors.primaryInk} />
           <View style={{ flex: 1 }} />
-          {lastGain > 0 ? (
-            <AppText variant="small" tone="soft">
-              本次 +{lastGain}
-            </AppText>
+          {xpGain ? (
+            <XpGainLabel amount={xpGain.amount} playKey={xpGain.key} onFinish={clearXpGain} />
           ) : null}
           <Ionicons name="chevron-forward" size={16} color={colors.faint} />
         </Card>

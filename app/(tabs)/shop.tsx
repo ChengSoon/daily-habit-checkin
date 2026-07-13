@@ -28,6 +28,58 @@ function groupRewards(rewards: Reward[]): Reward[][] {
   return rows;
 }
 
+/** 积分不足时的状态条：进度 + 差额，替代禁用购买按钮。 */
+function ShortfallLabel({ priceXp, balance }: { priceXp: number; balance: number }) {
+  const { colors } = useTheme();
+  const shortfall = Math.max(0, priceXp - balance);
+  const progress = priceXp <= 0 ? 1 : Math.min(1, Math.max(0, balance / priceXp));
+  const progressPct = Math.round(progress * 100);
+
+  return (
+    <View
+      accessibilityRole="text"
+      accessibilityLabel={`还差 ${shortfall} 积分，已攒 ${progressPct}%`}
+      style={{
+        minHeight: 38,
+        borderRadius: radius.md,
+        backgroundColor: colors.surfaceTint,
+        borderWidth: 1,
+        borderColor: colors.line,
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.sm,
+        gap: 6,
+        justifyContent: "center"
+      }}
+    >
+      <View
+        style={{
+          height: 5,
+          borderRadius: radius.pill,
+          backgroundColor: colors.surfaceMuted,
+          overflow: "hidden"
+        }}
+      >
+        <View
+          style={{
+            width: `${progressPct}%`,
+            height: "100%",
+            borderRadius: radius.pill,
+            backgroundColor: colors.primary
+          }}
+        />
+      </View>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.xs }}>
+        <AppText variant="small" tone="primary" style={{ fontWeight: "700" }} numberOfLines={1}>
+          还差 {shortfall}
+        </AppText>
+        <AppText variant="caption" tone="muted" numberOfLines={1} style={{ textTransform: "none", letterSpacing: 0 }}>
+          {Math.min(balance, priceXp)}/{priceXp}
+        </AppText>
+      </View>
+    </View>
+  );
+}
+
 export default function ShopScreen() {
   const { colors } = useTheme();
   const [balance, setBalance] = useState(0);
@@ -129,13 +181,11 @@ export default function ShopScreen() {
                           {reward.priceXp} 积分
                         </AppText>
                       </View>
-                      <AppButton
-                        title={canRedeem ? "购买" : `还差 ${reward.priceXp - balance} 积分`}
-                        onPress={() => redeem(reward)}
-                        disabled={!canRedeem}
-                        compact
-                        fullWidth
-                      />
+                      {canRedeem ? (
+                        <AppButton title="购买" onPress={() => redeem(reward)} compact fullWidth />
+                      ) : (
+                        <ShortfallLabel priceXp={reward.priceXp} balance={balance} />
+                      )}
                     </View>
                   </Card>
                 );
