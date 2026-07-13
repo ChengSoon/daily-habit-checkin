@@ -12,7 +12,7 @@ import { createPresignedUpload, isAllowedImageMime, UploadKind } from "../r2/r2C
  * adventure 图仅 owner 可传，并限制 5MB。
  */
 
-const MAX_ADVENTURE_BYTES = 5 * 1024 * 1024;
+const MAX_ADVENTURE_BYTES = 8 * 1024 * 1024;
 
 const PresignSchema = z.object({
   kind: z.enum(["avatar", "reward", "adventure"]),
@@ -32,12 +32,12 @@ export function createUploadRouter(): Router {
           return;
         }
         if (input.sizeBytes !== undefined && input.sizeBytes > MAX_ADVENTURE_BYTES) {
-          response.status(400).json({ error: "闯关图片不能超过 5 MB" });
+          response.status(400).json({ error: "闯关图片不能超过 8 MB" });
           return;
         }
       }
       if (!isAllowedImageMime(input.contentType)) {
-        response.status(400).json({ error: "不支持的图片类型（仅 jpeg/png/webp）" });
+        response.status(400).json({ error: "不支持的图片类型（仅 jpeg/png/webp/gif）" });
         return;
       }
 

@@ -20,7 +20,7 @@ export function Screen({
   if (!scroll) {
     return (
       <View style={[styles.flex, { backgroundColor: colors.background }]}>
-        <View style={[styles.content, padding]}>{children}</View>
+        <View style={[styles.content, styles.flex, padding]}>{children}</View>
       </View>
     );
   }

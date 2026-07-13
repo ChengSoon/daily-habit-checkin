@@ -1,0 +1,265 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useMemo } from "react";
+import { Pressable, ScrollView, View } from "react-native";
+import type { AdventureChapterView } from "./types";
+import { publicUrl } from "../sync/publicUrl";
+import { AppButton, AppText, Card } from "../ui/Controls";
+import { RewardThumb } from "../ui/RewardImage";
+import { radius, spacing, type Palette } from "../ui/theme";
+import { useTheme } from "../ui/ThemeContext";
+
+function rewardTypeOf(chapter: AdventureChapterView): "real_world" | "virtual" {
+  return chapter.rewardType === "real_pending" ? "real_world" : "virtual";
+}
+
+function statusMeta(
+  chapter: AdventureChapterView,
+  colors: Palette
+): { label: string; bg: string; fg: string; border: string } {
+  if (chapter.viewStatus === "claimed") {
+    return {
+      label: "已获",
+      bg: colors.successSurface,
+      fg: colors.success,
+      border: colors.success
+    };
+  }
+  if (chapter.viewStatus === "claimable") {
+    return {
+      label: "可领",
+      bg: colors.surfaceTint,
+      fg: colors.primaryInk,
+      border: colors.primary
+    };
+  }
+  return {
+    label: "锁定",
+    bg: colors.surfaceMuted,
+    fg: colors.muted,
+    border: colors.line
+  };
+}
+
+/** 优先展示上传徽章图，没有图再回退 emoji。 */
+function BadgeVisual({
+  chapter,
+  size,
+  dimmed = false
+}: {
+  chapter: AdventureChapterView;
+  size: number;
+  dimmed?: boolean;
+}) {
+  const uri = publicUrl(chapter.badgeImageKey);
+  if (uri) {
+    return (
+      <View style={{ opacity: dimmed ? 0.45 : 1 }}>
+        <RewardThumb uri={uri} type={rewardTypeOf(chapter)} size={size} />
+      </View>
+    );
+  }
+
+  return (
+    <AppText
+      style={{
+        fontSize: size * 0.55,
+        lineHeight: size * 0.7,
+        textAlign: "center",
+        opacity: dimmed ? 0.45 : 1,
+        width: size
+      }}
+    >
+      {chapter.viewStatus === "locked" ? "🔒" : chapter.badgeEmoji?.trim() || "🏅"}
+    </AppText>
+  );
+}
+
+/** 章节航线：一眼看到整段旅程走到哪。 */
+export function JourneyRail({
+  chapters,
+  onOpen
+}: {
+  chapters: AdventureChapterView[];
+  onOpen: (chapterId: string) => void;
+}) {
+  const { colors } = useTheme();
+  const sorted = useMemo(
+    () => [...chapters].sort((a, b) => a.sortOrder - b.sortOrder),
+    [chapters]
+  );
+
+  if (sorted.length === 0) {
+    return null;
+  }
+
+  return (
+    <Card style={{ gap: spacing.md, marginTop: spacing.md }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <AppText variant="section">章节航线</AppText>
+        <AppText variant="caption" tone="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
+          共 {sorted.length} 站
+        </AppText>
+      </View>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: spacing.sm }}>
+        {sorted.map((chapter, index) => {
+          const meta = statusMeta(chapter, colors);
+          const locked = chapter.viewStatus === "locked";
+          return (
+            <Pressable
+              key={chapter.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${chapter.title}，${meta.label}`}
+              disabled={locked}
+              onPress={() => onOpen(chapter.id)}
+              style={({ pressed }) => ({
+                width: 100,
+                borderRadius: radius.md,
+                borderWidth: 1,
+                borderColor: meta.border,
+                backgroundColor: meta.bg,
+                padding: spacing.sm,
+                gap: 6,
+                alignItems: "center",
+                opacity: pressed && !locked ? 0.88 : 1
+              })}
+            >
+              <View style={{ alignSelf: "stretch", flexDirection: "row", justifyContent: "space-between" }}>
+                <AppText variant="caption" tone="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
+                  {index + 1}
+                </AppText>
+                <AppText variant="caption" style={{ color: meta.fg, textTransform: "none", letterSpacing: 0 }}>
+                  {meta.label}
+                </AppText>
+              </View>
+              <BadgeVisual chapter={chapter} size={48} dimmed={locked} />
+              <AppText
+                variant="small"
+                numberOfLines={2}
+                style={{ fontWeight: "600", color: meta.fg, textAlign: "center" }}
+              >
+                {chapter.title}
+              </AppText>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </Card>
+  );
+}
+
+/** 已获徽章墙预览：优先显示上传图。 */
+export function BadgePreview({
+  chapters,
+  onOpenMap
+}: {
+  chapters: AdventureChapterView[];
+  onOpenMap: () => void;
+}) {
+  const { colors } = useTheme();
+  const claimed = useMemo(
+    () => chapters.filter((chapter) => chapter.viewStatus === "claimed").sort((a, b) => a.sortOrder - b.sortOrder),
+    [chapters]
+  );
+  const total = chapters.length;
+
+  return (
+    <Card style={{ gap: spacing.md, marginTop: spacing.sm }}>
+      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+        <AppText variant="section">徽章收藏</AppText>
+        <Pressable onPress={() => router.push("/adventure/badges")}>
+          <AppText variant="caption" tone="primary" style={{ textTransform: "none", letterSpacing: 0 }}>
+            {claimed.length}/{total || 0} · 全部
+          </AppText>
+        </Pressable>
+      </View>
+
+      {claimed.length === 0 ? (
+        <View style={{ gap: spacing.sm }}>
+          <AppText variant="body" tone="muted">
+            还没有徽章。去地图点亮第一座岛，读完故事就能领取。
+          </AppText>
+          <AppButton title="去点亮岛屿" variant="secondary" compact onPress={onOpenMap} />
+        </View>
+      ) : (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          {claimed.map((chapter) => (
+            <Pressable
+              key={chapter.id}
+              onPress={() => router.push({ pathname: "/adventure/[chapterId]", params: { chapterId: chapter.id } })}
+              style={({ pressed }) => ({
+                width: "30%",
+                minWidth: 96,
+                flexGrow: 1,
+                borderRadius: radius.md,
+                borderWidth: 1,
+                borderColor: colors.line,
+                backgroundColor: colors.surfaceMuted,
+                paddingVertical: spacing.sm,
+                paddingHorizontal: spacing.xs,
+                alignItems: "center",
+                gap: 6,
+                opacity: pressed ? 0.88 : 1
+              })}
+            >
+              <BadgeVisual chapter={chapter} size={56} />
+              <AppText variant="small" numberOfLines={1} style={{ fontWeight: "600" }}>
+                {chapter.badgeName}
+              </AppText>
+              <AppText
+                variant="caption"
+                tone="muted"
+                numberOfLines={1}
+                style={{ textTransform: "none", letterSpacing: 0 }}
+              >
+                {chapter.title}
+              </AppText>
+            </Pressable>
+          ))}
+          <AppButton title="查看徽章墙" variant="secondary" compact onPress={() => router.push("/adventure/badges")} />
+        </View>
+      )}
+    </Card>
+  );
+}
+
+export function HowItWorksCard() {
+  const { colors } = useTheme();
+  const steps = [
+    { icon: "checkbox-outline" as const, text: "每日打卡累积 XP" },
+    { icon: "lock-open-outline" as const, text: "达标自动解锁下一章" },
+    { icon: "map-outline" as const, text: "地图读故事并领徽章" }
+  ];
+
+  return (
+    <Card
+      style={{
+        gap: spacing.sm,
+        marginTop: spacing.sm,
+        backgroundColor: colors.surfaceTint,
+        borderColor: colors.line
+      }}
+    >
+      <AppText variant="section">旅程怎么玩</AppText>
+      {steps.map((step) => (
+        <View key={step.text} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+          <View
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: radius.sm,
+              backgroundColor: colors.surface,
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <Ionicons name={step.icon} size={16} color={colors.primaryInk} />
+          </View>
+          <AppText variant="small" tone="soft">
+            {step.text}
+          </AppText>
+        </View>
+      ))}
+    </Card>
+  );
+}

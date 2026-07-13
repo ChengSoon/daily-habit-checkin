@@ -27,6 +27,7 @@ function ThemedStack() {
         <Stack.Screen name="habit/[id]" options={{ title: "习惯详情" }} />
         <Stack.Screen name="plan-preview" options={{ title: "AI 计划预览" }} />
         <Stack.Screen name="adventure/map" options={{ title: "世界地图" }} />
+        <Stack.Screen name="adventure/badges" options={{ title: "徽章收藏" }} />
         <Stack.Screen name="adventure/[chapterId]" options={{ title: "章节" }} />
         <Stack.Screen name="shop/redemptions" options={{ title: "兑换记录" }} />
         <Stack.Screen name="admin/adventure" options={{ title: "章节管理" }} />

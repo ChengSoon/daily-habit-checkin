@@ -76,6 +76,7 @@ function parseAdminInput(body: unknown): ChapterAdminInput {
     badgeEmoji: optionalText(record.badgeEmoji),
     badgeImageKey: optionalText(record.badgeImageKey),
     nodeImageKey: optionalText(record.nodeImageKey),
+    backgroundImageKey: optionalText(record.backgroundImageKey),
     mapThemeKey: optionalText(record.mapThemeKey),
     rewardType: typeof record.rewardType === "string" ? record.rewardType : undefined,
     status: typeof record.status === "string" ? (record.status as AdventureChapterStatus) : undefined,

@@ -1,10 +1,13 @@
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
+import { AdventureClaimCelebration } from "../../src/adventure/AdventureClaimCelebration";
+import { ChapterIslandHero } from "../../src/adventure/ChapterIslandHero";
+import { fulfillmentLabel, fulfillmentTone } from "../../src/adventure/badgeWall";
 import { claimChapter, loadAdventureState } from "../../src/adventure/adventureService";
 import { publicUrl } from "../../src/sync/publicUrl";
 import type { AdventureChapterView, AdventureState } from "../../src/adventure/types";
-import { AppButton, AppText, Card, HelperText } from "../../src/ui/Controls";
+import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Controls";
 import { RewardImage } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
@@ -16,6 +19,11 @@ export default function AdventureChapterScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
+  const [celebrate, setCelebrate] = useState<{
+    emoji: string;
+    title: string;
+    subtitle: string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     setState(await loadAdventureState());
@@ -51,6 +59,14 @@ export default function AdventureChapterScreen() {
       const next = await claimChapter(chapter.id);
       setState(next);
       setMessage(`已领取 ${chapter.badgeEmoji ?? ""} ${chapter.badgeName}`);
+      setCelebrate({
+        emoji: chapter.badgeEmoji?.trim() || "🏅",
+        title: chapter.badgeName,
+        subtitle:
+          chapter.rewardType === "real_pending"
+            ? "现实惊喜已登记，等待兑现"
+            : "徽章已收入收藏"
+      });
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "领取失败");
     } finally {
@@ -59,9 +75,12 @@ export default function AdventureChapterScreen() {
   }
 
   const remaining = Math.max(0, chapter.thresholdLifetimeXp - state.lifetimeEarned);
+  const claimInfo = chapter.claim;
 
   return (
     <Screen scroll>
+      <ChapterIslandHero chapter={chapter} />
+
       <Card style={{ gap: spacing.sm }}>
         <AppText variant="caption" tone="muted">
           第 {chapter.sortOrder} 章 · 门槛 {chapter.thresholdLifetimeXp} XP
@@ -95,13 +114,65 @@ export default function AdventureChapterScreen() {
         </View>
       </Card>
 
+      {chapter.viewStatus === "claimed" &&
+      chapter.rewardType === "real_pending" &&
+      claimInfo ? (
+        <Card style={{ marginTop: spacing.md, gap: spacing.sm }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <AppText variant="section">现实惊喜</AppText>
+            <Badge
+              label={fulfillmentLabel(claimInfo.fulfillmentStatus) ?? "状态"}
+              tone={fulfillmentTone(claimInfo.fulfillmentStatus)}
+            />
+          </View>
+          {claimInfo.fulfillmentStatus === "pending" ? (
+            <AppText variant="body" tone="soft">
+              已领取 · 等待创建者兑现惊喜
+            </AppText>
+          ) : null}
+          {claimInfo.fulfillmentStatus === "fulfilled" ? (
+            <AppText variant="body" tone="soft">
+              已兑现
+              {claimInfo.fulfilledAt
+                ? ` · ${new Date(claimInfo.fulfilledAt).toLocaleString()}`
+                : ""}
+            </AppText>
+          ) : null}
+          {claimInfo.fulfillmentStatus === "cancelled" ? (
+            <AppText variant="body" tone="soft">
+              已取消兑现 · 章节仍完成，徽章保留
+            </AppText>
+          ) : null}
+          {claimInfo.note ? (
+            <AppText variant="caption" tone="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
+              备注：{claimInfo.note}
+            </AppText>
+          ) : null}
+        </Card>
+      ) : null}
+
       <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
         {chapter.viewStatus === "claimable" ? (
-          <AppButton title={claiming ? "领取中…" : chapter.rewardType === "real_pending" ? "领取现实惊喜" : "领取徽章"} onPress={() => void onClaim()} disabled={claiming} />
+          <AppButton
+            title={
+              claiming
+                ? "领取中…"
+                : chapter.rewardType === "real_pending"
+                  ? "领取现实惊喜"
+                  : "领取徽章"
+            }
+            onPress={() => void onClaim()}
+            disabled={claiming}
+          />
         ) : null}
-        {chapter.viewStatus === "claimed" ? (
+        {chapter.viewStatus === "claimed" && chapter.rewardType !== "real_pending" ? (
           <AppText variant="bodyStrong" tone="primary">
             已获得该徽章
+          </AppText>
+        ) : null}
+        {chapter.viewStatus === "claimed" && chapter.rewardType === "real_pending" ? (
+          <AppText variant="bodyStrong" tone="primary">
+            已领取该章节奖励
           </AppText>
         ) : null}
         {chapter.viewStatus === "locked" ? (
@@ -114,6 +185,14 @@ export default function AdventureChapterScreen() {
         {message ? <HelperText>{message}</HelperText> : null}
         {error ? <HelperText tone="danger">{error}</HelperText> : null}
       </View>
+
+      <AdventureClaimCelebration
+        visible={celebrate !== null}
+        emoji={celebrate?.emoji ?? "🏅"}
+        title={celebrate?.title ?? ""}
+        subtitle={celebrate?.subtitle ?? ""}
+        onDone={() => setCelebrate(null)}
+      />
     </Screen>
   );
 }

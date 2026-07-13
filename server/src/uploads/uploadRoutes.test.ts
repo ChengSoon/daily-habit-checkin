@@ -7,7 +7,7 @@ const r2Mock = vi.hoisted(() => ({
     key: `${kind}/${scope}/badge.png`,
     uploadUrl: "https://upload.example.test"
   })),
-  isAllowedImageMime: vi.fn((mime: string) => ["image/jpeg", "image/png", "image/webp"].includes(mime))
+  isAllowedImageMime: vi.fn((mime: string) => ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mime))
 }));
 
 vi.mock("../r2/r2Client.js", () => r2Mock);
@@ -82,8 +82,18 @@ describe("upload routes", () => {
     const oversized = await presign("owner", {
       kind: "adventure",
       contentType: "image/png",
-      sizeBytes: 5 * 1024 * 1024 + 1
+      sizeBytes: 8 * 1024 * 1024 + 1
     });
     expect(oversized.status).toBe(400);
+  });
+
+  it("allows gif for animated island/background assets", async () => {
+    const response = await presign("owner", {
+      kind: "adventure",
+      contentType: "image/gif",
+      sizeBytes: 1_200_000
+    });
+    expect(response.status).toBe(200);
+    expect(r2Mock.createPresignedUpload).toHaveBeenCalledWith("adventure", "space-1", "image/gif");
   });
 });

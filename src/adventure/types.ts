@@ -3,6 +3,14 @@ export type AdventureChapterStatus = "published" | "draft" | "archived";
 export type AdventureRewardType = "badge_story" | "real_pending";
 export type AdventureFulfillmentStatus = "none" | "pending" | "fulfilled" | "cancelled";
 
+export type ChapterClaimInfo = {
+  fulfillmentStatus: AdventureFulfillmentStatus;
+  claimedAt: string;
+  note: string | null;
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
+};
+
 export type AdventureChapterView = {
   id: string;
   sortOrder: number;
@@ -15,9 +23,27 @@ export type AdventureChapterView = {
   badgeEmoji: string | null;
   badgeImageKey: string | null;
   nodeImageKey: string | null;
+  backgroundImageKey: string | null;
   mapThemeKey: string | null;
   rewardType: string;
   viewStatus: ChapterViewStatus;
+  claim: ChapterClaimInfo | null;
+};
+
+export type AdventureClaimSummary = {
+  id: string;
+  chapterId: string;
+  chapterTitle: string;
+  badgeName: string;
+  badgeEmoji: string | null;
+  badgeImageKey: string | null;
+  rewardType: string;
+  claimedAt: string;
+  claimedBy: string | null;
+  fulfillmentStatus: AdventureFulfillmentStatus;
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
+  note: string | null;
 };
 
 export type AdventureState = {
@@ -26,6 +52,8 @@ export type AdventureState = {
   claimableCount: number;
   chapters: AdventureChapterView[];
   nextChapter: AdventureChapterView | null;
+  claims: AdventureClaimSummary[];
+  pendingFulfillmentCount: number;
 };
 
 export type AdminAdventureChapter = {
@@ -40,6 +68,7 @@ export type AdminAdventureChapter = {
   badgeEmoji: string | null;
   badgeImageKey: string | null;
   nodeImageKey: string | null;
+  backgroundImageKey: string | null;
   mapThemeKey: string | null;
   rewardType: string;
   status: AdventureChapterStatus;
@@ -56,6 +85,7 @@ export type AdventureChapterAdminInput = {
   badgeEmoji?: string | null;
   badgeImageKey?: string | null;
   nodeImageKey?: string | null;
+  backgroundImageKey?: string | null;
   mapThemeKey?: string | null;
   rewardType?: AdventureRewardType | string;
   status?: AdventureChapterStatus;

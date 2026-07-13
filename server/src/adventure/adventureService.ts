@@ -32,6 +32,30 @@ import {
 import type { AdventureChapterStatus } from "./adventureRules.js";
 import { DEFAULT_ADVENTURE_SEED } from "./adventureSeed.js";
 
+export type AdventureClaimSummaryDto = {
+  id: string;
+  chapterId: string;
+  chapterTitle: string;
+  badgeName: string;
+  badgeEmoji: string | null;
+  badgeImageKey: string | null;
+  rewardType: string;
+  claimedAt: string;
+  claimedBy: string | null;
+  fulfillmentStatus: "none" | "pending" | "fulfilled" | "cancelled";
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
+  note: string | null;
+};
+
+export type ChapterClaimInfoDto = {
+  fulfillmentStatus: AdventureClaimSummaryDto["fulfillmentStatus"];
+  claimedAt: string;
+  note: string | null;
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
+};
+
 export type ChapterViewDto = {
   id: string;
   sortOrder: number;
@@ -44,9 +68,11 @@ export type ChapterViewDto = {
   badgeEmoji: string | null;
   badgeImageKey: string | null;
   nodeImageKey: string | null;
+  backgroundImageKey: string | null;
   mapThemeKey: string | null;
   rewardType: string;
   viewStatus: ChapterView["viewStatus"];
+  claim: ChapterClaimInfoDto | null;
 };
 
 export type AdventureStateDto = {
@@ -55,6 +81,8 @@ export type AdventureStateDto = {
   claimableCount: number;
   chapters: ChapterViewDto[];
   nextChapter: ChapterViewDto | null;
+  claims: AdventureClaimSummaryDto[];
+  pendingFulfillmentCount: number;
 };
 
 function toConfig(row: AdventureChapterRow): AdventureChapterConfig {
@@ -66,7 +94,11 @@ function toConfig(row: AdventureChapterRow): AdventureChapterConfig {
   };
 }
 
-function toDto(row: AdventureChapterRow, viewStatus: ChapterView["viewStatus"]): ChapterViewDto {
+function toDto(
+  row: AdventureChapterRow,
+  viewStatus: ChapterView["viewStatus"],
+  claim: ChapterClaimInfoDto | null
+): ChapterViewDto {
   return {
     id: row.id,
     sortOrder: row.sortOrder,
@@ -79,9 +111,43 @@ function toDto(row: AdventureChapterRow, viewStatus: ChapterView["viewStatus"]):
     badgeEmoji: row.badgeEmoji,
     badgeImageKey: row.badgeImageKey,
     nodeImageKey: row.nodeImageKey,
+    backgroundImageKey: row.backgroundImageKey,
     mapThemeKey: row.mapThemeKey,
     rewardType: row.rewardType,
-    viewStatus
+    viewStatus,
+    claim
+  };
+}
+
+function mapClaimRowToSummary(row: {
+  id: string;
+  chapterId: string;
+  claimedAt: string;
+  claimedBy: string | null;
+  fulfillmentStatus: AdventureClaimSummaryDto["fulfillmentStatus"];
+  fulfilledAt: string | null;
+  cancelledAt: string | null;
+  note: string | null;
+  chapterTitle?: string;
+  badgeName?: string;
+  badgeEmoji?: string | null;
+  badgeImageKey?: string | null;
+  rewardType?: string;
+}): AdventureClaimSummaryDto {
+  return {
+    id: row.id,
+    chapterId: row.chapterId,
+    chapterTitle: row.chapterTitle ?? "",
+    badgeName: row.badgeName ?? "",
+    badgeEmoji: row.badgeEmoji ?? null,
+    badgeImageKey: row.badgeImageKey ?? null,
+    rewardType: row.rewardType ?? "badge_story",
+    claimedAt: row.claimedAt,
+    claimedBy: row.claimedBy,
+    fulfillmentStatus: row.fulfillmentStatus,
+    fulfilledAt: row.fulfilledAt,
+    cancelledAt: row.cancelledAt,
+    note: row.note
   };
 }
 
@@ -148,14 +214,27 @@ function buildState(input: {
   highestUnlockedOrder: number;
   chapters: AdventureChapterRow[];
   views: ChapterView[];
+  claims: AdventureClaimSummaryDto[];
 }): AdventureStateDto {
   const byId = new Map(input.chapters.map((chapter) => [chapter.id, chapter]));
+  const claimByChapter = new Map(input.claims.map((claim) => [claim.chapterId, claim]));
   const chapterDtos: ChapterViewDto[] = input.views.map((view) => {
     const row = byId.get(view.id);
     if (!row) {
       throw new Error(`missing chapter row ${view.id}`);
     }
-    return toDto(row, view.viewStatus);
+    const full = claimByChapter.get(view.id);
+    const claimInfo: ChapterClaimInfoDto | null =
+      view.viewStatus === "claimed" && full
+        ? {
+            fulfillmentStatus: full.fulfillmentStatus,
+            claimedAt: full.claimedAt,
+            note: full.note,
+            fulfilledAt: full.fulfilledAt,
+            cancelledAt: full.cancelledAt
+          }
+        : null;
+    return toDto(row, view.viewStatus, claimInfo);
   });
 
   const nextChapter =
@@ -163,19 +242,51 @@ function buildState(input: {
     chapterDtos.find((chapter) => chapter.viewStatus === "claimable") ??
     null;
 
+  const pendingFulfillmentCount = input.claims.filter(
+    (claim) => claim.fulfillmentStatus === "pending"
+  ).length;
+
   return {
     lifetimeEarned: input.lifetimeEarned,
     highestUnlockedOrder: input.highestUnlockedOrder,
     claimableCount: countClaimable(input.views),
     chapters: chapterDtos,
-    nextChapter
+    nextChapter,
+    claims: input.claims,
+    pendingFulfillmentCount
   };
+}
+
+async function buildStateForSpace(
+  client: Queryable,
+  input: {
+    lifetimeEarned: number;
+    highestUnlockedOrder: number;
+    chapters: AdventureChapterRow[];
+    views: ChapterView[];
+    spaceId: string;
+  }
+): Promise<AdventureStateDto> {
+  const claims = (await listClaims(client, input.spaceId)).map(mapClaimRowToSummary);
+  return buildState({
+    lifetimeEarned: input.lifetimeEarned,
+    highestUnlockedOrder: input.highestUnlockedOrder,
+    chapters: input.chapters,
+    views: input.views,
+    claims
+  });
 }
 
 export async function advanceAdventureProgress(spaceId: string): Promise<AdventureStateDto> {
   return withTransaction(async (client) => {
     const loaded = await loadAndAdvance(client, spaceId);
-    return buildState(loaded);
+    return buildStateForSpace(client, {
+      lifetimeEarned: loaded.lifetimeEarned,
+      highestUnlockedOrder: loaded.highestUnlockedOrder,
+      chapters: loaded.chapters,
+      views: loaded.views,
+      spaceId
+    });
   });
 }
 
@@ -217,11 +328,12 @@ export async function claimAdventureChapter(
 
     return {
       ok: true,
-      state: buildState({
+      state: await buildStateForSpace(client, {
         lifetimeEarned: loaded.lifetimeEarned,
         highestUnlockedOrder: loaded.highestUnlockedOrder,
         chapters: loaded.chapters,
-        views
+        views,
+        spaceId
       })
     };
   });
@@ -233,6 +345,7 @@ export function buildAdventureStateFromParts(input: {
   highestUnlockedOrder: number;
   chapters: AdventureChapterRow[];
   claimedChapterIds: string[];
+  claims?: AdventureClaimSummaryDto[];
 }): AdventureStateDto {
   const configs = input.chapters.map(toConfig);
   const advanced = advanceHighestUnlockedOrder(
@@ -250,7 +363,8 @@ export function buildAdventureStateFromParts(input: {
     lifetimeEarned: input.lifetimeEarned,
     highestUnlockedOrder: advanced,
     chapters: input.chapters,
-    views
+    views,
+    claims: input.claims ?? []
   });
 }
 
@@ -266,6 +380,7 @@ export type AdminChapterDto = {
   badgeEmoji: string | null;
   badgeImageKey: string | null;
   nodeImageKey: string | null;
+  backgroundImageKey: string | null;
   mapThemeKey: string | null;
   rewardType: string;
   status: AdventureChapterStatus;
@@ -282,6 +397,7 @@ export type ChapterAdminInput = {
   badgeEmoji?: string | null;
   badgeImageKey?: string | null;
   nodeImageKey?: string | null;
+  backgroundImageKey?: string | null;
   mapThemeKey?: string | null;
   rewardType?: string;
   status?: AdventureChapterStatus;
@@ -301,6 +417,7 @@ function toAdminDto(row: AdventureChapterRow, claimCount: number): AdminChapterD
     badgeEmoji: row.badgeEmoji,
     badgeImageKey: row.badgeImageKey,
     nodeImageKey: row.nodeImageKey,
+    backgroundImageKey: row.backgroundImageKey,
     mapThemeKey: row.mapThemeKey,
     rewardType: row.rewardType,
     status: row.status,
@@ -355,6 +472,7 @@ function normalizeAdminInput(raw: ChapterAdminInput, fallbackSortOrder: number):
     badgeEmoji: raw.badgeEmoji?.trim() ? raw.badgeEmoji.trim() : null,
     badgeImageKey: optionalKey(raw.badgeImageKey),
     nodeImageKey: optionalKey(raw.nodeImageKey),
+    backgroundImageKey: optionalKey(raw.backgroundImageKey),
     rewardType,
     mapThemeKey: raw.mapThemeKey?.trim() ? raw.mapThemeKey.trim() : null,
     status
@@ -437,6 +555,7 @@ export async function setAdminChapterStatus(
       badgeEmoji: existing.badgeEmoji,
       badgeImageKey: existing.badgeImageKey,
       nodeImageKey: existing.nodeImageKey,
+      backgroundImageKey: existing.backgroundImageKey,
       rewardType: existing.rewardType,
       mapThemeKey: existing.mapThemeKey,
       status

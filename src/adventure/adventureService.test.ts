@@ -42,7 +42,9 @@ const sample: AdventureState = {
   highestUnlockedOrder: 1,
   claimableCount: 1,
   chapters: [],
-  nextChapter: null
+  nextChapter: null,
+  claims: [],
+  pendingFulfillmentCount: 0
 };
 
 const adminChapter = (id: string, sortOrder: number): AdminAdventureChapter => ({
@@ -57,6 +59,7 @@ const adminChapter = (id: string, sortOrder: number): AdminAdventureChapter => (
   badgeEmoji: "🏅",
   badgeImageKey: null,
   nodeImageKey: null,
+  backgroundImageKey: null,
   mapThemeKey: null,
   rewardType: "badge_story",
   status: "published",

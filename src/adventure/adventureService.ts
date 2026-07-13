@@ -18,12 +18,30 @@ import type {
   AdventureState
 } from "./types";
 
+function normalizeAdventureState(state: AdventureState): AdventureState {
+  const claims = state.claims ?? [];
+  const chapters = (state.chapters ?? []).map((chapter) => ({
+    ...chapter,
+    claim: chapter.claim ?? null
+  }));
+  const nextChapter = state.nextChapter
+    ? { ...state.nextChapter, claim: state.nextChapter.claim ?? null }
+    : null;
+  return {
+    ...state,
+    chapters,
+    nextChapter,
+    claims,
+    pendingFulfillmentCount: state.pendingFulfillmentCount ?? claims.filter((c) => c.fulfillmentStatus === "pending").length
+  };
+}
+
 export async function loadAdventureState(): Promise<AdventureState> {
-  return fetchAdventureState();
+  return normalizeAdventureState(await fetchAdventureState());
 }
 
 export async function claimChapter(chapterId: string): Promise<AdventureState> {
-  return claimAdventureChapter(chapterId);
+  return normalizeAdventureState(await claimAdventureChapter(chapterId));
 }
 
 export async function loadAdminChapters(): Promise<AdminAdventureChapter[]> {

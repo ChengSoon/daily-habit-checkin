@@ -25,8 +25,10 @@ const AVATAR_COMPRESS_QUALITY = 0.6;
 export type PickedImage = {
   /** 本地文件 URI（压缩后的产物），用于预览与上传。 */
   uri: string;
-  /** MIME 类型，压缩后统一为 image/jpeg。 */
+  /** MIME 类型；静态图压缩后多为 image/jpeg，动态图可为 image/gif。 */
   mime: string;
+  /** 可选：原文件大小，供 presign 校验。 */
+  sizeBytes?: number;
 };
 
 export type PickResult =
@@ -111,4 +113,72 @@ export async function pickAvatarFromLibrary(): Promise<PickResult> {
   });
 
   return handlePicked(result, AVATAR_MAX_EDGE, AVATAR_COMPRESS_QUALITY);
+}
+
+/**
+ * 闯关岛屿/背景资源选择：
+ * - 支持相册静态图与 GIF
+ * - GIF 原样上传（不经 ImageManipulator，避免破坏动画）
+ * - PNG/WebP 以 PNG 输出，保留透明通道（岛屿图关键）
+ * - JPEG 仍压缩为 JPEG
+ */
+async function compressAdventureStill(uri: string, sourceMime: string): Promise<PickedImage> {
+  const keepAlpha =
+    sourceMime === "image/png" ||
+    sourceMime === "image/webp" ||
+    uri.toLowerCase().endsWith(".png") ||
+    uri.toLowerCase().endsWith(".webp");
+
+  if (keepAlpha) {
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: MAX_EDGE } }],
+      { compress: 1, format: ImageManipulator.SaveFormat.PNG }
+    );
+    return { uri: result.uri, mime: "image/png" };
+  }
+
+  return compressToFile(uri, MAX_EDGE, COMPRESS_QUALITY);
+}
+
+export async function pickAdventureMediaFromLibrary(): Promise<PickResult> {
+  const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (!permission.granted) {
+    return { status: "denied" };
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: ["images"],
+    allowsEditing: false,
+    quality: 1
+  });
+
+  if (result.canceled || result.assets.length === 0) {
+    return { status: "cancelled" };
+  }
+
+  const asset = result.assets[0];
+  const mime = (asset.mimeType ?? "").toLowerCase();
+  const uriLower = asset.uri.toLowerCase();
+  const isGif = mime === "image/gif" || uriLower.endsWith(".gif");
+
+  if (isGif) {
+    return {
+      status: "picked",
+      image: {
+        uri: asset.uri,
+        mime: "image/gif",
+        sizeBytes: asset.fileSize
+      }
+    };
+  }
+
+  const image = await compressAdventureStill(asset.uri, mime);
+  return {
+    status: "picked",
+    image: {
+      ...image,
+      sizeBytes: asset.fileSize
+    }
+  };
 }

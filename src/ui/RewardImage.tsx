@@ -6,6 +6,7 @@ import { ActivityIndicator, Alert, Pressable, View } from "react-native";
 import {
   captureRewardImage,
   PickedImage,
+  pickAdventureMediaFromLibrary,
   pickRewardImageFromLibrary,
   PickResult
 } from "../rewards/rewardImage";
@@ -115,7 +116,9 @@ export function ImagePickerField({
   label = "商品图片",
   type,
   previewUri,
-  onChange
+  onChange,
+  pickerMode = "reward",
+  helperText
 }: {
   label?: string;
   type: RewardType;
@@ -123,6 +126,9 @@ export function ImagePickerField({
   previewUri: string | null;
   /** 回传选中的本地图；传 null 表示移除。 */
   onChange: (image: PickedImage | null) => void;
+  /** reward: 压缩静态图；adventure: 支持 GIF 动态图 */
+  pickerMode?: "reward" | "adventure";
+  helperText?: string;
 }) {
   const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
@@ -144,6 +150,13 @@ export function ImagePickerField({
   }
 
   function choose() {
+    if (pickerMode === "adventure") {
+      Alert.alert("添加图片 / 动态图", "支持 PNG/JPG/WebP/GIF。GIF 会保留动画。", [
+        { text: "从相册选择", onPress: () => run(pickAdventureMediaFromLibrary) },
+        { text: "取消", style: "cancel" }
+      ]);
+      return;
+    }
     Alert.alert("添加图片", undefined, [
       { text: "从相册选择", onPress: () => run(pickRewardImageFromLibrary) },
       { text: "拍照", onPress: () => run(captureRewardImage) },
@@ -213,6 +226,11 @@ export function ImagePickerField({
             </AppText>
           </Pressable>
         </View>
+      ) : null}
+      {helperText ? (
+        <AppText variant="caption" tone="muted" style={{ textTransform: "none" }}>
+          {helperText}
+        </AppText>
       ) : null}
     </View>
   );

@@ -18,7 +18,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
   "image/png": "png",
-  "image/webp": "webp"
+  "image/webp": "webp",
+  "image/gif": "gif"
 };
 
 /** presigned URL 有效期（秒）。够客户端压缩后上传，又不至于长期有效。 */

@@ -12,6 +12,7 @@ import type {
   AdventureChapterStatus,
   AdventureRewardType
 } from "../../src/adventure/types";
+import { DEFAULT_ISLAND_THEME_KEYS } from "../../src/adventure/mapThemeKeys";
 import type { PickedImage } from "../../src/rewards/rewardImage";
 import { publicUrl, uploadImage } from "../../src/sync/uploadClient";
 import {
@@ -69,8 +70,11 @@ function AdminAdventureContent() {
   const [status, setStatus] = useState<AdventureChapterStatus>("published");
   const [badgeImageKey, setBadgeImageKey] = useState<string | null>(null);
   const [nodeImageKey, setNodeImageKey] = useState<string | null>(null);
+  const [backgroundImageKey, setBackgroundImageKey] = useState<string | null>(null);
+  const [mapThemeKey, setMapThemeKey] = useState<string>("lighthouse");
   const [badgePicked, setBadgePicked] = useState<PickedImage | null>(null);
   const [nodePicked, setNodePicked] = useState<PickedImage | null>(null);
+  const [backgroundPicked, setBackgroundPicked] = useState<PickedImage | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -94,8 +98,11 @@ function AdminAdventureContent() {
     setStatus("published");
     setBadgeImageKey(null);
     setNodeImageKey(null);
+    setBackgroundImageKey(null);
+    setMapThemeKey("lighthouse");
     setBadgePicked(null);
     setNodePicked(null);
+    setBackgroundPicked(null);
     setMessage(null);
     setError(null);
   }
@@ -113,8 +120,11 @@ function AdminAdventureContent() {
     setStatus(chapter.status);
     setBadgeImageKey(chapter.badgeImageKey);
     setNodeImageKey(chapter.nodeImageKey);
+    setBackgroundImageKey(chapter.backgroundImageKey);
+    setMapThemeKey(chapter.mapThemeKey ?? "lighthouse");
     setBadgePicked(null);
     setNodePicked(null);
+    setBackgroundPicked(null);
     setMessage(null);
     setError(null);
   }
@@ -130,6 +140,9 @@ function AdminAdventureContent() {
       }
       const finalBadgeKey = badgePicked ? await uploadImage("adventure", badgePicked) : badgeImageKey;
       const finalNodeKey = nodePicked ? await uploadImage("adventure", nodePicked) : nodeImageKey;
+      const finalBackgroundKey = backgroundPicked
+        ? await uploadImage("adventure", backgroundPicked)
+        : backgroundImageKey;
       await saveAdminChapter(
         {
           title,
@@ -141,6 +154,8 @@ function AdminAdventureContent() {
           badgeEmoji: badgeEmoji || null,
           badgeImageKey: finalBadgeKey,
           nodeImageKey: finalNodeKey,
+          backgroundImageKey: finalBackgroundKey,
+          mapThemeKey: mapThemeKey || null,
           rewardType,
           status
         },
@@ -190,6 +205,9 @@ function AdminAdventureContent() {
 
   const badgePreview = badgePicked ? badgePicked.uri : publicUrl(badgeImageKey);
   const nodePreview = nodePicked ? nodePicked.uri : publicUrl(nodeImageKey);
+  const backgroundPreview = backgroundPicked
+    ? backgroundPicked.uri
+    : publicUrl(backgroundImageKey);
 
   return (
     <Screen>
@@ -233,15 +251,47 @@ function AdminAdventureContent() {
             }
           }}
         />
+        <View style={{ gap: spacing.sm }}>
+          <Label>默认主题岛（无自定义岛图时）</Label>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            {DEFAULT_ISLAND_THEME_KEYS.map((key) => {
+              const active = mapThemeKey === key;
+              return (
+                <AppButton
+                  key={key}
+                  title={key}
+                  variant={active ? "primary" : "secondary"}
+                  onPress={() => setMapThemeKey(key)}
+                />
+              );
+            })}
+          </View>
+        </View>
         <ImagePickerField
-          label="地图节点图（可选）"
+          label="自定义岛屿形象（可选，支持 GIF）"
           type="virtual"
           previewUri={nodePreview}
+          pickerMode="adventure"
+          helperText="必须透明底 PNG/WebP（不要白底 JPG）。GIF 可动。上传后优先于默认主题岛。"
           onChange={(image) => {
             if (image) setNodePicked(image);
             else {
               setNodePicked(null);
               setNodeImageKey(null);
+            }
+          }}
+        />
+        <ImagePickerField
+          label="自定义岛屿背景（可选，支持 GIF）"
+          type="virtual"
+          previewUri={backgroundPreview}
+          pickerMode="adventure"
+          helperText="整屏背景可用 JPG/PNG/GIF。岛屿形象请用透明 PNG，不要白底。"
+          onChange={(image) => {
+            if (image) setBackgroundPicked(image);
+            else {
+              setBackgroundPicked(null);
+              setBackgroundImageKey(null);
             }
           }}
         />

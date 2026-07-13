@@ -160,6 +160,7 @@ CREATE TABLE IF NOT EXISTS adventure_chapters (
   badge_emoji TEXT,
   badge_image_key TEXT,
   node_image_key TEXT,
+  background_image_key TEXT,
   reward_type TEXT NOT NULL DEFAULT 'badge_story',
   map_theme_key TEXT,
   status TEXT NOT NULL DEFAULT 'published',
@@ -192,6 +193,7 @@ CREATE INDEX IF NOT EXISTS idx_adventure_claims_space ON adventure_claims(space_
 -- 阶段 2 兼容已有库：补徽章图/节点图与现实惊喜兑现字段
 ALTER TABLE adventure_chapters ADD COLUMN IF NOT EXISTS badge_image_key TEXT;
 ALTER TABLE adventure_chapters ADD COLUMN IF NOT EXISTS node_image_key TEXT;
+ALTER TABLE adventure_chapters ADD COLUMN IF NOT EXISTS background_image_key TEXT;
 ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS fulfillment_status TEXT NOT NULL DEFAULT 'none';
 ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS fulfilled_at TIMESTAMPTZ;
 ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;

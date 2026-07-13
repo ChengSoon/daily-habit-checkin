@@ -18,6 +18,7 @@ export type AdventureChapterRow = {
   badgeEmoji: string | null;
   badgeImageKey: string | null;
   nodeImageKey: string | null;
+  backgroundImageKey: string | null;
   rewardType: string;
   mapThemeKey: string | null;
   status: AdventureChapterStatus;
@@ -42,6 +43,7 @@ type ChapterDbRow = {
   badge_emoji: string | null;
   badge_image_key: string | null;
   node_image_key: string | null;
+  background_image_key: string | null;
   reward_type: string;
   map_theme_key: string | null;
   status: AdventureChapterStatus;
@@ -61,6 +63,7 @@ function mapChapter(row: ChapterDbRow): AdventureChapterRow {
     badgeEmoji: row.badge_emoji,
     badgeImageKey: row.badge_image_key,
     nodeImageKey: row.node_image_key,
+    backgroundImageKey: row.background_image_key,
     rewardType: row.reward_type,
     mapThemeKey: row.map_theme_key,
     status: row.status
@@ -78,7 +81,7 @@ export async function countChapters(client: Queryable, spaceId: string): Promise
 export async function listChapters(client: Queryable, spaceId: string): Promise<AdventureChapterRow[]> {
   const { rows } = await client.query<ChapterDbRow>(
     `SELECT id, space_id, sort_order, title, subtitle, story_text, threshold_lifetime_xp,
-            badge_name, badge_description, badge_emoji, badge_image_key, node_image_key, reward_type, map_theme_key, status
+            badge_name, badge_description, badge_emoji, badge_image_key, node_image_key, background_image_key, reward_type, map_theme_key, status
      FROM adventure_chapters
      WHERE space_id = $1
      ORDER BY sort_order ASC`,
@@ -199,7 +202,7 @@ export async function getChapterById(
 ): Promise<AdventureChapterRow | null> {
   const { rows } = await client.query<ChapterDbRow>(
     `SELECT id, space_id, sort_order, title, subtitle, story_text, threshold_lifetime_xp,
-            badge_name, badge_description, badge_emoji, badge_image_key, node_image_key, reward_type, map_theme_key, status
+            badge_name, badge_description, badge_emoji, badge_image_key, node_image_key, background_image_key, reward_type, map_theme_key, status
      FROM adventure_chapters
      WHERE space_id = $1 AND id = $2`,
     [spaceId, chapterId]
@@ -218,6 +221,7 @@ export type ChapterWriteInput = {
   badgeEmoji: string | null;
   badgeImageKey: string | null;
   nodeImageKey: string | null;
+  backgroundImageKey: string | null;
   rewardType: string;
   mapThemeKey: string | null;
   status: AdventureChapterStatus;
@@ -233,8 +237,8 @@ export async function insertChapter(
     `INSERT INTO adventure_chapters (
        id, space_id, sort_order, title, subtitle, story_text, threshold_lifetime_xp,
        badge_name, badge_description, badge_emoji, badge_image_key, node_image_key,
-       reward_type, map_theme_key, status, updated_at
-     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15, now())`,
+       background_image_key, reward_type, map_theme_key, status, updated_at
+     ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16, now())`,
     [
       id,
       spaceId,
@@ -248,6 +252,7 @@ export async function insertChapter(
       input.badgeEmoji,
       input.badgeImageKey,
       input.nodeImageKey,
+      input.backgroundImageKey,
       input.rewardType,
       input.mapThemeKey,
       input.status
@@ -278,9 +283,10 @@ export async function updateChapter(
        badge_emoji = $10,
        badge_image_key = $11,
        node_image_key = $12,
-       reward_type = $13,
-       map_theme_key = $14,
-       status = $15,
+       background_image_key = $13,
+       reward_type = $14,
+       map_theme_key = $15,
+       status = $16,
        updated_at = now()
      WHERE space_id = $1 AND id = $2`,
     [
@@ -296,6 +302,7 @@ export async function updateChapter(
       input.badgeEmoji,
       input.badgeImageKey,
       input.nodeImageKey,
+      input.backgroundImageKey,
       input.rewardType,
       input.mapThemeKey,
       input.status
@@ -359,6 +366,8 @@ export type AdventureClaimRow = {
   note: string | null;
   chapterTitle?: string;
   badgeName?: string;
+  badgeEmoji?: string | null;
+  badgeImageKey?: string | null;
   rewardType?: string;
 };
 
@@ -396,11 +405,14 @@ export async function listClaims(client: Queryable, spaceId: string): Promise<Ad
     note: string | null;
     chapter_title: string | null;
     badge_name: string | null;
+    badge_emoji: string | null;
+    badge_image_key: string | null;
     reward_type: string | null;
   }>(
     `SELECT c.id, c.space_id, c.chapter_id, c.claimed_at, c.claimed_by,
             c.fulfillment_status, c.fulfilled_at, c.cancelled_at, c.note,
-            ch.title AS chapter_title, ch.badge_name, ch.reward_type
+            ch.title AS chapter_title, ch.badge_name, ch.badge_emoji, ch.badge_image_key,
+            ch.reward_type
      FROM adventure_claims c
      JOIN adventure_chapters ch ON ch.id = c.chapter_id
      WHERE c.space_id = $1
@@ -419,6 +431,8 @@ export async function listClaims(client: Queryable, spaceId: string): Promise<Ad
     note: row.note,
     chapterTitle: row.chapter_title ?? undefined,
     badgeName: row.badge_name ?? undefined,
+    badgeEmoji: row.badge_emoji,
+    badgeImageKey: row.badge_image_key,
     rewardType: row.reward_type ?? undefined
   }));
 }
