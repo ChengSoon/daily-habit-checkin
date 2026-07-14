@@ -49,6 +49,8 @@ COPYFILE_DISABLE=1 tar czf - \
   | ssh "${SSH_OPTS[@]}" "$HOST" "
       set -e
       mkdir -p '$REMOTE_DIR'
+      # 先清掉旧 src，避免已删除的 .ts 残留导致 tsc 编译失败
+      rm -rf '$REMOTE_DIR/src'
       tar xzf - -C '$REMOTE_DIR'
       cd '$REMOTE_DIR'
       if [ ! -f .env ]; then
