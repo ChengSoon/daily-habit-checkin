@@ -147,6 +147,29 @@ CREATE TABLE IF NOT EXISTS admin_settings (
   PRIMARY KEY (space_id, key)
 );
 
+-- 兼容旧版站点闯关：同名 adventure_progress 结构不同（无 highest_unlocked_order），
+-- CREATE TABLE IF NOT EXISTS 不会改已有表，启动时检测并重建为章节解锁模型。
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables
+    WHERE table_schema = 'public' AND table_name = 'adventure_progress'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'adventure_progress'
+      AND column_name = 'highest_unlocked_order'
+  ) THEN
+    DROP TABLE IF EXISTS adventure_point_transactions CASCADE;
+    DROP TABLE IF EXISTS adventure_station_rewards CASCADE;
+    DROP TABLE IF EXISTS adventure_stations CASCADE;
+    DROP TABLE IF EXISTS adventure_campaigns CASCADE;
+    DROP TABLE IF EXISTS adventure_claims CASCADE;
+    DROP TABLE IF EXISTS adventure_chapters CASCADE;
+    DROP TABLE IF EXISTS adventure_progress CASCADE;
+  END IF;
+END $$;
+
 CREATE TABLE IF NOT EXISTS adventure_chapters (
   id TEXT PRIMARY KEY,
   space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
