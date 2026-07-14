@@ -42,7 +42,9 @@
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.0",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "@emnapi/core": "1.11.2",
+    "@emnapi/runtime": "1.11.2"
   },
   "scripts": {
     "start": "expo start",
