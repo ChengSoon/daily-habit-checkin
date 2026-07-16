@@ -8,7 +8,6 @@ describe("xp rules", () => {
       dateKey: "2026-07-06",
       scheduledDates: ["2026-07-06"],
       completedDates: ["2026-07-06"],
-      hasAnyEarlierCompletion: false,
       planCompleted: false
     });
 
@@ -24,7 +23,6 @@ describe("xp rules", () => {
         dateKey: "2026-07-03",
         scheduledDates: ["2026-07-01", "2026-07-02", "2026-07-03"],
         completedDates: ["2026-07-01", "2026-07-02", "2026-07-03"],
-        hasAnyEarlierCompletion: true,
         planCompleted: false
       }).map((award) => award.reason)
     ).toEqual(["checkin", "streak_3"]);
@@ -51,23 +49,23 @@ describe("xp rules", () => {
           "2026-07-06",
           "2026-07-07"
         ],
-        hasAnyEarlierCompletion: true,
         planCompleted: false
       }).map((award) => award.reason)
     ).toEqual(["checkin", "streak_7"]);
   });
 
-  it("awards return bonus after a missed scheduled day", () => {
+  it("does not award return bonus after a missed scheduled day", () => {
     const awards = calculateCheckInXpAwards({
       habitId: "habit_1",
       dateKey: "2026-07-04",
       scheduledDates: ["2026-07-01", "2026-07-02", "2026-07-03", "2026-07-04"],
       completedDates: ["2026-07-01", "2026-07-02", "2026-07-04"],
-      hasAnyEarlierCompletion: true,
       planCompleted: false
     });
 
-    expect(awards.map((award) => award.reason)).toEqual(["checkin", "return_bonus"]);
+    expect(awards).toEqual([
+      { reason: "checkin", amount: 10, label: "完成打卡", uniqueKey: "checkin:habit_1:2026-07-04" }
+    ]);
   });
 
   it("awards plan completion bonus once the plan is complete", () => {
@@ -76,7 +74,6 @@ describe("xp rules", () => {
       dateKey: "2026-07-21",
       scheduledDates: ["2026-07-21"],
       completedDates: ["2026-07-21"],
-      hasAnyEarlierCompletion: true,
       planCompleted: true
     });
 

@@ -33,7 +33,7 @@ export type XpTransaction = {
 };
 
 export type XpAward = {
-  reason: Extract<XpReason, "checkin" | "streak_3" | "streak_7" | "plan_complete" | "return_bonus">;
+  reason: Extract<XpReason, "checkin" | "streak_3" | "streak_7" | "plan_complete">;
   amount: number;
   label: string;
   uniqueKey: string;

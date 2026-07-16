@@ -64,13 +64,11 @@ async function getCheckInAwardContext(input: {
   );
   const plan = await getPlanForHabit(input.habitId);
   const planCompleted = Boolean(plan && input.dateKey >= plan.endDate);
-  const hasAnyEarlierCompletion = completedDates.some((date) => date < input.dateKey);
   const awards = calculateCheckInXpAwards({
     habitId: input.habitId,
     dateKey: input.dateKey,
     scheduledDates,
     completedDates,
-    hasAnyEarlierCompletion,
     planCompleted
   });
 

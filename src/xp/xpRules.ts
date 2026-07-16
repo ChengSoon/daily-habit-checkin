@@ -5,7 +5,6 @@ type CheckInXpInput = {
   dateKey: string;
   scheduledDates: string[];
   completedDates: string[];
-  hasAnyEarlierCompletion: boolean;
   planCompleted: boolean;
 };
 
@@ -13,8 +12,7 @@ const AWARD_LABELS = {
   checkin: "完成打卡",
   streak_3: "连续 3 天",
   streak_7: "连续 7 天",
-  plan_complete: "完成阶段计划",
-  return_bonus: "回来就好"
+  plan_complete: "完成阶段计划"
 } as const;
 
 function currentStreak(dateKey: string, scheduledDates: string[], completedDates: Set<string>): number {
@@ -32,13 +30,6 @@ function currentStreak(dateKey: string, scheduledDates: string[], completedDates
   }
 
   return streak;
-}
-
-function missedPreviousScheduledDay(dateKey: string, scheduledDates: string[], completedDates: Set<string>): boolean {
-  const previousDates = scheduledDates.filter((date) => date < dateKey).sort();
-  const previous = previousDates[previousDates.length - 1];
-
-  return Boolean(previous && !completedDates.has(previous));
 }
 
 function award(habitId: string, dateKey: string, reason: XpAward["reason"], amount: number): XpAward {
@@ -61,10 +52,6 @@ export function calculateCheckInXpAwards(input: CheckInXpInput): XpAward[] {
 
   if (streak === 7) {
     awards.push(award(input.habitId, input.dateKey, "streak_7", 50));
-  }
-
-  if (input.hasAnyEarlierCompletion && missedPreviousScheduledDay(input.dateKey, input.scheduledDates, completedDates)) {
-    awards.push(award(input.habitId, input.dateKey, "return_bonus", 15));
   }
 
   if (input.planCompleted) {
