@@ -3,11 +3,12 @@ import { listCheckInsForHabit } from "../checkins/checkinRepository";
 import { getHabitById } from "../habits/habitRepository";
 import { shouldRunOnDate } from "../habits/habitRules";
 import { eachDateKey } from "../utils/date";
-import { XpAward, XpAwardResult, XpRevokeResult, XpTransaction } from "./types";
+import { XpAward, XpAwardResult, XpReason, XpRevokeResult, XpTransaction } from "./types";
 import { applyXpTransactions, getWallet, listXpTransactions } from "./xpRepository";
 import { calculateCheckInXpAwards } from "./xpRules";
 
-const CHECKIN_AWARD_REASONS: XpAward["reason"][] = [
+/** 可随打卡撤销的 reason（含历史 return_bonus，便于撤销旧流水） */
+const CHECKIN_AWARD_REASONS: readonly XpReason[] = [
   "checkin",
   "streak_3",
   "streak_7",
@@ -34,7 +35,7 @@ function matchesUndoTarget(
   }
 ): boolean {
   const sameHabitDate = transaction.habitId === input.habitId && transaction.dateKey === input.dateKey;
-  if (!sameHabitDate || !CHECKIN_AWARD_REASONS.includes(transaction.reason as XpAward["reason"])) {
+  if (!sameHabitDate || !CHECKIN_AWARD_REASONS.includes(transaction.reason)) {
     return false;
   }
   return !input.checkInId || transaction.checkInId === input.checkInId || transaction.checkInId === null;
