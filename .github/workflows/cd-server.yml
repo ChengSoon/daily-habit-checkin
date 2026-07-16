@@ -149,33 +149,77 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Deploy (GHCR image load on server -> restart app)
+      # 部署策略：
+      # 1) 优先服务器直连 GHCR pull（快，层缓存可复用）。私有包用 GITHUB_TOKEN 远端一次性 login。
+      # 2) 若服务器访问不了 ghcr.io，回退 runner save|gzip|ssh|load（慢，但有进度日志）。
+      # 原先失败原因是远端 docker build 拉 Docker Hub node 基础镜像；成品已在 GHCR，与 Hub 无关。
+      - name: Deploy (prefer server GHCR pull, fallback image pipe)
         env:
           HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
           REMOTE_DIR: ${{ vars.DEPLOY_REMOTE_DIR || '/root/habit-server' }}
           IMAGE_REF: ${{ env.IMAGE }}:${{ needs.build-image.outputs.image_tag }}
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
           echo "Deploy image: $IMAGE_REF"
-          docker pull "$IMAGE_REF"
 
-          # 同步 compose 配置（不在远端 build，避免 Docker Hub 拉 node 基础镜像失败）
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "mkdir -p '$REMOTE_DIR'"
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             server/docker-compose.yml \
             "$HOST:$REMOTE_DIR/docker-compose.yml"
 
-          # 1) 传镜像到服务器（不依赖服务器访问 Docker Hub / GHCR）
-          docker save "$IMAGE_REF" | gzip | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "gunzip | docker load"
+          # A) 尝试服务器直拉 GHCR
+          set +e
+          printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
+            "docker login ghcr.io -u $(printf %q "$GHCR_USER") --password-stdin >/dev/null"
+          login_rc=$?
+          if [ "$login_rc" -eq 0 ]; then
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
+              "docker pull $(printf %q "$IMAGE_REF")"
+            pull_rc=$?
+            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
+              "docker logout ghcr.io >/dev/null 2>&1 || true"
+          else
+            echo "Server docker login to ghcr.io failed (rc=$login_rc)"
+            pull_rc=1
+          fi
+          set -e
 
-          # 2) 写 compose override 并重启 app
+          if [ "$pull_rc" -eq 0 ]; then
+            echo "Server GHCR pull succeeded."
+          else
+            echo "Server GHCR pull failed (rc=$pull_rc). Falling back to save|gzip|ssh|load..."
+            printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
+            docker pull "$IMAGE_REF"
+            size=$(docker image inspect "$IMAGE_REF" --format '{{.Size}}' || echo 0)
+            echo "Image size bytes: $size (gzip stream over SSH; may take many minutes)"
+            docker save "$IMAGE_REF" | gzip | python3 -c '
+          import sys, time
+          n = 0
+          t0 = time.time()
+          last = 0.0
+          while True:
+              chunk = sys.stdin.buffer.read(1024 * 1024)
+              if not chunk:
+                  break
+              sys.stdout.buffer.write(chunk)
+              sys.stdout.buffer.flush()
+              n += len(chunk)
+              now = time.time()
+              if now - last >= 15:
+                  mb = n / (1024 * 1024)
+                  rate = mb / max(now - t0, 0.001)
+                  print(f"[transfer] {mb:.1f} MiB sent, {rate:.2f} MiB/s", file=sys.stderr, flush=True)
+                  last = now
+          mb = n / (1024 * 1024)
+          print(f"[transfer] done {mb:.1f} MiB in {time.time() - t0:.0f}s", file=sys.stderr, flush=True)
+          ' | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "gunzip | docker load"
+            docker logout ghcr.io >/dev/null 2>&1 || true
+            echo "Fallback image pipe completed."
+          fi
+
+          # B) 写 override 并重启 app（镜像已在本机，pull_policy: never）
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
             "REMOTE_DIR=$(printf %q "$REMOTE_DIR") IMAGE_REF=$(printf %q "$IMAGE_REF") bash -s" <<'REMOTE'
           set -euo pipefail
