@@ -3,9 +3,10 @@ name: Server Build & Deploy
 # GitHub Actions 服务端打包：
 # - 普通 server 改动 push：构建 preview Docker 镜像 tar，只作为 artifact 保存，不发布。
 # - v* tag：构建 production Docker 镜像并推送 GHCR，然后部署到服务器。
-# - 手动触发：可选择 preview / production 构建 artifact；只有 v* tag 才推送和部署。
+# - 手动触发：可选择 preview / production；production + deploy=true 时推送 GHCR 并部署。
 #
 # production 需要的 secrets：SSH_PRIVATE_KEY、SSH_HOST、SSH_USER。
+# 部署不再在远端 docker build（避免服务器拉 Docker Hub 失败），改为 CI 推镜像后 scp/load 到服务器。
 on:
   push:
     branches: ["**"]
@@ -20,6 +21,10 @@ on:
         type: choice
         default: preview
         options: [preview, production]
+      deploy:
+        description: production 时是否部署到服务器
+        type: boolean
+        default: false
 
 concurrency:
   group: server-build-${{ github.ref }}
@@ -38,6 +43,7 @@ jobs:
     outputs:
       channel: ${{ steps.mode.outputs.channel }}
       publish: ${{ steps.mode.outputs.publish }}
+      image_tag: ${{ steps.mode.outputs.image_tag }}
     steps:
       - uses: actions/checkout@v7
 
@@ -61,14 +67,23 @@ jobs:
           if [[ "${GITHUB_EVENT_NAME}" == "workflow_dispatch" ]]; then
             channel="${{ inputs.release_channel }}"
             publish="false"
-            if [[ "$channel" == "production" && "$is_release_tag" == "true" ]]; then
+            # 手动 production + deploy=true：推 GHCR 并部署（用 production/latest 标签）
+            if [[ "$channel" == "production" && "${{ inputs.deploy }}" == "true" ]]; then
               publish="true"
             fi
+          fi
+
+          # 远端部署时拉取的镜像标签：tag 发版用 v*，手动部署用 production
+          if [[ "$is_release_tag" == "true" ]]; then
+            image_tag="${GITHUB_REF_NAME}"
+          else
+            image_tag="production"
           fi
 
           safe_ref="${GITHUB_REF_NAME//\//-}"
           echo "channel=$channel" >> "$GITHUB_OUTPUT"
           echo "publish=$publish" >> "$GITHUB_OUTPUT"
+          echo "image_tag=$image_tag" >> "$GITHUB_OUTPUT"
           echo "artifact_name=server-${channel}-${safe_ref}-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
       - name: Prepare artifact directory
@@ -121,6 +136,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-image
     if: needs.build-image.outputs.publish == 'true'
+    permissions:
+      contents: read
+      packages: read
     steps:
       - uses: actions/checkout@v7
 
@@ -131,32 +149,52 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Deploy (tar source -> remote build -> restart app)
+      - name: Log in to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Deploy (GHCR image load on server -> restart app)
         env:
           HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
           REMOTE_DIR: ${{ vars.DEPLOY_REMOTE_DIR || '/root/habit-server' }}
+          IMAGE_REF: ${{ env.IMAGE }}:${{ needs.build-image.outputs.image_tag }}
         run: |
           set -euo pipefail
-          mkdir -p artifacts/server-deploy
-          cp -R server/src server/Dockerfile server/package.json server/package-lock.json server/tsconfig.json server/docker-compose.yml artifacts/server-deploy/
-          tar czf - --exclude='._*' --exclude='.DS_Store' \
-            -C artifacts/server-deploy . \
-            | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "
-                set -e
-                mkdir -p '$REMOTE_DIR'
-                # 先清掉旧 src，避免已删除的 .ts 残留导致 tsc 编译失败
-                rm -rf '$REMOTE_DIR/src'
-                tar xzf - -C '$REMOTE_DIR'
-                cd '$REMOTE_DIR'
-                if [ ! -f .env ]; then
-                  echo 'Missing server env file: expected /root/habit-server/.env' >&2
-                  exit 1
-                fi
-                echo 'Using server env file: .env'
-                docker compose --env-file .env build app
-                docker compose --env-file .env up -d --no-deps app
-                docker compose --env-file .env ps
-              "
+          echo "Deploy image: $IMAGE_REF"
+          docker pull "$IMAGE_REF"
+
+          # 同步 compose 配置（不在远端 build，避免 Docker Hub 拉 node 基础镜像失败）
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "mkdir -p '$REMOTE_DIR'"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            server/docker-compose.yml \
+            "$HOST:$REMOTE_DIR/docker-compose.yml"
+
+          # 1) 传镜像到服务器（不依赖服务器访问 Docker Hub / GHCR）
+          docker save "$IMAGE_REF" | gzip | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "gunzip | docker load"
+
+          # 2) 写 compose override 并重启 app
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
+            "REMOTE_DIR=$(printf %q "$REMOTE_DIR") IMAGE_REF=$(printf %q "$IMAGE_REF") bash -s" <<'REMOTE'
+          set -euo pipefail
+          cd "$REMOTE_DIR"
+          if [ ! -f .env ]; then
+            echo "Missing server env file: expected ${REMOTE_DIR}/.env" >&2
+            exit 1
+          fi
+          printf '%s\n' \
+            'services:' \
+            '  app:' \
+            "    image: ${IMAGE_REF}" \
+            '    pull_policy: never' \
+            > docker-compose.override.yml
+          echo "Using server env file: .env"
+          echo "Image: ${IMAGE_REF}"
+          docker compose --env-file .env up -d --no-deps --no-build --force-recreate app
+          docker compose --env-file .env ps
+          REMOTE
 
       - name: Health check
         env:
