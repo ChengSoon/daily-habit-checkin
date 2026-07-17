@@ -60,14 +60,23 @@ export function WorldMapCanvas({
   );
 
   const [focusIndex, setFocusIndex] = useState(initialIndex);
-
-  useEffect(() => {
+  const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
+  // 外部锁定点变化时同步焦点（渲染期调整 state，避免 effect 内 setState）
+  if (initialIndex !== prevInitialIndex) {
+    setPrevInitialIndex(initialIndex);
     setFocusIndex(initialIndex);
-  }, [initialIndex]);
+  }
 
   const frameW = Math.min(screenWidth - spacing.lg * 2, 420);
   const stageH = Math.min(Math.max(screenHeight * 0.58, 420), 560);
   const islandSize = Math.min(frameW * 0.74, 288);
+
+  const orderedRef = useRef(ordered);
+  const onFocusChangeRef = useRef(onFocusChange);
+  useEffect(() => {
+    orderedRef.current = ordered;
+    onFocusChangeRef.current = onFocusChange;
+  }, [onFocusChange, ordered]);
 
   const goToIndex = useCallback(
     (index: number, animated = true) => {
@@ -80,18 +89,20 @@ export function WorldMapCanvas({
     [onFocusChange, ordered]
   );
 
-  const onViewableItemsChanged = useRef(
+  // 稳定引用：FlatList 要求 onViewableItemsChanged 不随渲染变化
+  const onViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken[] }) => {
       const first = viewableItems.find((v) => v.isViewable && typeof v.index === "number");
       if (!first || first.index == null) return;
       const index = first.index;
       setFocusIndex(index);
-      const chapter = ordered[index];
-      if (chapter) onFocusChange?.(chapter, index);
-    }
-  ).current;
+      const chapter = orderedRef.current[index];
+      if (chapter) onFocusChangeRef.current?.(chapter, index);
+    },
+    []
+  );
 
-  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 70 }).current;
+  const viewabilityConfig = useMemo(() => ({ itemVisiblePercentThreshold: 70 }), []);
 
   const onMomentumEnd = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {

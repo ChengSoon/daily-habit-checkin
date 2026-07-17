@@ -107,7 +107,7 @@ export function layoutChapters<T extends { sortOrder: number }>(
   options?: { width?: number; seed?: number }
 ): {
   layout: MapLayoutResult;
-  items: Array<T & { index: number; x: number; y: number; cx: number; cy: number }>;
+  items: (T & { index: number; x: number; y: number; cx: number; cy: number })[];
 } {
   const ordered = [...chapters].sort((a, b) => a.sortOrder - b.sortOrder);
   const layout = buildMapLayout({

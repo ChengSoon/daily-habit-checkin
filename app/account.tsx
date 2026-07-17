@@ -18,7 +18,7 @@ import {
 import { getAuthToken } from "../src/sync/localSettings";
 import { PickedImage } from "../src/rewards/rewardImage";
 import { uploadImage } from "../src/sync/uploadClient";
-import { AppButton, AppText, Badge, Divider, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
+import { AppButton, AppText, Badge, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
 import { CoupleAvatars } from "../src/ui/Avatar";
 import { AvatarPicker } from "../src/ui/AvatarPicker";
 import { useCouple } from "../src/ui/useCouple";

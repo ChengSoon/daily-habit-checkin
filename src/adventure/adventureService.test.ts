@@ -1,4 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  cancelAdventureClaim,
+  changeAdminChapterStatus,
+  claimChapter,
+  fulfillAdventureClaim,
+  loadAdminAdventureClaims,
+  loadAdminChapters,
+  loadAdventureState,
+  moveAdminChapter,
+  saveAdminChapter
+} from "./adventureService";
+import type { AdminAdventureChapter, AdventureState } from "./types";
 
 const fetchAdventureState = vi.fn();
 const claimAdventureChapter = vi.fn();
@@ -23,19 +35,6 @@ vi.mock("./adventureClient", () => ({
   fulfillAdminAdventureClaim: (...args: unknown[]) => fulfillAdminAdventureClaim(...args),
   cancelAdminAdventureClaim: (...args: unknown[]) => cancelAdminAdventureClaim(...args)
 }));
-
-import {
-  cancelAdventureClaim,
-  changeAdminChapterStatus,
-  claimChapter,
-  fulfillAdventureClaim,
-  loadAdminAdventureClaims,
-  loadAdminChapters,
-  loadAdventureState,
-  moveAdminChapter,
-  saveAdminChapter
-} from "./adventureService";
-import type { AdminAdventureChapter, AdventureState } from "./types";
 
 const sample: AdventureState = {
   lifetimeEarned: 50,
