@@ -181,15 +181,20 @@ jobs:
           scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
             "$STAGE/src.tgz" "$HOST:/tmp/habit-src.tgz"
 
+          # 用 bash -s + heredoc，避免 bash -c 多行引号在 SSH 下被拆坏
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
             env REMOTE_DIR="$REMOTE_DIR" NODE_IMAGE="$NODE_IMAGE" NPM_REGISTRY="$NPM_REGISTRY" \
-            bash -c 'set -euo pipefail
-              mkdir -p "$REMOTE_DIR"
-              rm -rf "$REMOTE_DIR/src"
-              tar xzf /tmp/habit-src.tgz -C "$REMOTE_DIR"
-              chmod +x "$REMOTE_DIR/remote-deploy.sh" "$REMOTE_DIR/remote-health.sh"
-              bash "$REMOTE_DIR/remote-deploy.sh"
-              rm -f /tmp/habit-src.tgz'
+            bash -s <<'REMOTE_BOOT'
+          set -euo pipefail
+          echo "boot REMOTE_DIR=$REMOTE_DIR"
+          test -n "$REMOTE_DIR"
+          mkdir -p "$REMOTE_DIR"
+          rm -rf "$REMOTE_DIR/src"
+          tar xzf /tmp/habit-src.tgz -C "$REMOTE_DIR"
+          chmod +x "$REMOTE_DIR/remote-deploy.sh" "$REMOTE_DIR/remote-health.sh"
+          bash "$REMOTE_DIR/remote-deploy.sh"
+          rm -f /tmp/habit-src.tgz
+          REMOTE_BOOT
 
       - name: Health check
         env:
