@@ -6,7 +6,10 @@ name: Server Build & Deploy
 # - 手动触发：可选择 preview / production；production + deploy=true 时推送 GHCR 并部署。
 #
 # production 需要的 secrets：SSH_PRIVATE_KEY、SSH_HOST、SSH_USER。
-# 部署不再在远端 docker build（避免服务器拉 Docker Hub 失败），改为 CI 推镜像后 scp/load 到服务器。
+# 部署策略（国内服务器友好）：
+#   只传源码 tar（约几百 KB）→ 服务器本地 docker build → 重启 app。
+#   默认使用 DaoCloud node 镜像 + npmmirror，避免 Docker Hub / GHCR 拉不动。
+#   不再经 SSH 整包传输 Docker 镜像（曾耗时 1h+ 且易失败）。
 on:
   push:
     branches: ["**"]
@@ -149,141 +152,73 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts 2>/dev/null
 
-      # 部署策略：
-      # 1) 优先服务器直连 GHCR pull（快，层缓存可复用）。私有包用 GITHUB_TOKEN 远端一次性 login。
-      # 2) 若服务器访问不了 ghcr.io，回退 runner save|gzip|ssh|load（慢，但有进度日志）。
-      # 原先失败原因是远端 docker build 拉 Docker Hub node 基础镜像；成品已在 GHCR，与 Hub 无关。
-      - name: Deploy (prefer server GHCR pull, fallback image pipe)
+      # 国内加速：只传源码 tar → 服务器 DaoCloud/npmmirror 本地 build
+      # 不再 docker save|gzip|ssh|load 整包镜像（曾 1h+ 且失败）
+      - name: Deploy (tar source + remote CN-mirror build)
         env:
           HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
           REMOTE_DIR: ${{ vars.DEPLOY_REMOTE_DIR || '/root/habit-server' }}
-          IMAGE_REF: ${{ env.IMAGE }}:${{ needs.build-image.outputs.image_tag }}
-          GHCR_USER: ${{ github.actor }}
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_IMAGE: ${{ vars.DEPLOY_NODE_IMAGE || 'docker.m.daocloud.io/library/node:22-alpine' }}
+          NPM_REGISTRY: ${{ vars.DEPLOY_NPM_REGISTRY || 'https://registry.npmmirror.com' }}
         run: |
           set -euo pipefail
-          echo "Deploy image: $IMAGE_REF"
+          echo "Remote dir: $REMOTE_DIR"
+          echo "NODE_IMAGE=$NODE_IMAGE"
+          echo "NPM_REGISTRY=$NPM_REGISTRY"
 
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "mkdir -p '$REMOTE_DIR'"
-          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
-            server/docker-compose.yml \
-            "$HOST:$REMOTE_DIR/docker-compose.yml"
+          STAGE=$(mktemp -d)
+          trap 'rm -rf "$STAGE"' EXIT
+          cp -R server/src server/Dockerfile server/package.json server/package-lock.json \
+            server/tsconfig.json server/docker-compose.yml \
+            server/scripts/remote-deploy.sh server/scripts/remote-health.sh \
+            "$STAGE/"
+          tar czf "$STAGE/src.tgz" -C "$STAGE" \
+            src Dockerfile package.json package-lock.json tsconfig.json docker-compose.yml \
+            remote-deploy.sh remote-health.sh
 
-          # A) 尝试服务器直拉 GHCR
-          set +e
-          printf '%s\n' "$GHCR_TOKEN" | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
-            "docker login ghcr.io -u $(printf %q "$GHCR_USER") --password-stdin >/dev/null"
-          login_rc=$?
-          if [ "$login_rc" -eq 0 ]; then
-            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
-              "docker pull $(printf %q "$IMAGE_REF")"
-            pull_rc=$?
-            ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
-              "docker logout ghcr.io >/dev/null 2>&1 || true"
-          else
-            echo "Server docker login to ghcr.io failed (rc=$login_rc)"
-            pull_rc=1
-          fi
-          set -e
-
-          if [ "$pull_rc" -eq 0 ]; then
-            echo "Server GHCR pull succeeded."
-          else
-            echo "Server GHCR pull failed (rc=$pull_rc). Falling back to save|gzip|ssh|load..."
-            printf '%s\n' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin >/dev/null
-            docker pull "$IMAGE_REF"
-            size=$(docker image inspect "$IMAGE_REF" --format '{{.Size}}' || echo 0)
-            echo "Image size bytes: $size (gzip stream over SSH; may take many minutes)"
-            docker save "$IMAGE_REF" | gzip | python3 -c '
-          import sys, time
-          n = 0
-          t0 = time.time()
-          last = 0.0
-          while True:
-              chunk = sys.stdin.buffer.read(1024 * 1024)
-              if not chunk:
-                  break
-              sys.stdout.buffer.write(chunk)
-              sys.stdout.buffer.flush()
-              n += len(chunk)
-              now = time.time()
-              if now - last >= 15:
-                  mb = n / (1024 * 1024)
-                  rate = mb / max(now - t0, 0.001)
-                  print(f"[transfer] {mb:.1f} MiB sent, {rate:.2f} MiB/s", file=sys.stderr, flush=True)
-                  last = now
-          mb = n / (1024 * 1024)
-          print(f"[transfer] done {mb:.1f} MiB in {time.time() - t0:.0f}s", file=sys.stderr, flush=True)
-          ' | ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" "gunzip | docker load"
-            docker logout ghcr.io >/dev/null 2>&1 || true
-            echo "Fallback image pipe completed."
-          fi
-
-          # B) 写 override 并重启 app（镜像已在本机，pull_policy: never）
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
-            "REMOTE_DIR=$(printf %q "$REMOTE_DIR") IMAGE_REF=$(printf %q "$IMAGE_REF") bash -s" <<'REMOTE'
-          set -euo pipefail
-          cd "$REMOTE_DIR"
-          if [ ! -f .env ]; then
-            echo "Missing server env file: expected ${REMOTE_DIR}/.env" >&2
-            exit 1
-          fi
-          printf '%s\n' \
-            'services:' \
-            '  app:' \
-            "    image: ${IMAGE_REF}" \
-            '    pull_policy: never' \
-            > docker-compose.override.yml
-          echo "Using server env file: .env"
-          echo "Image: ${IMAGE_REF}"
-          docker compose --env-file .env up -d --no-deps --no-build --force-recreate app
-          docker compose --env-file .env ps
-          REMOTE
+            "mkdir -p $(printf %q "$REMOTE_DIR")"
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            "$STAGE/src.tgz" "$HOST:/tmp/habit-src.tgz"
 
-      # 经 SSH 在服务器本机探活，避免 GitHub Runner 被防火墙/未开放端口拦住
-      # （对外 :4000/habit/health 依赖 nginx 公网可达，CI 常得到 http_code=000）
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
+            env REMOTE_DIR="$REMOTE_DIR" NODE_IMAGE="$NODE_IMAGE" NPM_REGISTRY="$NPM_REGISTRY" \
+            bash -c 'set -euo pipefail
+              mkdir -p "$REMOTE_DIR"
+              rm -rf "$REMOTE_DIR/src"
+              tar xzf /tmp/habit-src.tgz -C "$REMOTE_DIR"
+              chmod +x "$REMOTE_DIR/remote-deploy.sh" "$REMOTE_DIR/remote-health.sh"
+              bash "$REMOTE_DIR/remote-deploy.sh"
+              rm -f /tmp/habit-src.tgz'
+
       - name: Health check
         env:
           HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
           REMOTE_DIR: ${{ vars.DEPLOY_REMOTE_DIR || '/root/habit-server' }}
         run: |
           set -euo pipefail
-          cat > /tmp/habit-health-remote.sh <<'REMOTE'
-          set -euo pipefail
-          cd "$REMOTE_DIR"
-          APP_PORT="$(grep -E '^APP_PORT=' .env 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'" || true)"
-          APP_PORT="${APP_PORT:-8787}"
-
-          host_code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://127.0.0.1:${APP_PORT}/health" || true)
-          if [ "$host_code" = "200" ]; then
-            echo "$host_code"
-            exit 0
-          fi
-
-          container_code=$(docker compose --env-file .env exec -T app node -e "require('http').get('http://127.0.0.1:8787/health',r=>{process.stdout.write(String(r.statusCode));process.exit(0)}).on('error',()=>{process.stdout.write('000');process.exit(0)})" 2>/dev/null || true)
-          if [ "$container_code" = "200" ]; then
-            echo "$container_code"
-            exit 0
-          fi
-
-          echo "${host_code:-000}/${container_code:-000}"
-          exit 1
-          REMOTE
-
           code=""
-          for i in 1 2 3 4 5 6; do
-            code=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
-              "REMOTE_DIR=$(printf %q "$REMOTE_DIR") bash -s" < /tmp/habit-health-remote.sh || true)
-            code=$(printf '%s\n' "$code" | tail -n 1 | tr -d '\r')
+          for i in 1 2 3 4 5 6 7 8; do
+            set +e
+            out=$(ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+              -o ConnectTimeout=15 -o ServerAliveInterval=5 \
+              "$HOST" env REMOTE_DIR="$REMOTE_DIR" bash "$REMOTE_DIR/remote-health.sh" \
+              2>/tmp/habit-health.err)
+            rc=$?
+            set -e
+            code=$(printf '%s\n' "$out" | tail -n 1 | tr -d '\r')
             if [ "$code" = "200" ]; then
               echo "部署成功，健康检查 200（SSH 本机探活）"
               exit 0
             fi
-            echo "attempt $i/6: code=$code，等待重试…"
+            echo "attempt $i/8: code=${code:-empty} rc=$rc"
+            if [ -s /tmp/habit-health.err ]; then
+              echo "ssh/stderr: $(tail -c 400 /tmp/habit-health.err)"
+            fi
             sleep 5
           done
 
-          echo "::error::健康检查未返回 200（实际：${code:-000}）"
+          echo "::error::健康检查未返回 200（实际：${code:-empty}）"
           ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no "$HOST" \
             "cd $(printf %q "$REMOTE_DIR") && docker compose --env-file .env ps && docker compose --env-file .env logs --tail=80 app" || true
           exit 1

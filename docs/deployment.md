@@ -99,6 +99,18 @@ curl -X POST https://habit.example.com/api/ai/habit-plan -d '{}'
 # 期望：401
 ```
 
+### 1.6 国内服务器部署加速
+
+CI / `server/deploy.sh` 默认走「源码 tar → 服务器本地 build」，并使用：
+
+- Node 基础镜像：`docker.m.daocloud.io/library/node:22-alpine`（DaoCloud）
+- npm 源：`https://registry.npmmirror.com`
+
+可在 GitHub repo variables 覆盖：`DEPLOY_NODE_IMAGE`、`DEPLOY_NPM_REGISTRY`。  
+本地关闭加速：`DEPLOY_USE_CN_MIRROR=0 ./server/deploy.sh`。
+
+> 旧版「GHCR 整包镜像经 SSH load」已废弃（国内链路极慢且易失败）。
+
 ### 1.6 运维备注
 
 - **限流是单实例内存计数**，不要横向扩多副本（多实例各算各的，限流失效）。双人使用单实例足够。
