@@ -418,17 +418,20 @@ export function Card({
   style,
   onPress,
   tone = "surface",
+  tintColor,
   elevated = true
 }: PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   tone?: "surface" | "tint" | "muted";
+  /** 直接指定场景色底（如 candySunSurface）；优先于 tone。用于 v2 彩色场景卡。 */
+  tintColor?: string;
   /** 是否使用软阴影。密集列表可关。 */
   elevated?: boolean;
 }>) {
   const { colors } = useTheme();
   const background =
-    tone === "tint" ? colors.surfaceTint : tone === "muted" ? colors.surfaceMuted : colors.surface;
+    tintColor ?? (tone === "tint" ? colors.surfaceTint : tone === "muted" ? colors.surfaceMuted : colors.surface);
 
   const content = (
     <View
@@ -644,8 +647,18 @@ export function SwitchRow({
 export function ListRow({
   onPress,
   children,
-  right
-}: PropsWithChildren<{ onPress?: () => void; right?: ReactNode }>) {
+  right,
+  icon,
+  iconBg,
+  iconColor
+}: PropsWithChildren<{
+  onPress?: () => void;
+  right?: ReactNode;
+  /** 左侧 icon-chip（Ionicons）。 */
+  icon?: IoniconName;
+  iconBg?: string;
+  iconColor?: string;
+}>) {
   const { colors } = useTheme();
   const body = (
     <View
@@ -656,6 +669,20 @@ export function ListRow({
         paddingVertical: spacing.md
       }}
     >
+      {icon ? (
+        <View
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: radius.sm,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: iconBg ?? colors.surfaceMuted
+          }}
+        >
+          <Ionicons name={icon} size={19} color={iconColor ?? colors.primaryInk} />
+        </View>
+      ) : null}
       <View style={{ flex: 1 }}>{children}</View>
       {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={colors.faint} /> : null)}
     </View>
