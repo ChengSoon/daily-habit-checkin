@@ -52,7 +52,6 @@ export function ProgressHeader({
   const now = new Date();
   const greeting = greetingForHour(now.getHours());
   const ratio = total === 0 ? 0 : completed / total;
-  const remaining = Math.max(total - completed, 0);
   const allDone = total > 0 && completed === total;
 
   const caption =
@@ -62,7 +61,9 @@ export function ProgressHeader({
         ? hasPartner
           ? "今天你们都点亮了印章 ✨"
           : "今日印章已点亮 ✨"
-        : `今天一起浇灌 ${completed} 次 · 还差 ${remaining} 项`;
+        : hasPartner
+          ? `今天你们一起浇灌了 ${completed} 次`
+          : `今天已浇灌 ${completed} 次`;
 
   return (
     <View style={{ gap: spacing.md }}>

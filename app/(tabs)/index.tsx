@@ -344,9 +344,11 @@ export default function TodayScreen() {
         ) : (
           <View style={{ gap: spacing.md }}>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-              <AppText variant="section">待办清单</AppText>
+              <AppText variant="section">今日待办</AppText>
               <AppText variant="small" tone="muted">
-                今天 · {["日", "一", "二", "三", "四", "五", "六"][new Date().getDay()]}
+                {remaining.length > 0
+                  ? `再完成 ${remaining.length} 项解锁印章`
+                  : `今天 · ${["日", "一", "二", "三", "四", "五", "六"][new Date().getDay()]}`}
               </AppText>
             </View>
 
