@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
@@ -7,11 +8,31 @@ import { AppButton, AppText, Badge, HelperText, IconButton } from "../../src/ui/
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { radius, shadow, spacing } from "../../src/ui/theme";
+import { radius, shadow, spacing, type Palette } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 
 const WEEKDAY_SHORT = ["日", "一", "二", "三", "四", "五", "六"];
-const CHIP_COLORS = ["candySunSurface", "candySkySurface", "partnerSurface", "successSurface", "candyOrangeSurface", "surfaceTint"] as const;
+
+// 岛上"角落"的图标 + 糖果色底：结构性图标统一走 Ionicons（对齐 v2 board 线性图标）。
+type IoniconName = keyof typeof Ionicons.glyphMap;
+const CHIP_PALETTE: { bg: keyof Palette; fg: keyof Palette }[] = [
+  { bg: "candySunSurface", fg: "candyOrange" },
+  { bg: "candySkySurface", fg: "candySky" },
+  { bg: "partnerSurface", fg: "partnerInk" },
+  { bg: "successSurface", fg: "success" },
+  { bg: "candyOrangeSurface", fg: "candyOrange" },
+  { bg: "surfaceTint", fg: "primaryInk" }
+];
+const ICON_POOL: IoniconName[] = [
+  "book-outline",
+  "walk-outline",
+  "barbell-outline",
+  "moon-outline",
+  "cafe-outline",
+  "musical-notes-outline",
+  "leaf-outline",
+  "sunny-outline"
+];
 
 function frequencyLabel(habit: Habit): string {
   if (habit.frequency.type === "daily") {
@@ -27,10 +48,9 @@ function frequencyLabel(habit: Habit): string {
   return `每周 ${days.map((day) => WEEKDAY_SHORT[day]).join("")}`;
 }
 
-function habitEmoji(habit: Habit, index: number): string {
-  const pool = ["📖", "💧", "🏃", "🧘", "✍️", "🌙", "🍎", "🎧"];
-  if (habit.trackType === "numeric") return "💧";
-  return pool[index % pool.length];
+function habitIcon(habit: Habit, index: number): IoniconName {
+  if (habit.trackType === "numeric") return "water-outline";
+  return ICON_POOL[index % ICON_POOL.length];
 }
 
 export default function HabitsScreen() {
@@ -61,23 +81,15 @@ export default function HabitsScreen() {
         <View style={{ flex: 1, gap: 4 }}>
           <AppText variant="display">习惯</AppText>
           <AppText variant="body" tone="muted">
-            管理你们的共同节奏
+            岛上的日常角落
           </AppText>
         </View>
-        <AppButton title="＋ 新增" compact onPress={() => router.push("/habit/new")} />
+        <AppButton title="新增" icon="add" compact onPress={() => router.push("/habit/new")} />
       </View>
 
+      {/* Bento 双数据卡 */}
       <View style={{ flexDirection: "row", gap: spacing.sm }}>
-        <View
-          style={{
-            flex: 1,
-            borderRadius: radius.lg,
-            backgroundColor: colors.surfaceTint,
-            padding: spacing.md,
-            gap: 4,
-            ...shadow.soft
-          }}
-        >
+        <View style={{ flex: 1, borderRadius: radius.lg, backgroundColor: colors.surfaceTint, padding: spacing.md, gap: 4, ...shadow.soft }}>
           <AppText variant="small" tone="primary">
             进行中
           </AppText>
@@ -85,16 +97,7 @@ export default function HabitsScreen() {
             {activeCount}
           </AppText>
         </View>
-        <View
-          style={{
-            flex: 1,
-            borderRadius: radius.lg,
-            backgroundColor: colors.partnerSurface,
-            padding: spacing.md,
-            gap: 4,
-            ...shadow.soft
-          }}
-        >
+        <View style={{ flex: 1, borderRadius: radius.lg, backgroundColor: colors.partnerSurface, padding: spacing.md, gap: 4, ...shadow.soft }}>
           <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "700" }}>
             已暂停
           </AppText>
@@ -104,36 +107,20 @@ export default function HabitsScreen() {
         </View>
       </View>
 
-      <View
-        style={{
-          borderRadius: radius.lg,
-          backgroundColor: colors.partnerSurface,
-          padding: spacing.md,
-          gap: spacing.sm,
-          ...shadow.soft
-        }}
-      >
+      {/* AI 规划入口 */}
+      <View style={{ borderRadius: radius.lg, backgroundColor: colors.partnerSurface, padding: spacing.md, gap: spacing.sm, ...shadow.soft }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
-          <View
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 16,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: colors.surface
-            }}
-          >
-            <AppText style={{ fontSize: 22 }}>🤖</AppText>
+          <View style={{ width: 44, height: 44, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }}>
+            <Ionicons name="sparkles" size={22} color={colors.partnerInk} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
-            <AppText variant="bodyStrong">让 AI 帮你规划</AppText>
+            <AppText variant="bodyStrong">让 AI 规划新角落</AppText>
             <AppText variant="small" tone="muted">
-              输入目标，生成可执行分阶段计划
+              说出目标，生成可执行的分阶段计划
             </AppText>
           </View>
         </View>
-        <AppButton title="生成计划" variant="secondary" compact onPress={() => router.push("/habit/new")} />
+        <AppButton title="生成计划" icon="sparkles" variant="secondary" compact onPress={() => router.push("/habit/new")} />
       </View>
 
       {activeCount > 7 ? (
@@ -147,8 +134,7 @@ export default function HabitsScreen() {
       ) : (
         <View style={{ gap: spacing.sm }}>
           {habits.map((habit, index) => {
-            const chipKey = CHIP_COLORS[index % CHIP_COLORS.length];
-            const chipBg = colors[chipKey];
+            const pair = CHIP_PALETTE[index % CHIP_PALETTE.length];
             return (
               <Pressable
                 key={habit.id}
@@ -171,28 +157,15 @@ export default function HabitsScreen() {
                   pressed ? { opacity: 0.9, transform: [{ scale: 0.99 }] } : null
                 ]}
               >
-                <View
-                  style={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 18,
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: chipBg
-                  }}
-                >
-                  <AppText style={{ fontSize: 22 }}>{habitEmoji(habit, index)}</AppText>
+                <View style={{ width: 48, height: 48, borderRadius: 18, alignItems: "center", justifyContent: "center", backgroundColor: colors[pair.bg] }}>
+                  <Ionicons name={habitIcon(habit, index)} size={24} color={colors[pair.fg]} />
                 </View>
                 <View style={{ flex: 1, gap: 6 }}>
                   <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
                     <AppText variant="bodyStrong" tone={habit.isPaused ? "muted" : "default"} numberOfLines={1} style={{ flex: 1 }}>
                       {habit.name}
                     </AppText>
-                    {habit.isPaused ? (
-                      <Badge label="已暂停" tone="muted" />
-                    ) : (
-                      <Badge label="活跃" tone="success" />
-                    )}
+                    {habit.isPaused ? <Badge label="已暂停" tone="muted" /> : <Badge label="活跃" tone="success" />}
                   </View>
                   <AppText variant="small" tone="faint" numberOfLines={1}>
                     {frequencyLabel(habit)} · {habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒"}
@@ -213,18 +186,8 @@ export default function HabitsScreen() {
                   </View>
                 </View>
                 <View style={{ gap: 4 }}>
-                  <IconButton
-                    name="chevron-up"
-                    accessibilityLabel={`将 ${habit.name} 上移`}
-                    onPress={() => move(habit.id, "up")}
-                    disabled={index === 0}
-                  />
-                  <IconButton
-                    name="chevron-down"
-                    accessibilityLabel={`将 ${habit.name} 下移`}
-                    onPress={() => move(habit.id, "down")}
-                    disabled={index === habits.length - 1}
-                  />
+                  <IconButton name="chevron-up" accessibilityLabel={`将 ${habit.name} 上移`} onPress={() => move(habit.id, "up")} disabled={index === 0} />
+                  <IconButton name="chevron-down" accessibilityLabel={`将 ${habit.name} 下移`} onPress={() => move(habit.id, "down")} disabled={index === habits.length - 1} />
                 </View>
               </Pressable>
             );
