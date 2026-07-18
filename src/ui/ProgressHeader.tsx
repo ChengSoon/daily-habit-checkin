@@ -30,8 +30,9 @@ export function ProgressHeader({
   onPressXp,
   doneDateKeys,
   showWeekStrip = true,
-  islandKey = "lighthouse",
-  islandName = "灯塔湾"
+  islandKey,
+  islandName = "我们的小岛",
+  islandLevel
 }: {
   completed: number;
   total: number;
@@ -45,9 +46,10 @@ export function ProgressHeader({
   /** 本周已有完成打卡的日期，用于周历点亮 */
   doneDateKeys?: Set<string> | string[];
   showWeekStrip?: boolean;
-  /** 共同小岛主题 key（默认灯塔湾主岛）。 */
-  islandKey?: string;
+  /** 共同小岛主题 key（跟随世界地图到达的岛，由今日页从闯关进度传入）。 */
+  islandKey?: string | null;
   islandName?: string;
+  islandLevel?: number;
 }) {
   const now = new Date();
   const greeting = greetingForHour(now.getHours());
@@ -83,6 +85,7 @@ export function ProgressHeader({
         variant="today"
         islandKey={islandKey}
         islandName={islandName}
+        islandLevel={islandLevel}
         ratio={ratio}
         detail={caption}
         people={people}

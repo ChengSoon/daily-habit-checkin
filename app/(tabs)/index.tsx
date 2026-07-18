@@ -7,6 +7,8 @@ import { CheckIn } from "../../src/checkins/types";
 import { getStreakMilestone } from "../../src/checkins/milestones";
 import { calculateCurrentStreak } from "../../src/checkins/stats";
 import { canUndoCheckIn, CHECKIN_UNDO_WINDOW_MS } from "../../src/checkins/undoWindow";
+import { loadAdventureState } from "../../src/adventure/adventureService";
+import { selectCurrentIsland, type CurrentIsland } from "../../src/adventure/currentIsland";
 import { listActiveHabits } from "../../src/habits/habitRepository";
 import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { Habit } from "../../src/habits/types";
@@ -42,6 +44,7 @@ export default function TodayScreen() {
   const [isUndoing, setIsUndoing] = useState(false);
   const [undoNow, setUndoNow] = useState(() => new Date());
   const [weekDoneKeys, setWeekDoneKeys] = useState<string[]>([]);
+  const [island, setIsland] = useState<CurrentIsland | null>(null);
   const miniBurstKey = useRef(0);
   const xpGainKey = useRef(0);
   const today = todayKey();
@@ -133,6 +136,9 @@ export default function TodayScreen() {
 
     const wallet = await getWallet();
     setXpBalance(wallet.balance);
+    // 头部共同岛屿卡：跟随世界地图里到达的岛，不写死。失败降级为柔光态。
+    const adventure = await loadAdventureState().catch(() => null);
+    setIsland(selectCurrentIsland(adventure));
 
     setHabits(loadedHabits);
     setCheckIns(todayCheckIns);
@@ -287,6 +293,9 @@ export default function TodayScreen() {
             imageUri: person.avatarUrl
           }))}
           hasPartner={couple.partner !== null}
+          islandKey={island?.key}
+          islandName={island?.name}
+          islandLevel={island?.level}
           streakDays={Math.max(0, ...Object.values(streaks), 0)}
           xpBalance={xpBalance}
           onPressXp={() => router.push("/shop")}

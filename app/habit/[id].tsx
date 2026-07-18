@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
@@ -28,7 +29,7 @@ import { CalendarLegend, MonthCalendar } from "../../src/ui/MonthCalendar";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
+import { radius, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, startOfMonthKey, todayKey } from "../../src/utils/date";
 import { normalizeTimeInput } from "../../src/utils/time";
@@ -220,14 +221,29 @@ export default function HabitDetailScreen() {
     planEnded,
     manualRequested
   });
+  const nextMilestone = [7, 14, 30, 60, 100, 200].find((m) => m > currentStreak) ?? currentStreak + 50;
 
   return (
     <Screen>
-      <View style={{ gap: spacing.sm }}>
-        <AppText variant="title">{habit.name}</AppText>
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <Badge label={habit.isPaused ? "已暂停" : "进行中"} tone={habit.isPaused ? "muted" : "success"} />
-          <Badge label={habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒"} tone="neutral" />
+      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <View
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: radius.lg,
+            backgroundColor: colors.candySunSurface,
+            alignItems: "center",
+            justifyContent: "center"
+          }}
+        >
+          <Ionicons name={habit.trackType === "numeric" ? "water-outline" : "book-outline"} size={26} color={colors.candyOrange} />
+        </View>
+        <View style={{ flex: 1, gap: 6 }}>
+          <AppText variant="title">{habit.name}</AppText>
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <Badge label={habit.isPaused ? "已暂停" : "进行中"} tone={habit.isPaused ? "muted" : "success"} />
+            <Badge label={habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒"} tone="neutral" />
+          </View>
         </View>
       </View>
 
@@ -236,6 +252,20 @@ export default function HabitDetailScreen() {
         <StatTile label="最长连续" value={`${longestStreak} 天`} />
         <StatTile label="本月完成率" value={`${completionRate}%`} />
       </View>
+
+      <Card tintColor={colors.successSurface} style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="ribbon-outline" size={20} color={colors.success} />
+        </View>
+        <View style={{ flex: 1, gap: 2 }}>
+          <AppText variant="caption" style={{ color: colors.success, textTransform: "none", letterSpacing: 0 }}>
+            下一步里程碑
+          </AppText>
+          <AppText variant="bodyStrong">
+            连续 {nextMilestone} 天 · 再坚持 {Math.max(1, nextMilestone - currentStreak)} 天
+          </AppText>
+        </View>
+      </Card>
 
       <SectionCard title="本月记录">
         {scheduledDates.length === 0 ? (

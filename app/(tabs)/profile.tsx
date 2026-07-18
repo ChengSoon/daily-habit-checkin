@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Linking, Pressable, Share, View } from "react-native";
+import { loadAdventureState } from "../../src/adventure/adventureService";
+import { selectCurrentIsland, type CurrentIsland } from "../../src/adventure/currentIsland";
 import { buildExportJson } from "../../src/export/exportData";
 import {
   getReminderPermissionStatus,
@@ -64,6 +66,7 @@ export default function ProfileScreen() {
   const [updateResult, setUpdateResult] = useState<AppUpdateCheckResult | null>(null);
   const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [island, setIsland] = useState<CurrentIsland | null>(null);
   const couple = useCouple();
   const reloadCouple = couple.reload;
 
@@ -97,6 +100,9 @@ export default function ProfileScreen() {
       getCurrentAccount()
         .then(setAccount)
         .catch(() => setAccount(null));
+      loadAdventureState()
+        .then((adventure) => setIsland(selectCurrentIsland(adventure)))
+        .catch(() => setIsland(null));
       reloadCouple();
       void checkUpdates();
     }, [checkUpdates, reloadCouple])
@@ -158,8 +164,8 @@ export default function ProfileScreen() {
         <>
           <IslandHero
             variant="profile"
-            islandKey="lighthouse"
-            islandName="灯塔湾"
+            islandKey={island?.key}
+            islandName={island?.name ?? "我们的小岛"}
             eyebrow="我们的空间"
             detail={
               couple.partner
