@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { ReactNode } from "react";
 import { Image, Pressable, View, type ViewStyle } from "react-native";
-import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
+import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { resolveDefaultIslandSource } from "../adventure/mapAssets";
 import { CoupleAvatars, type CouplePerson } from "./Avatar";
 import { AppText } from "./Controls";
@@ -127,12 +127,38 @@ export function IslandHero({
         ...shadow.card
       }}
     >
-      {/* 天空柔光层：叠色模拟蓝→薰衣草→珊瑚的天空，随主题自适应 */}
-      <View pointerEvents="none" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
-        <View style={{ position: "absolute", top: -34, right: -18, width: 150, height: 150, borderRadius: 999, backgroundColor: colors.candySun, opacity: isDark ? 0.16 : 0.34 }} />
-        <View style={{ position: "absolute", bottom: -44, left: -30, width: 190, height: 190, borderRadius: 999, backgroundColor: colors.primary, opacity: isDark ? 0.14 : 0.16 }} />
-        <View style={{ position: "absolute", top: 24, left: 24, width: 150, height: 150, borderRadius: 999, backgroundColor: colors.partner, opacity: 0.14 }} />
-      </View>
+      {/* 天空渐变层：蓝→薰衣草→珊瑚的斜向天空，随主题自适应 */}
+      <Svg
+        pointerEvents="none"
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ position: "absolute", top: 0, left: 0 }}
+      >
+        <Defs>
+          <LinearGradient id={`sky-${variant}`} x1="0" y1="0" x2="0.7" y2="1">
+            <Stop offset="0%" stopColor={isDark ? colors.surfaceMuted : colors.candySkySurface} />
+            <Stop offset="52%" stopColor={isDark ? colors.surfaceTint : colors.partnerSurface} />
+            <Stop offset="100%" stopColor={isDark ? colors.surface : colors.surfaceTint} />
+          </LinearGradient>
+        </Defs>
+        <Rect x="0" y="0" width="100" height="100" fill={`url(#sky-${variant})`} />
+      </Svg>
+      {/* 暖阳光晕 */}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          top: -28,
+          right: -12,
+          width: 116,
+          height: 116,
+          borderRadius: 999,
+          backgroundColor: colors.candySun,
+          opacity: isDark ? 0.18 : 0.42
+        }}
+      />
 
       <View style={{ padding: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: compact ? 116 : 150 }}>
         {/* 左列文案 */}
