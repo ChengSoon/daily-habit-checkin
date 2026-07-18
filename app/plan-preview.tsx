@@ -18,8 +18,15 @@ import {
 } from "../src/ui/Controls";
 import { Screen } from "../src/ui/Screen";
 import { TimePickerField } from "../src/ui/TimeWheelPicker";
-import { spacing } from "../src/ui/theme";
+import { radius, spacing, type Palette } from "../src/ui/theme";
+import { useTheme } from "../src/ui/ThemeContext";
 import { todayKey } from "../src/utils/date";
+
+const PHASE_TINTS: { bg: keyof Palette; fg: keyof Palette }[] = [
+  { bg: "candySkySurface", fg: "candySky" },
+  { bg: "partnerSurface", fg: "partnerInk" },
+  { bg: "candyOrangeSurface", fg: "candyOrange" }
+];
 
 function toFrequency(type: string | undefined, weeklyDays: number[]): HabitFrequency {
   if (type === "weekdays") {
@@ -39,6 +46,7 @@ export default function PlanPreviewScreen() {
     weeklyDays?: string;
   }>();
   const plan = JSON.parse(params.plan) as AIPlanPreview;
+  const { colors } = useTheme();
   const [habitName, setHabitName] = useState(plan.habitName);
   const [description, setDescription] = useState(plan.description);
   const [reminderTime, setReminderTime] = useState(plan.recommendedReminderTime);
@@ -124,15 +132,35 @@ export default function PlanPreviewScreen() {
       </SectionCard>
 
       <SectionCard title="每日行动">
-        {dailyActions.map((item) => (
-          <TextField
-            key={item.day}
-            label={`第 ${item.day} 天`}
-            value={item.action}
-            onChangeText={(value) => updateAction(item.day, value)}
-            placeholder="当天的小行动"
-          />
-        ))}
+        {dailyActions.map((item, index) => {
+          const tint = PHASE_TINTS[index % PHASE_TINTS.length];
+          return (
+            <View key={item.day} style={{ flexDirection: "row", gap: spacing.sm }}>
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: radius.md,
+                  backgroundColor: colors[tint.bg],
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginTop: 2
+                }}
+              >
+                <AppText variant="bodyStrong" style={{ color: colors[tint.fg] }}>
+                  {item.day}
+                </AppText>
+              </View>
+              <View style={{ flex: 1 }}>
+                <TextField
+                  value={item.action}
+                  onChangeText={(value) => updateAction(item.day, value)}
+                  placeholder={`第 ${item.day} 天的小行动`}
+                />
+              </View>
+            </View>
+          );
+        })}
       </SectionCard>
 
       <SectionCard title="提醒与记录">
