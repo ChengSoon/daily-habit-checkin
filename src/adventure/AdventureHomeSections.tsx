@@ -114,7 +114,7 @@ export function JourneyRail({
               onPress={() => onOpen(chapter.id)}
               style={({ pressed }) => ({
                 width: 100,
-                borderRadius: radius.md,
+                borderRadius: radius.lg,
                 borderWidth: 1,
                 borderColor: meta.border,
                 backgroundColor: meta.bg,
@@ -191,7 +191,7 @@ export function BadgePreview({
                 width: "30%",
                 minWidth: 96,
                 flexGrow: 1,
-                borderRadius: radius.md,
+                borderRadius: radius.lg,
                 borderWidth: 1,
                 borderColor: colors.line,
                 backgroundColor: colors.surfaceMuted,
@@ -247,7 +247,7 @@ export function HowItWorksCard() {
             style={{
               width: 28,
               height: 28,
-              borderRadius: radius.sm,
+              borderRadius: radius.md,
               backgroundColor: colors.surface,
               alignItems: "center",
               justifyContent: "center"

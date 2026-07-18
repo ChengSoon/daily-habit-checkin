@@ -33,92 +33,117 @@ export type Palette = {
   // 控件
   inputBackground: string;
   overlay: string;
+  // 糖果色辅助点缀（UI 装饰用，不参与业务语义）
+  candySun: string;
+  candySunSurface: string;
+  candySky: string;
+  candySkySurface: string;
+  candyOrange: string;
+  candyOrangeSurface: string;
 };
 
-// 恋恋粉紫（默认）：珊瑚粉 × 薰衣草紫
+// 恋恋粉紫（默认）：珊瑚粉 × 薰衣草紫 · 糖果社交系统
 const romanceLight: Palette = {
-  background: "#FDF6FA",
+  background: "#F3F4F8",
   surface: "#FFFFFF",
-  surfaceMuted: "#F6EDF3",
-  surfaceTint: "#FBE7EF",
-  ink: "#2A1B24",
-  inkSoft: "#5A4650",
-  muted: "#8B7681",
-  faint: "#B7A6B0",
-  line: "#F0E2EA",
-  lineStrong: "#E4D0DC",
-  primary: "#E86A92",
-  primaryInk: "#C24A73",
+  surfaceMuted: "#F0F2F7",
+  surfaceTint: "#FFE8EC",
+  ink: "#1F2430",
+  inkSoft: "#5B6475",
+  muted: "#8B93A7",
+  faint: "#B4BAC9",
+  line: "#E8EBF3",
+  lineStrong: "#D7DCE8",
+  primary: "#FF7B8A",
+  primaryInk: "#E25C70",
   onPrimary: "#FFFFFF",
-  partner: "#8B7BD8",
-  partnerInk: "#6A57BF",
-  partnerSurface: "#EDE8FA",
+  partner: "#9B8CFF",
+  partnerInk: "#6B5AD6",
+  partnerSurface: "#ECE8FF",
   onPartner: "#FFFFFF",
-  accent: "#8B7BD8",
-  celebration: "#F6C84C",
-  danger: "#C2453F",
-  dangerSurface: "#F9E3E1",
-  success: "#3F9E7A",
-  successSurface: "#DDF1E8",
+  accent: "#9B8CFF",
+  celebration: "#FFC857",
+  danger: "#E2554F",
+  dangerSurface: "#FDE8E6",
+  success: "#3FBE96",
+  successSurface: "#DDF8EF",
   inputBackground: "#FFFFFF",
-  overlay: "rgba(42, 27, 36, 0.35)"
+  overlay: "rgba(31, 36, 48, 0.38)",
+  candySun: "#FFC857",
+  candySunSurface: "#FFF3D6",
+  candySky: "#6CB8FF",
+  candySkySurface: "#E3F1FF",
+  candyOrange: "#FF9B6A",
+  candyOrangeSurface: "#FFE7DB"
 };
 
 const romanceDark: Palette = {
-  background: "#171014",
-  surface: "#221A1F",
-  surfaceMuted: "#2C222A",
-  surfaceTint: "#33222C",
-  ink: "#F3ECF0",
-  inkSoft: "#D2C4CD",
-  muted: "#9C8B96",
-  faint: "#6F6069",
-  line: "#352A31",
-  lineStrong: "#463844",
-  primary: "#F08DAD",
-  primaryInk: "#F5A9C2",
-  onPrimary: "#2A1019",
-  partner: "#A99BE6",
-  partnerInk: "#C0B4F0",
-  partnerSurface: "#2E2740",
-  onPartner: "#1A1330",
-  accent: "#A99BE6",
-  celebration: "#F6C84C",
+  background: "#14151C",
+  surface: "#1E2029",
+  surfaceMuted: "#282B36",
+  surfaceTint: "#3A2730",
+  ink: "#F4F5F8",
+  inkSoft: "#C7CCD8",
+  muted: "#9399AB",
+  faint: "#6A7082",
+  line: "#303443",
+  lineStrong: "#3E4355",
+  primary: "#FF8FA0",
+  primaryInk: "#FFB0BB",
+  onPrimary: "#2A1016",
+  partner: "#B0A3FF",
+  partnerInk: "#C8BFFF",
+  partnerSurface: "#2E2748",
+  onPartner: "#160F30",
+  accent: "#B0A3FF",
+  celebration: "#FFC857",
   danger: "#F0857C",
   dangerSurface: "#3A2523",
-  success: "#5FB68F",
-  successSurface: "#1E3227",
-  inputBackground: "#2C222A",
-  overlay: "rgba(0, 0, 0, 0.55)"
+  success: "#5FCBAA",
+  successSurface: "#1A332C",
+  inputBackground: "#282B36",
+  overlay: "rgba(0, 0, 0, 0.58)",
+  candySun: "#FFD070",
+  candySunSurface: "#3A3018",
+  candySky: "#7EC2FF",
+  candySkySurface: "#1C2D42",
+  candyOrange: "#FFB085",
+  candyOrangeSurface: "#3A261C"
 };
 
 // 海盐薄荷：清新青绿 × 天空蓝
 const mintLight: Palette = {
-  background: "#F2FAF9",
+  background: "#F0F7F6",
   surface: "#FFFFFF",
-  surfaceMuted: "#E8F4F2",
-  surfaceTint: "#DBF0ED",
+  surfaceMuted: "#E7F2F0",
+  surfaceTint: "#D8F3EE",
   ink: "#10302E",
   inkSoft: "#3E5B58",
   muted: "#6E8683",
   faint: "#A3B8B5",
-  line: "#DDEEEB",
-  lineStrong: "#C7E2DD",
-  primary: "#1FA39A",
-  primaryInk: "#147F78",
+  line: "#D8EBE7",
+  lineStrong: "#C2DFD9",
+  primary: "#2EB8AB",
+  primaryInk: "#1A8F85",
   onPrimary: "#FFFFFF",
-  partner: "#5B8DEF",
-  partnerInk: "#3E6FD1",
-  partnerSurface: "#E4EDFC",
+  partner: "#6CB8FF",
+  partnerInk: "#3E86D1",
+  partnerSurface: "#E3F1FF",
   onPartner: "#FFFFFF",
-  accent: "#5B8DEF",
-  celebration: "#F6C84C",
-  danger: "#C2453F",
-  dangerSurface: "#F9E3E1",
-  success: "#3F9E7A",
-  successSurface: "#DDF1E8",
+  accent: "#6CB8FF",
+  celebration: "#FFC857",
+  danger: "#E2554F",
+  dangerSurface: "#FDE8E6",
+  success: "#3FBE96",
+  successSurface: "#DDF8EF",
   inputBackground: "#FFFFFF",
-  overlay: "rgba(16, 48, 46, 0.35)"
+  overlay: "rgba(16, 48, 46, 0.35)",
+  candySun: "#FFC857",
+  candySunSurface: "#FFF3D6",
+  candySky: "#6CB8FF",
+  candySkySurface: "#E3F1FF",
+  candyOrange: "#FF9B6A",
+  candyOrangeSurface: "#FFE7DB"
 };
 
 const mintDark: Palette = {
@@ -140,70 +165,88 @@ const mintDark: Palette = {
   partnerSurface: "#23304A",
   onPartner: "#0A1428",
   accent: "#7FA8F5",
-  celebration: "#F6C84C",
+  celebration: "#FFC857",
   danger: "#F0857C",
   dangerSurface: "#3A2523",
   success: "#5FB68F",
   successSurface: "#1E3227",
   inputBackground: "#1F2C2A",
-  overlay: "rgba(0, 0, 0, 0.55)"
+  overlay: "rgba(0, 0, 0, 0.55)",
+  candySun: "#FFD070",
+  candySunSurface: "#3A3018",
+  candySky: "#7EC2FF",
+  candySkySurface: "#1C2D42",
+  candyOrange: "#FFB085",
+  candyOrangeSurface: "#3A261C"
 };
 
 // 暮光暖阳：落日橙 × 温柔珊瑚
 const sunsetLight: Palette = {
-  background: "#FFF8F1",
+  background: "#F7F3EE",
   surface: "#FFFFFF",
-  surfaceMuted: "#FBEFE2",
-  surfaceTint: "#FCE7D2",
-  ink: "#33241A",
+  surfaceMuted: "#F3EBE2",
+  surfaceTint: "#FFEADF",
+  ink: "#2C2118",
   inkSoft: "#5E4A3B",
   muted: "#927A67",
   faint: "#C0AC9A",
-  line: "#F3E6D8",
-  lineStrong: "#E9D4C0",
-  primary: "#E8823C",
-  primaryInk: "#C56521",
+  line: "#EDE2D5",
+  lineStrong: "#E0D0BE",
+  primary: "#FF9B6A",
+  primaryInk: "#D67B40",
   onPrimary: "#FFFFFF",
-  partner: "#DE6A6F",
-  partnerInk: "#C24A50",
-  partnerSurface: "#FBE3E1",
+  partner: "#FF7B8A",
+  partnerInk: "#E25C70",
+  partnerSurface: "#FFE8EC",
   onPartner: "#FFFFFF",
-  accent: "#DE6A6F",
-  celebration: "#F6C84C",
-  danger: "#C2453F",
-  dangerSurface: "#F9E3E1",
-  success: "#3F9E7A",
-  successSurface: "#DDF1E8",
+  accent: "#FF7B8A",
+  celebration: "#FFC857",
+  danger: "#E2554F",
+  dangerSurface: "#FDE8E6",
+  success: "#3FBE96",
+  successSurface: "#DDF8EF",
   inputBackground: "#FFFFFF",
-  overlay: "rgba(51, 36, 26, 0.35)"
+  overlay: "rgba(44, 33, 24, 0.35)",
+  candySun: "#FFC857",
+  candySunSurface: "#FFF3D6",
+  candySky: "#6CB8FF",
+  candySkySurface: "#E3F1FF",
+  candyOrange: "#FF9B6A",
+  candyOrangeSurface: "#FFE7DB"
 };
 
 const sunsetDark: Palette = {
-  background: "#1A1310",
-  surface: "#251C16",
-  surfaceMuted: "#2F241C",
-  surfaceTint: "#35271C",
+  background: "#17120F",
+  surface: "#231C17",
+  surfaceMuted: "#2E251E",
+  surfaceTint: "#3A271C",
   ink: "#F5ECE3",
   inkSoft: "#D9C8B8",
   muted: "#A08D7B",
   faint: "#6F6055",
   line: "#372A20",
   lineStrong: "#4A382B",
-  primary: "#F0A15E",
-  primaryInk: "#F5B77E",
+  primary: "#FFB085",
+  primaryInk: "#FFC8A8",
   onPrimary: "#2A1808",
-  partner: "#EF8A8E",
-  partnerInk: "#F3A8AB",
+  partner: "#FF8FA0",
+  partnerInk: "#FFB0BB",
   partnerSurface: "#402426",
   onPartner: "#2A1011",
-  accent: "#EF8A8E",
-  celebration: "#F6C84C",
+  accent: "#FF8FA0",
+  celebration: "#FFC857",
   danger: "#F0857C",
   dangerSurface: "#3A2523",
   success: "#5FB68F",
   successSurface: "#1E3227",
-  inputBackground: "#2F241C",
-  overlay: "rgba(0, 0, 0, 0.55)"
+  inputBackground: "#2E251E",
+  overlay: "rgba(0, 0, 0, 0.55)",
+  candySun: "#FFD070",
+  candySunSurface: "#3A3018",
+  candySky: "#7EC2FF",
+  candySkySurface: "#1C2D42",
+  candyOrange: "#FFB085",
+  candyOrangeSurface: "#3A261C"
 };
 
 export type ThemeName = "romance" | "mint" | "sunset";
@@ -242,12 +285,38 @@ export const spacing = {
   xxl: 32
 } as const;
 
+/** 糖果社交系统：更大圆角，卡片更柔软 */
 export const radius = {
-  sm: 8,
-  md: 12,
-  lg: 16,
-  xl: 20,
+  sm: 12,
+  md: 16,
+  lg: 22,
+  xl: 28,
   pill: 999
+} as const;
+
+/** 统一软阴影，避免各页面各自发明 elevation */
+export const shadow = {
+  card: {
+    shadowColor: "#283048",
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 3
+  },
+  soft: {
+    shadowColor: "#283048",
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2
+  },
+  float: {
+    shadowColor: "#283048",
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 6
+  }
 } as const;
 
 export type TypeScale = {
@@ -263,11 +332,11 @@ export type TypeScale = {
 };
 
 export const type: Record<"display" | "title" | "section" | "body" | "bodyStrong" | "small" | "caption", TypeScale> = {
-  display: { fontSize: 32, lineHeight: 38, fontWeight: "700", letterSpacing: -0.5 },
-  title: { fontSize: 24, lineHeight: 30, fontWeight: "700", letterSpacing: -0.3 },
-  section: { fontSize: 17, lineHeight: 22, fontWeight: "600" },
-  body: { fontSize: 16, lineHeight: 22, fontWeight: "400" },
-  bodyStrong: { fontSize: 16, lineHeight: 22, fontWeight: "600" },
-  small: { fontSize: 13, lineHeight: 18, fontWeight: "400" },
-  caption: { fontSize: 12, lineHeight: 16, fontWeight: "600", letterSpacing: 0.4 }
+  display: { fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.4 },
+  title: { fontSize: 22, lineHeight: 28, fontWeight: "800", letterSpacing: -0.25 },
+  section: { fontSize: 17, lineHeight: 22, fontWeight: "700" },
+  body: { fontSize: 15, lineHeight: 22, fontWeight: "500" },
+  bodyStrong: { fontSize: 15, lineHeight: 22, fontWeight: "700" },
+  small: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
+  caption: { fontSize: 11, lineHeight: 15, fontWeight: "700", letterSpacing: 0.3 }
 };

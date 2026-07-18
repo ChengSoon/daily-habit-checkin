@@ -195,7 +195,7 @@ export function CheckButton({
             height: SIZE,
             borderRadius: SIZE / 2,
             borderWidth: 2,
-            borderColor: colors.primary
+            borderColor: colors.success
           },
           rippleStyle
         ]}
@@ -211,8 +211,8 @@ export function CheckButton({
             alignItems: "center",
             justifyContent: "center",
             borderWidth: 2,
-            borderColor: effectiveChecked ? colors.primary : colors.lineStrong,
-            backgroundColor: effectiveChecked ? colors.primary : "transparent"
+            borderColor: effectiveChecked ? colors.success : colors.lineStrong,
+            backgroundColor: effectiveChecked ? colors.success : colors.surface
           },
           circleStyle
         ]}

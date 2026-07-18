@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>今日打卡 · Soft 3D Design v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800;900&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F1F0F7;
+    --bg-soft: #EAEAF3;
+    --paper: #FFFFFF;
+    --ink: #1C1C28;
+    --ink-soft: #5B6170;
+    --muted: #8B91A3;
+    --faint: #B4B9C7;
+    --line: #ECEEF5;
+    --line-strong: #DDE1EC;
+    --coral: #FF7B8A;
+    --coral-ink: #E25C70;
+    --coral-soft: #FFE8EC;
+    --lavender: #9B8CFF;
+    --lavender-ink: #6B5AD6;
+    --lavender-soft: #ECE8FF;
+    --mint: #3FBE96;
+    --mint-soft: #DDF8EF;
+    --sky: #6CB8FF;
+    --sky-soft: #E3F1FF;
+    --sun: #FFC857;
+    --sun-soft: #FFF3D6;
+    --orange: #FF9B6A;
+    --orange-soft: #FFE7DB;
+    --shadow: 0 18px 40px rgba(40, 48, 72, 0.09), 0 4px 12px rgba(40, 48, 72, 0.04);
+    --shadow-soft: 0 10px 24px rgba(40, 48, 72, 0.06);
+    --shadow-float: 0 14px 32px rgba(255, 123, 138, 0.22);
+    --r-phone: 40px;
+    --r-card: 28px;
+    --r-item: 22px;
+    --r-pill: 999px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Nunito", "Outfit", -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif;
+    color: var(--ink);
+    min-height: 100vh;
+    background:
+      radial-gradient(circle at 10% 6%, rgba(255, 200, 87, 0.22), transparent 26%),
+      radial-gradient(circle at 90% 8%, rgba(155, 140, 255, 0.18), transparent 24%),
+      radial-gradient(circle at 70% 90%, rgba(63, 190, 150, 0.12), transparent 30%),
+      radial-gradient(circle at 20% 80%, rgba(255, 123, 138, 0.10), transparent 28%),
+      var(--bg);
+    padding: 48px 24px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page { max-width: 1240px; margin: 0 auto; }
+
+  .hero {
+    text-align: center;
+    margin-bottom: 36px;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: var(--r-pill);
+    background: rgba(255,255,255,0.86);
+    border: 1px solid rgba(255,255,255,0.95);
+    box-shadow: var(--shadow-soft);
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 14px;
+  }
+  .hero h1 {
+    font-family: "Outfit", "Nunito", sans-serif;
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 10px;
+  }
+  .hero h1 span {
+    background: linear-gradient(120deg, var(--coral), var(--lavender) 55%, var(--sky));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p {
+    max-width: 640px;
+    margin: 0 auto;
+    color: var(--ink-soft);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 1080px) {
+    .board { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 720px) {
+    .board { grid-template-columns: 1fr; justify-items: center; }
+  }
+
+  .shot { width: 100%; max-width: 360px; margin: 0 auto; }
+  .shot-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 8px 12px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .shot-label b {
+    color: var(--ink-soft);
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* Phone frame */
+  .phone {
+    background: var(--paper);
+    border-radius: var(--r-phone);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,0.98);
+    overflow: hidden;
+    position: relative;
+  }
+  .phone-bg {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 12% 8%, rgba(255, 200, 87, 0.16), transparent 28%),
+      radial-gradient(circle at 92% 10%, rgba(155, 140, 255, 0.14), transparent 26%),
+      radial-gradient(circle at 50% 100%, rgba(63, 190, 150, 0.08), transparent 36%),
+      #F4F3F9;
+  }
+  .status {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px 4px;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .status .icons { opacity: 0.72; letter-spacing: 2px; }
+  .screen {
+    position: relative;
+    z-index: 1;
+    padding: 6px 16px 18px;
+  }
+
+  /* Atoms */
+  .row { display: flex; align-items: center; }
+  .between { justify-content: space-between; }
+  .col { display: flex; flex-direction: column; }
+  .grow { flex: 1; min-width: 0; }
+  .gap4 { gap: 4px; }
+  .gap6 { gap: 6px; }
+  .gap8 { gap: 8px; }
+  .gap10 { gap: 10px; }
+  .gap12 { gap: 12px; }
+  .mt4 { margin-top: 4px; }
+  .mt6 { margin-top: 6px; }
+  .mt8 { margin-top: 8px; }
+  .mt10 { margin-top: 10px; }
+  .mt12 { margin-top: 12px; }
+  .mb8 { margin-bottom: 8px; }
+  .mb10 { margin-bottom: 10px; }
+  .mb12 { margin-bottom: 12px; }
+  .mb14 { margin-bottom: 14px; }
+  .mb16 { margin-bottom: 16px; }
+
+  .caption {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .title {
+    font-family: "Outfit", "Nunito", sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .h1 { font-size: 28px; line-height: 1.15; }
+  .h2 { font-size: 22px; line-height: 1.2; }
+  .h3 { font-size: 16px; line-height: 1.3; }
+  .body { font-size: 13px; line-height: 1.45; color: var(--ink-soft); font-weight: 600; }
+  .strong { font-weight: 800; }
+  .small { font-size: 12px; line-height: 1.35; color: var(--muted); font-weight: 700; }
+  .tiny { font-size: 11px; font-weight: 800; color: var(--faint); }
+
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 14px; color: white;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2.5px #fff, 0 6px 14px rgba(40,48,72,0.12);
+  }
+  .avatar.you { background: linear-gradient(145deg, #FF8FA0, #FF6B7A); }
+  .avatar.ta { background: linear-gradient(145deg, #B0A3FF, #8B7BFF); }
+  .avatar.stack { margin-left: -12px; }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 11px;
+    border-radius: var(--r-pill);
+    font-size: 12px;
+    font-weight: 800;
+    background: rgba(255,255,255,0.86);
+    box-shadow: 0 4px 10px rgba(40,48,72,0.05);
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 10px;
+    border-radius: var(--r-pill);
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+
+  .card {
+    background: var(--paper);
+    border-radius: var(--r-card);
+    border: 1px solid rgba(255,255,255,0.95);
+    box-shadow: var(--shadow-soft);
+    padding: 14px;
+    position: relative;
+  }
+  .card.item {
+    border-radius: var(--r-item);
+    padding: 13px 14px;
+  }
+  .card.hero {
+    padding: 16px;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 88% 18%, rgba(255, 200, 87, 0.28), transparent 32%),
+      radial-gradient(circle at 12% 80%, rgba(255, 123, 138, 0.16), transparent 36%),
+      linear-gradient(145deg, #FFF1F3 0%, #FFF8F4 48%, #F4F0FF 100%);
+    border: 1px solid rgba(255,255,255,0.9);
+    box-shadow: 0 16px 36px rgba(255, 123, 138, 0.12), var(--shadow-soft);
+  }
+  .card.done {
+    background: linear-gradient(145deg, #E8FBF4, #F3FFF9);
+    border: 1px solid #D4F5E8;
+  }
+  .card.empty {
+    background: linear-gradient(160deg, #F7F4FF, #FFF6F8);
+    text-align: center;
+    padding: 28px 18px;
+  }
+
+  /* Decorative stickers */
+  .sticker {
+    position: absolute;
+    pointer-events: none;
+    filter: drop-shadow(0 6px 10px rgba(40,48,72,0.12));
+  }
+  .sticker.star {
+    top: 10px; right: 88px;
+    width: 22px; height: 22px;
+    animation: floaty 3.6s ease-in-out infinite;
+  }
+  .sticker.cloud {
+    top: 8px; right: 14px;
+    width: 34px; height: 24px;
+    animation: floaty 4.2s ease-in-out infinite reverse;
+  }
+  .sticker.spark {
+    bottom: 14px; right: 96px;
+    width: 14px; height: 14px;
+    opacity: 0.85;
+  }
+  @keyframes floaty {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
+
+  /* Progress ring */
+  .ring-wrap {
+    width: 96px; height: 96px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .ring-wrap svg { display: block; }
+  .ring-wrap .inner {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    text-align: center;
+  }
+  .ring-wrap .num {
+    font-family: "Outfit", sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .ring-wrap .lbl {
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Week strip */
+  .week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    padding: 10px 8px;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(255,255,255,0.95);
+    border-radius: 20px;
+    box-shadow: var(--shadow-soft);
+    backdrop-filter: blur(8px);
+  }
+  .day {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0 7px;
+    border-radius: 14px;
+  }
+  .day .w { font-size: 10px; font-weight: 800; color: var(--muted); }
+  .day .d {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 12px; font-weight: 800;
+    color: var(--ink-soft);
+    background: transparent;
+  }
+  .day .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: transparent;
+  }
+  .day.done .d { background: var(--mint-soft); color: var(--mint); }
+  .day.done .dot { background: var(--mint); }
+  .day.today {
+    background: linear-gradient(180deg, #FFF0F2, #FFE4E9);
+    box-shadow: inset 0 0 0 1px rgba(255,123,138,0.18);
+  }
+  .day.today .w { color: var(--coral-ink); }
+  .day.today .d {
+    background: linear-gradient(145deg, #FF8FA0, #FF6B7A);
+    color: white;
+    box-shadow: 0 6px 12px rgba(255, 107, 122, 0.35);
+  }
+  .day.today .dot { background: var(--coral); }
+  .day.future .d { color: var(--faint); }
+
+  /* Check circle */
+  .check {
+    width: 30px; height: 30px; border-radius: 50%;
+    border: 2px solid var(--line-strong);
+    background: #fff;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+    color: transparent;
+    font-size: 14px; font-weight: 900;
+  }
+  .check.on {
+    border-color: var(--mint);
+    background: var(--mint);
+    color: white;
+    box-shadow: 0 6px 12px rgba(63, 190, 150, 0.28);
+  }
+
+  .progress {
+    height: 8px;
+    border-radius: 999px;
+    background: #EEF1F7;
+    overflow: hidden;
+  }
+  .progress > i {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--sky), var(--lavender));
+  }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border: 0;
+    border-radius: var(--r-pill);
+    font: inherit;
+    font-weight: 800;
+    cursor: default;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, #FF8A4C, #FF5C8A);
+    color: white;
+    padding: 14px 18px;
+    box-shadow: var(--shadow-float);
+  }
+  .btn-soft {
+    background: var(--lavender-soft);
+    color: var(--lavender-ink);
+    padding: 12px 16px;
+  }
+  .btn-block { width: 100%; }
+
+  .mascot {
+    width: 88px; height: 72px;
+    margin: 0 auto 10px;
+    position: relative;
+  }
+  .blob {
+    position: absolute;
+    border-radius: 50%;
+  }
+  .blob.a {
+    width: 54px; height: 54px;
+    left: 4px; top: 10px;
+    background: linear-gradient(145deg, #2B2D42, #1C1C28);
+    box-shadow: 0 8px 16px rgba(28,28,40,0.2);
+  }
+  .blob.b {
+    width: 58px; height: 58px;
+    right: 0; top: 6px;
+    background: linear-gradient(145deg, #FFE566, #FFC857);
+    box-shadow: 0 8px 16px rgba(255, 200, 87, 0.35);
+  }
+  .blob .eye {
+    position: absolute;
+    width: 7px; height: 9px;
+    background: #1C1C28;
+    border-radius: 50%;
+    top: 20px;
+  }
+  .blob.a .eye.l { left: 16px; background: #fff; }
+  .blob.a .eye.r { right: 16px; background: #fff; }
+  .blob.b .eye.l { left: 16px; }
+  .blob.b .eye.r { right: 16px; }
+  .blob .smile {
+    position: absolute;
+    width: 14px; height: 8px;
+    border: 2px solid currentColor;
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+  }
+  .blob.a .smile { color: #fff; }
+  .blob.b .smile { color: #1C1C28; }
+
+  .tabbar {
+    margin-top: 16px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    padding: 8px 6px 4px;
+    background: rgba(255,255,255,0.88);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    box-shadow: var(--shadow-soft);
+  }
+  .tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--muted);
+    padding: 6px 0;
+  }
+  .tab .ico {
+    width: 28px; height: 28px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-size: 14px;
+  }
+  .tab.active { color: var(--coral-ink); }
+  .tab.active .ico {
+    background: linear-gradient(145deg, #FFE4E8, #FFD0D8);
+    box-shadow: 0 4px 10px rgba(255,123,138,0.18);
+  }
+
+  .notes {
+    margin-top: 48px;
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(255,255,255,0.95);
+    border-radius: 24px;
+    padding: 24px 28px;
+    box-shadow: var(--shadow-soft);
+  }
+  .notes h2 {
+    font-family: "Outfit", sans-serif;
+    font-size: 20px;
+    margin-bottom: 12px;
+  }
+  .notes ul {
+    list-style: none;
+    display: grid;
+    gap: 8px;
+  }
+  .notes li {
+    font-size: 14px;
+    color: var(--ink-soft);
+    font-weight: 600;
+    line-height: 1.5;
+    padding-left: 18px;
+    position: relative;
+  }
+  .notes li::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 8px;
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--coral), var(--lavender));
+  }
+  .tokens {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .token {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 6px;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid var(--line);
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--ink-soft);
+  }
+  .token i {
+    width: 18px; height: 18px; border-radius: 50%;
+    display: block;
+  }
+
+  .footer {
+    margin-top: 28px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-badge">📱 今日打卡 · Soft 3D Lifestyle UI</div>
+      <h1>打卡页 <span>视觉设计 v2</span></h1>
+      <p>
+        对齐参考图气质：软 3D 贴纸、大圆角白卡片、珊瑚→粉渐变强调、周历条、友好成就感。
+        覆盖进行中 / 全勤 / 空状态三态，可直接作为前端落地蓝本。
+      </p>
+    </header>
+
+    <div class="board">
+      <!-- ========== 状态 A：进行中 ========== -->
+      <section class="shot">
+        <div class="shot-label"><b>A · 进行中</b><span>Default</span></div>
+        <div class="phone">
+          <div class="phone-bg"></div>
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <!-- Header -->
+            <div class="row between mb12">
+              <div class="col gap4">
+                <div class="caption">Good morning</div>
+                <div class="title h1">一起打卡 ✨</div>
+              </div>
+              <div class="row">
+                <div class="avatar you">你</div>
+                <div class="avatar ta stack">TA</div>
+              </div>
+            </div>
+
+            <!-- Hero progress -->
+            <div class="card hero mb12">
+              <svg class="sticker star" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2.5l2.6 6.2 6.7.6-5.1 4.5 1.6 6.5L12 16.8 6.2 20.3l1.6-6.5L2.7 9.3l6.7-.6L12 2.5z" fill="#FFC857"/>
+              </svg>
+              <svg class="sticker cloud" viewBox="0 0 40 28" fill="none">
+                <ellipse cx="16" cy="16" rx="12" ry="9" fill="#fff"/>
+                <ellipse cx="26" cy="17" rx="10" ry="8" fill="#fff"/>
+                <ellipse cx="21" cy="12" rx="8" ry="7" fill="#fff"/>
+              </svg>
+              <svg class="sticker spark" viewBox="0 0 16 16" fill="none">
+                <path d="M8 0l1.6 5.2L15 7l-5.4 1.8L8 14 6.4 8.8 1 7l5.4-1.8L8 0z" fill="#9B8CFF"/>
+              </svg>
+
+              <div class="row between gap12">
+                <div class="grow col gap4">
+                  <div class="small" style="color:var(--coral-ink)">今日进度</div>
+                  <div class="title h2" style="color:var(--coral-ink)">3 / 5 完成</div>
+                  <div class="body">再完成 2 项可解锁今日印章</div>
+                  <div class="row gap8 mt10" style="flex-wrap:wrap">
+                    <span class="pill" style="color:var(--coral-ink)">🔥 连续 12 天</span>
+                    <span class="pill" style="color:var(--lavender-ink)">💎 1,280 XP</span>
+                  </div>
+                </div>
+                <div class="ring-wrap">
+                  <svg width="96" height="96" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="38" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="9"/>
+                    <circle cx="48" cy="48" r="38" fill="none" stroke="url(#rg)" stroke-width="9" stroke-linecap="round"
+                      stroke-dasharray="239" stroke-dashoffset="96" transform="rotate(-90 48 48)"/>
+                    <defs>
+                      <linearGradient id="rg" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#FF7B8A"/>
+                        <stop offset="100%" stop-color="#FFC857"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div class="inner">
+                    <div class="num">60%</div>
+                    <div class="lbl">done</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Week strip -->
+            <div class="week mb14">
+              <div class="day done"><span class="w">一</span><span class="d">14</span><span class="dot"></span></div>
+              <div class="day done"><span class="w">二</span><span class="d">15</span><span class="dot"></span></div>
+              <div class="day done"><span class="w">三</span><span class="d">16</span><span class="dot"></span></div>
+              <div class="day"><span class="w">四</span><span class="d">17</span><span class="dot"></span></div>
+              <div class="day today"><span class="w">五</span><span class="d">18</span><span class="dot"></span></div>
+              <div class="day future"><span class="w">六</span><span class="d">19</span><span class="dot"></span></div>
+              <div class="day future"><span class="w">日</span><span class="d">20</span><span class="dot"></span></div>
+            </div>
+
+            <!-- Todo list -->
+            <div class="section-head">
+              <div class="title h3">待办清单</div>
+              <div class="small">今天 · 周五</div>
+            </div>
+
+            <div class="col gap8">
+              <div class="card item">
+                <div class="row gap10">
+                  <div class="check on">✓</div>
+                  <div class="grow">
+                    <div class="row between gap8">
+                      <div class="strong" style="font-size:14px;text-decoration:line-through;color:var(--muted)">早起拉伸</div>
+                      <span class="tag" style="background:var(--mint-soft);color:#1F9B78">+20 XP</span>
+                    </div>
+                    <div class="row gap6 mt4">
+                      <div class="avatar you" style="width:16px;height:16px;font-size:9px;box-shadow:none">你</div>
+                      <div class="small">你已完成</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card item">
+                <div class="row gap10">
+                  <div class="check on">✓</div>
+                  <div class="grow">
+                    <div class="row between gap8">
+                      <div class="strong" style="font-size:14px;text-decoration:line-through;color:var(--muted)">阅读 20 分钟</div>
+                      <span class="tag" style="background:var(--mint-soft);color:#1F9B78">+30 XP</span>
+                    </div>
+                    <div class="small mt4">连续 7 天 · 里程碑将至</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card item" style="box-shadow:0 12px 28px rgba(108,184,255,0.12)">
+                <div class="row gap10">
+                  <div class="check"></div>
+                  <div class="grow">
+                    <div class="row between gap8">
+                      <div class="strong" style="font-size:14px">喝水 8 杯</div>
+                      <span class="tag" style="background:var(--sky-soft);color:#3E86D1">5/8 杯</span>
+                    </div>
+                    <div class="progress mt8"><i style="width:62%"></i></div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card item">
+                <div class="row gap10">
+                  <div class="check"></div>
+                  <div class="grow">
+                    <div class="row between gap8">
+                      <div class="strong" style="font-size:14px">一起散步</div>
+                      <span class="tag" style="background:var(--lavender-soft);color:#6B5AD6">🔥 3</span>
+                    </div>
+                    <div class="small mt4">每天 · 提醒 19:30</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card item">
+                <div class="row gap10">
+                  <div class="check"></div>
+                  <div class="grow">
+                    <div class="row between gap8">
+                      <div class="strong" style="font-size:14px">冥想 10 分钟</div>
+                      <span class="tag" style="background:var(--sun-soft);color:#C28A12">待完成</span>
+                    </div>
+                    <div class="small mt4">工作日 · 无提醒</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab active"><div class="ico">☀️</div>今日</div>
+              <div class="tab"><div class="ico">🔁</div>习惯</div>
+              <div class="tab"><div class="ico">🗺️</div>闯关</div>
+              <div class="tab"><div class="ico">🎁</div>商城</div>
+              <div class="tab"><div class="ico">👤</div>我的</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 状态 B：全勤 ========== -->
+      <section class="shot">
+        <div class="shot-label"><b>B · 今日全勤</b><span>All Done</span></div>
+        <div class="phone">
+          <div class="phone-bg"></div>
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="row between mb12">
+              <div class="col gap4">
+                <div class="caption">下午好</div>
+                <div class="title h1">一起打卡 ✨</div>
+              </div>
+              <div class="row">
+                <div class="avatar you">你</div>
+                <div class="avatar ta stack">TA</div>
+              </div>
+            </div>
+
+            <div class="card hero mb12">
+              <svg class="sticker star" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2.5l2.6 6.2 6.7.6-5.1 4.5 1.6 6.5L12 16.8 6.2 20.3l1.6-6.5L2.7 9.3l6.7-.6L12 2.5z" fill="#FFC857"/>
+              </svg>
+              <svg class="sticker cloud" viewBox="0 0 40 28" fill="none">
+                <ellipse cx="16" cy="16" rx="12" ry="9" fill="#fff"/>
+                <ellipse cx="26" cy="17" rx="10" ry="8" fill="#fff"/>
+                <ellipse cx="21" cy="12" rx="8" ry="7" fill="#fff"/>
+              </svg>
+              <div class="row between gap12">
+                <div class="grow col gap4">
+                  <div class="small" style="color:var(--coral-ink)">今日进度</div>
+                  <div class="title h2" style="color:var(--coral-ink)">今日全勤 ✨</div>
+                  <div class="body">你们今天都点亮了印章</div>
+                  <div class="row gap8 mt10" style="flex-wrap:wrap">
+                    <span class="pill" style="color:var(--coral-ink)">🔥 连续 12 天</span>
+                    <span class="pill" style="color:var(--lavender-ink)">💎 1,340 XP</span>
+                  </div>
+                </div>
+                <div class="ring-wrap">
+                  <svg width="96" height="96" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="38" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="9"/>
+                    <circle cx="48" cy="48" r="38" fill="none" stroke="url(#rg2)" stroke-width="9" stroke-linecap="round"
+                      stroke-dasharray="239" stroke-dashoffset="0" transform="rotate(-90 48 48)"/>
+                    <defs>
+                      <linearGradient id="rg2" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#3FBE96"/>
+                        <stop offset="100%" stop-color="#FFC857"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div class="inner">
+                    <div class="num" style="color:#1F9B78">100%</div>
+                    <div class="lbl">done</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="week mb14">
+              <div class="day done"><span class="w">一</span><span class="d">14</span><span class="dot"></span></div>
+              <div class="day done"><span class="w">二</span><span class="d">15</span><span class="dot"></span></div>
+              <div class="day done"><span class="w">三</span><span class="d">16</span><span class="dot"></span></div>
+              <div class="day done"><span class="w">四</span><span class="d">17</span><span class="dot"></span></div>
+              <div class="day today"><span class="w">五</span><span class="d">18</span><span class="dot"></span></div>
+              <div class="day future"><span class="w">六</span><span class="d">19</span><span class="dot"></span></div>
+              <div class="day future"><span class="w">日</span><span class="d">20</span><span class="dot"></span></div>
+            </div>
+
+            <div class="card done mb12">
+              <div class="mascot" aria-hidden="true">
+                <div class="blob a"><span class="eye l"></span><span class="eye r"></span><span class="smile"></span></div>
+                <div class="blob b"><span class="eye l"></span><span class="eye r"></span><span class="smile"></span></div>
+              </div>
+              <div class="title h3" style="text-align:center;color:#1F9B78">今天全部完成，做得好 🌱</div>
+              <div class="body" style="text-align:center;margin-top:6px">印章已点亮，去商城看看想兑换什么吧</div>
+              <button class="btn btn-primary btn-block mt12">🎁 去商城逛逛</button>
+            </div>
+
+            <div class="section-head">
+              <div class="small">已完成 5</div>
+            </div>
+            <div class="col gap8">
+              <div class="card item" style="opacity:0.92">
+                <div class="row gap10">
+                  <div class="check on">✓</div>
+                  <div class="grow">
+                    <div class="row between gap8">
+                      <div class="strong" style="font-size:14px;text-decoration:line-through;color:var(--muted)">早起拉伸</div>
+                      <span class="tag" style="background:var(--mint-soft);color:#1F9B78">+20 XP</span>
+                    </div>
+                    <div class="small mt4">你已完成</div>
+                  </div>
+                </div>
+              </div>
+              <div class="card item" style="opacity:0.92">
+                <div class="row gap10">
+                  <div class="check on">✓</div>
+                  <div class="grow">
+                    <div class="row between gap8">
+                      <div class="strong" style="font-size:14px;text-decoration:line-through;color:var(--muted)">一起散步</div>
+                      <span class="tag" style="background:var(--mint-soft);color:#1F9B78">+40 XP</span>
+                    </div>
+                    <div class="small mt4">TA 已完成</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab active"><div class="ico">☀️</div>今日</div>
+              <div class="tab"><div class="ico">🔁</div>习惯</div>
+              <div class="tab"><div class="ico">🗺️</div>闯关</div>
+              <div class="tab"><div class="ico">🎁</div>商城</div>
+              <div class="tab"><div class="ico">👤</div>我的</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 状态 C：空状态 ========== -->
+      <section class="shot">
+        <div class="shot-label"><b>C · 空状态</b><span>Empty</span></div>
+        <div class="phone">
+          <div class="phone-bg"></div>
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="row between mb12">
+              <div class="col gap4">
+                <div class="caption">晚上好</div>
+                <div class="title h1">今日打卡 ✨</div>
+              </div>
+              <div class="row">
+                <div class="avatar you">你</div>
+              </div>
+            </div>
+
+            <div class="card hero mb12">
+              <div class="row between gap12">
+                <div class="grow col gap4">
+                  <div class="small" style="color:var(--coral-ink)">今日进度</div>
+                  <div class="title h2" style="color:var(--coral-ink)">还没有习惯</div>
+                  <div class="body">创建第一个习惯开始今天</div>
+                  <div class="row gap8 mt10">
+                    <span class="pill" style="color:var(--lavender-ink)">💎 0 XP</span>
+                  </div>
+                </div>
+                <div class="ring-wrap">
+                  <svg width="96" height="96" viewBox="0 0 96 96">
+                    <circle cx="48" cy="48" r="38" fill="none" stroke="rgba(255,255,255,0.72)" stroke-width="9"/>
+                    <circle cx="48" cy="48" r="38" fill="none" stroke="#FFD5DC" stroke-width="9" stroke-linecap="round"
+                      stroke-dasharray="239" stroke-dashoffset="239" transform="rotate(-90 48 48)"/>
+                  </svg>
+                  <div class="inner">
+                    <div class="num">0%</div>
+                    <div class="lbl">done</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="week mb14">
+              <div class="day"><span class="w">一</span><span class="d">14</span><span class="dot"></span></div>
+              <div class="day"><span class="w">二</span><span class="d">15</span><span class="dot"></span></div>
+              <div class="day"><span class="w">三</span><span class="d">16</span><span class="dot"></span></div>
+              <div class="day"><span class="w">四</span><span class="d">17</span><span class="dot"></span></div>
+              <div class="day today"><span class="w">五</span><span class="d">18</span><span class="dot"></span></div>
+              <div class="day future"><span class="w">六</span><span class="d">19</span><span class="dot"></span></div>
+              <div class="day future"><span class="w">日</span><span class="d">20</span><span class="dot"></span></div>
+            </div>
+
+            <div class="card empty mb12">
+              <div style="font-size:42px;line-height:1;margin-bottom:10px">🌱</div>
+              <div class="title h3">今天还没有习惯</div>
+              <div class="body mt6">先创建一个想坚持的小习惯，从今天开始。</div>
+              <button class="btn btn-primary btn-block mt14">＋ 新增习惯</button>
+              <button class="btn btn-soft btn-block mt8">✨ AI 帮我规划</button>
+            </div>
+
+            <div class="card item">
+              <div class="row gap10">
+                <div style="width:40px;height:40px;border-radius:14px;background:var(--sun-soft);display:grid;place-items:center;font-size:18px">💡</div>
+                <div class="grow">
+                  <div class="strong" style="font-size:14px">小贴士</div>
+                  <div class="small mt4">从每天 5 分钟的小事开始，比一口气立 10 个 flag 更容易坚持。</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab active"><div class="ico">☀️</div>今日</div>
+              <div class="tab"><div class="ico">🔁</div>习惯</div>
+              <div class="tab"><div class="ico">🗺️</div>闯关</div>
+              <div class="tab"><div class="ico">🎁</div>商城</div>
+              <div class="tab"><div class="ico">👤</div>我的</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="notes">
+      <h2>设计说明 · 落地要点</h2>
+      <ul>
+        <li><b>页面结构</b>：问候头区 → 进度 Hero 卡 → 本周条 → 待办/已完成列表 → Tab。</li>
+        <li><b>Hero 卡</b>：粉橙紫柔和渐变底 + 软阴影 + 悬浮贴纸（星/云），进度环珊瑚→阳光渐变。</li>
+        <li><b>周历条</b>：本周一到日；今日珊瑚胶囊高亮；已完成日薄荷绿点。</li>
+        <li><b>习惯行</b>：白卡片 22px 圆角、薄荷绿勾选、右侧糖果色 pill 标签、完成后删除线。</li>
+        <li><b>主 CTA</b>：珊瑚→莓粉横向渐变，胶囊形，阴影偏粉（避免模板紫）。</li>
+        <li><b>全勤态</b>：黑/黄软 3D 表情 blob + 成功浅绿底 + 去商城引导。</li>
+        <li><b>空状态</b>：双按钮（新增 / AI 规划）+ 一句轻量 tips，降低冷启动压力。</li>
+      </ul>
+      <div class="tokens">
+        <span class="token"><i style="background:#FF7B8A"></i>#FF7B8A Coral</span>
+        <span class="token"><i style="background:#9B8CFF"></i>#9B8CFF Lavender</span>
+        <span class="token"><i style="background:#3FBE96"></i>#3FBE96 Mint</span>
+        <span class="token"><i style="background:#FFC857"></i>#FFC857 Sun</span>
+        <span class="token"><i style="background:#6CB8FF"></i>#6CB8FF Sky</span>
+        <span class="token"><i style="background:#F1F0F7"></i>#F1F0F7 BG</span>
+      </div>
+    </section>
+
+    <div class="footer">每日打卡 · Soft 3D Check-in Design v2 · 2026-07-18</div>
+  </div>
+</body>
+</html>

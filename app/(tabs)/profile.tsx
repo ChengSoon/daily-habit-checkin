@@ -154,16 +154,24 @@ export default function ProfileScreen() {
         </AppText>
       </View>
 
-      <SectionCard title="我们的空间">
+      <View
+        style={{
+          borderRadius: radius.xl,
+          backgroundColor: colors.partnerSurface,
+          borderWidth: 1,
+          borderColor: colors.line,
+          padding: spacing.lg,
+          gap: spacing.md,
+          shadowColor: "#283048",
+          shadowOpacity: 0.08,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: 8 },
+          elevation: 3
+        }}
+      >
         {account ? (
           <>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
-              <View style={{ gap: spacing.xs, flex: 1 }}>
-                <AppText variant="bodyStrong">{account.displayName}</AppText>
-                <AppText variant="small" tone="muted">
-                  {account.email}
-                </AppText>
-              </View>
               {couple.people.length > 0 ? (
                 <CoupleAvatars
                   people={couple.people.map((person) => ({
@@ -171,9 +179,31 @@ export default function ProfileScreen() {
                     tone: person.tone,
                     imageUri: person.avatarUrl
                   }))}
-                  size={40}
+                  size={48}
+                  showRibbon={false}
                 />
               ) : null}
+              <View style={{ gap: 4, flex: 1 }}>
+                <AppText variant="caption" style={{ color: colors.partnerInk, textTransform: "none", letterSpacing: 0 }}>
+                  我们的空间
+                </AppText>
+                <AppText variant="section">{account.displayName}</AppText>
+                <AppText variant="small" tone="muted">
+                  {account.email}
+                </AppText>
+              </View>
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+              <View style={{ backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <AppText variant="small" tone="primary" style={{ fontWeight: "800" }}>
+                  💎 {xpBalance} XP
+                </AppText>
+              </View>
+              <View style={{ backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800" }}>
+                  累计 {lifetimeEarned}
+                </AppText>
+              </View>
             </View>
             <AppText variant="small" tone="muted">
               {couple.partner
@@ -184,13 +214,14 @@ export default function ProfileScreen() {
           </>
         ) : (
           <>
+            <AppText variant="section">加入双人空间</AppText>
             <AppText variant="body" tone="soft">
               登录后，你和另一半可以在两台设备共享习惯、积分和奖励。
             </AppText>
             <AppButton title="登录 / 注册" icon="log-in-outline" onPress={() => router.push("/account")} />
           </>
         )}
-      </SectionCard>
+      </View>
 
       <SectionCard>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
@@ -299,7 +330,7 @@ export default function ProfileScreen() {
                       flexDirection: "row",
                       alignItems: "center",
                       gap: spacing.md,
-                      borderRadius: radius.md,
+                      borderRadius: radius.lg,
                       borderWidth: active ? 2 : 1,
                       borderColor: active ? colors.primary : colors.line,
                       backgroundColor: active ? colors.surfaceTint : colors.surface,

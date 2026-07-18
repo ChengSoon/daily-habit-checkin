@@ -152,10 +152,13 @@ function getIconMotion(kick: Animated.Value, motion: TabMotion) {
 }
 
 function AnimatedTabIcon({ active, color, focused, inactive, inactiveColor, motion, routeName, size }: TabIconProps) {
+  const { colors } = useTheme();
   const progress = useTabFocusProgress(focused);
   const kick = useTabIconKick(routeName);
   const activeOpacity = progress;
   const inactiveOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
+  const chipOpacity = progress;
+  const chipScale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] });
   const motionStyle = getIconMotion(kick, motion);
 
   return (
@@ -172,11 +175,21 @@ function AnimatedTabIcon({ active, color, focused, inactive, inactiveColor, moti
         }
       ]}
     >
+      <Animated.View
+        style={[
+          styles.tabIconChip,
+          {
+            backgroundColor: colors.surfaceTint,
+            opacity: chipOpacity,
+            transform: [{ scale: chipScale }]
+          }
+        ]}
+      />
       <Animated.View style={[styles.tabIconLayer, { opacity: inactiveOpacity }]}>
-        <Ionicons name={inactive} size={size ?? 24} color={inactiveColor} />
+        <Ionicons name={inactive} size={size ?? 22} color={inactiveColor} />
       </Animated.View>
       <Animated.View style={[styles.tabIconLayer, { opacity: activeOpacity }]}>
-        <Ionicons name={active} size={size ?? 24} color={String(color)} />
+        <Ionicons name={active} size={size ?? 22} color={String(color)} />
       </Animated.View>
     </Animated.View>
   );
@@ -231,13 +244,18 @@ export default function TabLayout() {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
           borderTopWidth: StyleSheet.hairlineWidth,
-          height: 58 + insets.bottom,
-          paddingTop: 8,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10
+          height: 62 + insets.bottom,
+          paddingTop: 10,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          shadowColor: "#283048",
+          shadowOpacity: 0.08,
+          shadowRadius: 16,
+          shadowOffset: { width: 0, height: -4 },
+          elevation: 8
         },
         tabBarLabelStyle: {
           fontSize: 11,
-          fontWeight: "600",
+          fontWeight: "700",
           letterSpacing: 0,
           marginTop: Platform.OS === "ios" ? 2 : 0
         },
@@ -265,9 +283,15 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabIconFrame: {
     alignItems: "center",
-    height: 28,
+    height: 32,
     justifyContent: "center",
-    width: 42
+    width: 48
+  },
+  tabIconChip: {
+    position: "absolute",
+    width: 42,
+    height: 28,
+    borderRadius: 14
   },
   tabIconLayer: {
     alignItems: "center",
@@ -280,7 +304,7 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontSize: 11,
-    fontWeight: "600",
+    fontWeight: "700",
     letterSpacing: 0,
     marginTop: Platform.OS === "ios" ? 2 : 0
   }

@@ -40,9 +40,9 @@ function ShortfallLabel({ priceXp, balance }: { priceXp: number; balance: number
       accessibilityRole="text"
       accessibilityLabel={`还差 ${shortfall} 积分，已攒 ${progressPct}%`}
       style={{
-        minHeight: 38,
+        minHeight: 40,
         borderRadius: radius.md,
-        backgroundColor: colors.surfaceTint,
+        backgroundColor: colors.candySkySurface,
         borderWidth: 1,
         borderColor: colors.line,
         paddingHorizontal: spacing.sm,
@@ -115,26 +115,55 @@ export default function ShopScreen() {
 
   return (
     <Screen>
-      <AppText variant="title">奖励商城</AppText>
+      <View style={{ gap: spacing.xs }}>
+        <AppText variant="display">商城</AppText>
+        <AppText variant="body" tone="muted">
+          用 XP 兑换小心意
+        </AppText>
+      </View>
 
-      <Card
+      <View
         style={{
+          borderRadius: 28,
+          overflow: "hidden",
           backgroundColor: colors.primary,
-          borderColor: colors.primary,
-          padding: spacing.md,
-          gap: 2
+          padding: spacing.lg,
+          gap: spacing.xs,
+          shadowColor: colors.primary,
+          shadowOpacity: 0.28,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 10 },
+          elevation: 6
         }}
       >
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            right: -24,
+            top: -24,
+            width: 140,
+            height: 140,
+            borderRadius: 999,
+            backgroundColor: colors.candySun,
+            opacity: 0.35
+          }}
+        />
         <AppText variant="caption" tone="onPrimary" style={{ opacity: 0.85 }}>
-          我的积分
+          我的积分钱包
         </AppText>
-        <AppText variant="title" tone="onPrimary">
-          {balance}
+        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
+          <AppText variant="display" tone="onPrimary" style={{ fontSize: 36, lineHeight: 42 }}>
+            {balance}
+          </AppText>
+          <AppText variant="bodyStrong" tone="onPrimary" style={{ opacity: 0.9, marginBottom: 6 }}>
+            XP
+          </AppText>
+        </View>
+        <AppText variant="small" tone="onPrimary" style={{ opacity: 0.9 }}>
+          完成打卡即可累积 XP，兑换喜欢的奖励
         </AppText>
-        <AppText variant="small" tone="onPrimary" style={{ opacity: 0.85 }}>
-          完成打卡即可累积积分，兑换喜欢的奖励
-        </AppText>
-      </Card>
+      </View>
 
       {message ? <HelperText tone="success">{message}</HelperText> : null}
       {error ? <HelperText tone="danger">{error}</HelperText> : null}
@@ -148,7 +177,7 @@ export default function ShopScreen() {
               {row.map((reward) => {
                 const canRedeem = balance >= reward.priceXp;
                 return (
-                  <Card key={reward.id} style={{ flex: 1, padding: 0, overflow: "hidden", gap: 0 }}>
+                  <Card key={reward.id} style={{ flex: 1, padding: 0, overflow: "hidden", gap: 0, borderRadius: radius.lg }}>
                     <RewardImage
                       uri={publicUrl(reward.imageKey)}
                       type={reward.type}
@@ -171,14 +200,14 @@ export default function ShopScreen() {
                       <View
                         style={{
                           alignSelf: "flex-start",
-                          borderRadius: radius.sm,
-                          backgroundColor: colors.surfaceTint,
-                          paddingHorizontal: spacing.sm,
-                          paddingVertical: 3
+                          borderRadius: radius.pill,
+                          backgroundColor: colors.candySunSurface,
+                          paddingHorizontal: spacing.sm + 2,
+                          paddingVertical: 4
                         }}
                       >
                         <AppText variant="small" tone="primary" style={{ fontWeight: "700" }}>
-                          {reward.priceXp} 积分
+                          {reward.priceXp} XP
                         </AppText>
                       </View>
                       {canRedeem ? (

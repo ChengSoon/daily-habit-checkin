@@ -118,8 +118,8 @@ export function MonthCalendar({
           let textTone: "onPrimary" | "primary" | "default" | "muted" | "faint" = "faint";
 
           if (isDone) {
-            backgroundColor = colors.primary;
-            borderColor = colors.primary;
+            backgroundColor = colors.success;
+            borderColor = colors.success;
             textTone = "onPrimary";
           } else if (isToday) {
             borderColor = colors.primary;

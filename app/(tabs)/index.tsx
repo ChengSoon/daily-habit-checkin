@@ -1,4 +1,3 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
@@ -15,7 +14,6 @@ import { rescheduleHabitReminders, rescheduleTodayEveningSummary } from "../../s
 import { getAppSettings } from "../../src/settings/settingsRepository";
 import { AppButton, AppText, Card, TextField } from "../../src/ui/Controls";
 import { CheckInCelebration, FullCelebration, MiniCheckInBurst } from "../../src/ui/CheckInCelebration";
-import { EmptyState } from "../../src/ui/EmptyState";
 import { HabitCompleter, HabitRow } from "../../src/ui/HabitRow";
 import { ProgressHeader } from "../../src/ui/ProgressHeader";
 import { Screen } from "../../src/ui/Screen";
@@ -24,9 +22,10 @@ import { useCouple } from "../../src/ui/useCouple";
 import { radius, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, todayKey } from "../../src/utils/date";
+import { buildCurrentWeekDays } from "../../src/utils/week";
 import { getWallet } from "../../src/xp/xpRepository";
 import { awardXpForCheckIn, revokeXpForCheckIn } from "../../src/xp/xpService";
-import { BalanceCountText, XpGainLabel } from "../../src/ui/XpGainLabel";
+import { XpGainLabel } from "../../src/ui/XpGainLabel";
 
 export default function TodayScreen() {
   const { colors } = useTheme();
@@ -42,6 +41,7 @@ export default function TodayScreen() {
   const [xpGain, setXpGain] = useState<{ amount: number; key: number } | null>(null);
   const [isUndoing, setIsUndoing] = useState(false);
   const [undoNow, setUndoNow] = useState(() => new Date());
+  const [weekDoneKeys, setWeekDoneKeys] = useState<string[]>([]);
   const miniBurstKey = useRef(0);
   const xpGainKey = useRef(0);
   const today = todayKey();
@@ -83,9 +83,12 @@ export default function TodayScreen() {
   const load = useCallback(async () => {
     const activeHabits = await listActiveHabits();
     const loadedHabits = activeHabits.filter((habit) => shouldRunOnDate(habit.frequency, new Date(`${today}T00:00:00`)));
-    const checkInsByHabit = await Promise.all(loadedHabits.map((habit) => listCheckInsForHabit(habit.id)));
-    const loadedCheckIns = checkInsByHabit.flat();
-    const todayCheckIns = loadedCheckIns.filter((checkIn) => checkIn.date === today);
+    // 拉取全部活跃习惯历史：今日列表 + 周历点亮共用，避免重复请求
+    const checkInsByHabit = await Promise.all(activeHabits.map((habit) => listCheckInsForHabit(habit.id)));
+    const checkInsByHabitId = new Map(activeHabits.map((habit, index) => [habit.id, checkInsByHabit[index]]));
+    const todayCheckIns = checkInsByHabit
+      .flat()
+      .filter((checkIn) => checkIn.date === today && loadedHabits.some((habit) => habit.id === checkIn.habitId));
     const completedIds = new Set(
       todayCheckIns.filter((checkIn) => checkIn.status === "completed").map((checkIn) => checkIn.habitId)
     );
@@ -93,14 +96,40 @@ export default function TodayScreen() {
     const incompleteNames = loadedHabits.filter((habit) => !completedIds.has(habit.id)).map((habit) => habit.name);
 
     const nextStreaks: Record<string, number> = {};
-    loadedHabits.forEach((habit, index) => {
+    for (const habit of loadedHabits) {
       // 连续天数用完整历史，避免跨月在每月 1 号被截断
       const habitStart = habit.createdAt.slice(0, 10);
       const scheduledDates = eachDateKey(habitStart, today).filter((date) =>
         shouldRunOnDate(habit.frequency, new Date(`${date}T00:00:00`))
       );
-      nextStreaks[habit.id] = calculateCurrentStreak({ today, scheduledDates, checkIns: checkInsByHabit[index] });
-    });
+      nextStreaks[habit.id] = calculateCurrentStreak({
+        today,
+        scheduledDates,
+        checkIns: checkInsByHabitId.get(habit.id) ?? []
+      });
+    }
+
+    // 本周全勤日：当天有应做习惯且全部 completed 则点亮
+    const weekDone: string[] = [];
+    for (const day of buildCurrentWeekDays()) {
+      if (day.dateKey >= today) {
+        continue;
+      }
+      const scheduled = activeHabits.filter((habit) =>
+        !habit.isPaused && shouldRunOnDate(habit.frequency, new Date(`${day.dateKey}T00:00:00`))
+      );
+      if (scheduled.length === 0) {
+        continue;
+      }
+      const allDone = scheduled.every((habit) =>
+        (checkInsByHabitId.get(habit.id) ?? []).some(
+          (checkIn) => checkIn.date === day.dateKey && checkIn.status === "completed"
+        )
+      );
+      if (allDone) {
+        weekDone.push(day.dateKey);
+      }
+    }
 
     const wallet = await getWallet();
     setXpBalance(wallet.balance);
@@ -108,6 +137,7 @@ export default function TodayScreen() {
     setHabits(loadedHabits);
     setCheckIns(todayCheckIns);
     setStreaks(nextStreaks);
+    setWeekDoneKeys(weekDone);
     await rescheduleHabitReminders({
       habits: activeHabits,
       completedHabitIds: completedIds,
@@ -257,38 +287,71 @@ export default function TodayScreen() {
             imageUri: person.avatarUrl
           }))}
           hasPartner={couple.partner !== null}
+          streakDays={Math.max(0, ...Object.values(streaks), 0)}
+          xpBalance={xpBalance}
+          onPressXp={() => router.push("/shop")}
+          doneDateKeys={weekDoneKeys}
+          xpAccessory={
+            xpGain ? (
+              <XpGainLabel amount={xpGain.amount} playKey={xpGain.key} onFinish={clearXpGain} />
+            ) : null
+          }
         />
 
-        <Card
-          onPress={() => router.push("/shop")}
-          style={{
-            flexDirection: "row",
-            alignItems: "center",
-            gap: spacing.sm,
-            paddingVertical: spacing.md
-          }}
-        >
-          <Ionicons name="sparkles" size={16} color={colors.primaryInk} />
-          <BalanceCountText balance={xpBalance} toneColor={colors.primaryInk} />
-          <View style={{ flex: 1 }} />
-          {xpGain ? (
-            <XpGainLabel amount={xpGain.amount} playKey={xpGain.key} onFinish={clearXpGain} />
-          ) : null}
-          <Ionicons name="chevron-forward" size={16} color={colors.faint} />
-        </Card>
-
         {habits.length === 0 ? (
-          <>
-            <EmptyState title="今天还没有习惯" body="先创建一个想坚持的小习惯，从今天开始。" />
-            <AppButton title="新增习惯" onPress={() => router.push("/habit/new")} />
-          </>
+          <View style={{ gap: spacing.md }}>
+            <Card
+              style={{
+                alignItems: "center",
+                paddingVertical: spacing.xl,
+                backgroundColor: colors.surfaceTint,
+                borderColor: colors.line
+              }}
+            >
+              <AppText style={{ fontSize: 40, lineHeight: 48, marginBottom: spacing.sm }}>🌱</AppText>
+              <AppText variant="section" style={{ textAlign: "center" }}>
+                今天还没有习惯
+              </AppText>
+              <AppText variant="small" tone="muted" style={{ textAlign: "center", marginTop: spacing.xs }}>
+                先创建一个想坚持的小习惯，从今天开始。
+              </AppText>
+              <View style={{ width: "100%", gap: spacing.sm, marginTop: spacing.lg }}>
+                <AppButton title="＋ 新增习惯" onPress={() => router.push("/habit/new")} />
+                <AppButton title="✨ AI 帮我规划" variant="secondary" onPress={() => router.push("/habit/new")} />
+              </View>
+            </Card>
+            <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: radius.md,
+                  backgroundColor: colors.candySunSurface,
+                  alignItems: "center",
+                  justifyContent: "center"
+                }}
+              >
+                <AppText style={{ fontSize: 18 }}>💡</AppText>
+              </View>
+              <View style={{ flex: 1, gap: 2 }}>
+                <AppText variant="bodyStrong">小贴士</AppText>
+                <AppText variant="small" tone="muted">
+                  从每天 5 分钟的小事开始，比一口气立 10 个 flag 更容易坚持。
+                </AppText>
+              </View>
+            </Card>
+          </View>
         ) : (
           <View style={{ gap: spacing.md }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <AppText variant="section">待办清单</AppText>
+              <AppText variant="small" tone="muted">
+                今天 · {["日", "一", "二", "三", "四", "五", "六"][new Date().getDay()]}
+              </AppText>
+            </View>
+
             {remaining.length > 0 ? (
               <View style={{ gap: spacing.sm }}>
-                <AppText variant="caption" tone="muted">
-                  待完成 {remaining.length}
-                </AppText>
                 {remaining.map((habit) => (
                   <HabitRow
                     key={habit.id}
@@ -302,16 +365,33 @@ export default function TodayScreen() {
                 ))}
               </View>
             ) : (
-              <Card tone="tint">
-                <AppText variant="bodyStrong" tone="primary">
+              <Card
+                style={{
+                  backgroundColor: colors.successSurface,
+                  borderColor: colors.successSurface,
+                  alignItems: "center",
+                  gap: spacing.sm,
+                  paddingVertical: spacing.lg
+                }}
+              >
+                <AppText style={{ fontSize: 36, lineHeight: 42 }}>🎉</AppText>
+                <AppText variant="bodyStrong" style={{ color: colors.success, textAlign: "center" }}>
                   今天全部完成，做得好 🌱
                 </AppText>
+                <AppText variant="small" tone="muted" style={{ textAlign: "center" }}>
+                  印章已点亮，去商城看看想兑换什么吧
+                </AppText>
+                <AppButton
+                  title="🎁 去商城逛逛"
+                  onPress={() => router.push("/shop")}
+                  style={{ alignSelf: "stretch", marginTop: spacing.xs }}
+                />
               </Card>
             )}
 
             {done.length > 0 ? (
               <View style={{ gap: spacing.sm }}>
-                <AppText variant="caption" tone="muted">
+                <AppText variant="small" tone="muted">
                   已完成 {done.length}
                 </AppText>
                 {done.map((habit) => {

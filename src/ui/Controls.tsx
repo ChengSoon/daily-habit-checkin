@@ -14,7 +14,7 @@ import {
   View,
   ViewStyle
 } from "react-native";
-import { Palette, radius, spacing, type as typeScale } from "./theme";
+import { Palette, radius, shadow, spacing, type as typeScale } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -148,7 +148,7 @@ export function AppButton({
 
   const background: Record<ButtonVariant, string> = {
     primary: colors.primary,
-    secondary: colors.surfaceTint,
+    secondary: colors.partnerSurface,
     ghost: "transparent",
     danger: colors.dangerSurface
   };
@@ -175,20 +175,33 @@ export function AppButton({
       onPress={onPress}
       style={({ pressed }) => [
         {
-          minHeight: compact ? 38 : 50,
-          borderRadius: radius.md,
+          minHeight: compact ? 40 : 52,
+          borderRadius: radius.pill,
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
           gap: spacing.sm,
-          paddingHorizontal: compact ? spacing.md : spacing.lg,
+          paddingHorizontal: compact ? spacing.md : spacing.xl,
           paddingVertical: compact ? spacing.sm : spacing.md,
           backgroundColor: disabled ? colors.surfaceMuted : background[variant],
-          borderWidth: 1,
-          borderColor: disabled ? colors.lineStrong : border[variant]
+          borderWidth: variant === "ghost" ? 1 : 0,
+          borderColor: disabled
+            ? colors.lineStrong
+            : variant === "ghost"
+              ? border[variant]
+              : "transparent",
+          ...(variant === "primary" && !disabled
+            ? {
+                shadowColor: colors.primary,
+                shadowOpacity: 0.28,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 8 },
+                elevation: 4
+              }
+            : {})
         },
         fullWidth ? { alignSelf: "stretch" } : null,
-        pressed && !disabled ? { opacity: 0.85, transform: [{ scale: 0.99 }] } : null,
+        pressed && !disabled ? { opacity: 0.9, transform: [{ scale: 0.985 }] } : null,
         style
       ]}
     >
@@ -226,9 +239,9 @@ export function IconButton({
       onPress={onPress}
       style={({ pressed }) => [
         {
-          width: 38,
-          height: 38,
-          borderRadius: radius.md,
+          width: 40,
+          height: 40,
+          borderRadius: radius.pill,
           alignItems: "center",
           justifyContent: "center",
           backgroundColor: colors.surfaceMuted,
@@ -282,7 +295,7 @@ export function SegmentedControl<T extends string | number>({
       style={{
         flexDirection: "row",
         backgroundColor: colors.surfaceMuted,
-        borderRadius: radius.md,
+        borderRadius: radius.pill,
         padding: PADDING
       }}
     >
@@ -296,13 +309,13 @@ export function SegmentedControl<T extends string | number>({
             left: PADDING,
             bottom: PADDING,
             width: thumbWidth,
-            borderRadius: radius.sm,
+            borderRadius: radius.pill,
             backgroundColor: colors.surface,
-            shadowColor: "#000",
-            shadowOpacity: 0.06,
-            shadowRadius: 4,
-            shadowOffset: { width: 0, height: 1 },
-            elevation: 1,
+            shadowColor: "#283048",
+            shadowOpacity: 0.08,
+            shadowRadius: 8,
+            shadowOffset: { width: 0, height: 3 },
+            elevation: 2,
             transform: [
               {
                 translateX: position.interpolate({
@@ -382,7 +395,7 @@ export function TextField({
         editable={!disabled}
         style={[
           {
-            minHeight: multiline ? 92 : 50,
+            minHeight: multiline ? 96 : 52,
             borderRadius: radius.md,
             borderWidth: 1,
             borderColor: colors.line,
@@ -404,11 +417,14 @@ export function Card({
   children,
   style,
   onPress,
-  tone = "surface"
+  tone = "surface",
+  elevated = true
 }: PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   tone?: "surface" | "tint" | "muted";
+  /** 是否使用软阴影。密集列表可关。 */
+  elevated?: boolean;
 }>) {
   const { colors } = useTheme();
   const background =
@@ -419,11 +435,12 @@ export function Card({
       style={[
         {
           borderRadius: radius.lg,
-          borderWidth: 1,
+          borderWidth: elevated ? 0 : 1,
           borderColor: colors.line,
           backgroundColor: background,
           padding: spacing.lg,
-          gap: spacing.md
+          gap: spacing.md,
+          ...(elevated ? shadow.card : {})
         },
         style
       ]}
@@ -437,7 +454,7 @@ export function Card({
   }
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => (pressed ? { opacity: 0.9 } : null)}>
+    <Pressable onPress={onPress} style={({ pressed }) => (pressed ? { opacity: 0.92, transform: [{ scale: 0.995 }] } : null)}>
       {content}
     </Pressable>
   );
@@ -465,7 +482,16 @@ export function HelperText({
   return <AppText variant="small" style={{ color }}>{children}</AppText>;
 }
 
-export function StatTile({ label, value }: { label: string; value: string }) {
+export function StatTile({
+  label,
+  value,
+  tint
+}: {
+  label: string;
+  value: string;
+  /** 可选色块底，默认 surfaceTint */
+  tint?: string;
+}) {
   const { colors } = useTheme();
   return (
     <View
@@ -473,10 +499,11 @@ export function StatTile({ label, value }: { label: string; value: string }) {
         flex: 1,
         minWidth: 96,
         borderRadius: radius.md,
-        backgroundColor: colors.surfaceTint,
+        backgroundColor: tint ?? colors.surfaceTint,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.md,
-        gap: spacing.xs
+        gap: spacing.xs,
+        ...shadow.soft
       }}
     >
       <AppText variant="title" tone="primary">{value}</AppText>
@@ -508,11 +535,11 @@ export function Badge({
         alignSelf: "flex-start",
         borderRadius: radius.pill,
         backgroundColor: bg,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: 3
+        paddingHorizontal: spacing.sm + 2,
+        paddingVertical: 4
       }}
     >
-      <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "600", color: fg }}>{label}</Text>
+      <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "700", color: fg }}>{label}</Text>
     </View>
   );
 }
@@ -644,4 +671,4 @@ export function ListRow({
   );
 }
 
-export { spacing, radius };
+export { spacing, radius, shadow };

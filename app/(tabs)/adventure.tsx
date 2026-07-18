@@ -54,43 +54,80 @@ export default function AdventureHomeScreen() {
     <Screen>
       <View
         style={{
-          borderRadius: radius.lg,
+          borderRadius: radius.xl,
           overflow: "hidden",
-          padding: spacing.lg,
-          gap: spacing.sm,
-          backgroundColor: colors.primary
+          backgroundColor: colors.primary,
+          shadowColor: colors.primary,
+          shadowOpacity: 0.28,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 10 },
+          elevation: 6
         }}
       >
-        <AppText variant="caption" tone="onPrimary" style={{ opacity: 0.85 }}>
-          双人旅程
-        </AppText>
-        <AppText variant="title" tone="onPrimary">
-          {current ? current.title : "启程之前"}
-        </AppText>
-        <AppText variant="small" tone="onPrimary" style={{ opacity: 0.9 }}>
-          累计 {state.lifetimeEarned} XP · 已解锁 {state.highestUnlockedOrder}/{total} 章 · 徽章 {claimedCount}
-        </AppText>
+        {/* 设计稿珊瑚→暖橙→阳光渐变（分层近似，避免额外依赖） */}
         <View
+          pointerEvents="none"
           style={{
-            marginTop: spacing.sm,
-            height: 12,
-            borderRadius: 999,
-            backgroundColor: "rgba(255,255,255,0.22)",
-            overflow: "hidden"
+            position: "absolute",
+            top: 0,
+            right: 0,
+            width: "70%",
+            height: "100%",
+            backgroundColor: "#FF9A7A",
+            opacity: 0.55
           }}
-        >
+        />
+        <View
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            right: -20,
+            bottom: -30,
+            width: 160,
+            height: 160,
+            borderRadius: 999,
+            backgroundColor: colors.candySun,
+            opacity: 0.55
+          }}
+        />
+        <View style={{ padding: spacing.lg, gap: spacing.sm }}>
+          <AppText variant="caption" tone="onPrimary" style={{ opacity: 0.85 }}>
+            双人旅程 · Chapter
+          </AppText>
+          <AppText variant="title" tone="onPrimary">
+            {current ? current.title : "启程之前"}
+          </AppText>
+          <AppText variant="small" tone="onPrimary" style={{ opacity: 0.92 }}>
+            累计 {state.lifetimeEarned} XP · 已解锁 {state.highestUnlockedOrder}/{total} 章 · 徽章 {claimedCount}
+          </AppText>
           <View
             style={{
-              width: `${Math.round(progressRatio * 100)}%`,
-              height: "100%",
-              backgroundColor: colors.onPrimary
+              marginTop: spacing.sm,
+              height: 12,
+              borderRadius: 999,
+              backgroundColor: "rgba(255,255,255,0.22)",
+              overflow: "hidden"
             }}
-          />
+          >
+            <View
+              style={{
+                width: `${Math.round(progressRatio * 100)}%`,
+                height: "100%",
+                borderRadius: 999,
+                backgroundColor: "#FFFFFF"
+              }}
+            />
+          </View>
+          {next && remaining > 0 ? (
+            <AppText variant="small" tone="onPrimary" style={{ opacity: 0.9 }}>
+              下一章还差 {remaining} XP
+            </AppText>
+          ) : null}
         </View>
       </View>
 
-      <Card style={{ gap: spacing.sm, marginTop: spacing.md }}>
-        <AppText variant="section">当前进度舱</AppText>
+      <Card style={{ gap: spacing.sm, marginTop: spacing.sm }}>
+        <AppText variant="section">当前进度</AppText>
         {next ? (
           <>
             <AppText variant="bodyStrong">{next.viewStatus === "claimable" ? "可领取章节" : "下一章"}</AppText>
@@ -142,7 +179,7 @@ export default function AdventureHomeScreen() {
             backgroundColor: colors.surfaceTint
           }}
         >
-          <AppText variant="bodyStrong">有 {state.claimableCount} 个章节徽章可领取</AppText>
+          <AppText variant="bodyStrong">✨ 有 {state.claimableCount} 个章节徽章可领取</AppText>
           <AppText variant="caption" tone="muted" style={{ marginTop: 4, textTransform: "none", letterSpacing: 0 }}>
             打开地图点亮岛屿，阅读叙事后手动领取。
           </AppText>

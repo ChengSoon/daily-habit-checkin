@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>每日打卡 · UI Design Showcase Board v1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@500;600;700;800&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #F3F4F8;
+    --bg-soft: #EEF0F6;
+    --paper: #FFFFFF;
+    --ink: #1F2430;
+    --ink-soft: #5B6475;
+    --muted: #8B93A7;
+    --line: #E8EBF3;
+    --coral: #FF7B8A;
+    --coral-soft: #FFE4E8;
+    --lavender: #9B8CFF;
+    --lavender-soft: #ECE8FF;
+    --mint: #4ED6B0;
+    --mint-soft: #DDF8EF;
+    --sky: #6CB8FF;
+    --sky-soft: #E3F1FF;
+    --sun: #FFC857;
+    --sun-soft: #FFF3D6;
+    --orange: #FF9B6A;
+    --orange-soft: #FFE7DB;
+    --grape: #C77DFF;
+    --shadow: 0 18px 40px rgba(40, 48, 72, 0.08), 0 4px 12px rgba(40, 48, 72, 0.04);
+    --shadow-soft: 0 10px 24px rgba(40, 48, 72, 0.06);
+    --r-screen: 28px;
+    --r-card: 20px;
+    --r-pill: 999px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "Nunito", "Outfit", -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at 12% 8%, rgba(255, 200, 87, 0.18), transparent 28%),
+      radial-gradient(circle at 88% 12%, rgba(155, 140, 255, 0.16), transparent 26%),
+      radial-gradient(circle at 50% 100%, rgba(78, 214, 176, 0.12), transparent 34%),
+      var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    padding: 48px 28px 80px;
+  }
+
+  .page {
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .hero {
+    text-align: center;
+    margin-bottom: 42px;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: var(--r-pill);
+    background: rgba(255,255,255,0.82);
+    border: 1px solid rgba(255,255,255,0.9);
+    box-shadow: var(--shadow-soft);
+    color: var(--ink-soft);
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+  .hero h1 {
+    font-family: "Outfit", "Nunito", sans-serif;
+    font-size: clamp(34px, 5vw, 52px);
+    line-height: 1.08;
+    letter-spacing: -0.03em;
+    font-weight: 800;
+    margin-bottom: 12px;
+  }
+  .hero h1 span {
+    background: linear-gradient(120deg, var(--coral), var(--lavender) 55%, var(--sky));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .hero p {
+    max-width: 720px;
+    margin: 0 auto;
+    color: var(--ink-soft);
+    font-size: 16px;
+    line-height: 1.65;
+  }
+
+  .palette {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 22px;
+  }
+  .swatch {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 6px;
+    border-radius: var(--r-pill);
+    background: rgba(255,255,255,0.78);
+    border: 1px solid rgba(255,255,255,0.95);
+    box-shadow: var(--shadow-soft);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+  .swatch i {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    display: block;
+  }
+
+  /* Waterfall board */
+  .board {
+    columns: 3;
+    column-gap: 22px;
+  }
+  @media (max-width: 980px) {
+    .board { columns: 2; }
+  }
+  @media (max-width: 640px) {
+    .board { columns: 1; }
+    body { padding: 28px 16px 56px; }
+  }
+
+  .shot {
+    break-inside: avoid;
+    margin-bottom: 22px;
+    display: inline-block;
+    width: 100%;
+  }
+  .shot-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0 6px 10px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .shot-label b {
+    color: var(--ink-soft);
+    font-size: 13px;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  .phone {
+    background: var(--paper);
+    border-radius: var(--r-screen);
+    box-shadow: var(--shadow);
+    border: 1px solid rgba(255,255,255,0.95);
+    overflow: hidden;
+    position: relative;
+  }
+  .status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px 6px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--ink);
+  }
+  .status .icons { display: flex; gap: 5px; opacity: 0.75; }
+  .screen {
+    padding: 8px 16px 18px;
+  }
+  .screen.dense { padding-bottom: 14px; }
+
+  /* Shared UI atoms */
+  .row { display: flex; align-items: center; }
+  .between { justify-content: space-between; }
+  .gap4 { gap: 4px; }
+  .gap6 { gap: 6px; }
+  .gap8 { gap: 8px; }
+  .gap10 { gap: 10px; }
+  .gap12 { gap: 12px; }
+  .gap14 { gap: 14px; }
+  .col { display: flex; flex-direction: column; }
+  .grow { flex: 1; min-width: 0; }
+  .center { align-items: center; justify-content: center; }
+  .mt4 { margin-top: 4px; }
+  .mt6 { margin-top: 6px; }
+  .mt8 { margin-top: 8px; }
+  .mt10 { margin-top: 10px; }
+  .mt12 { margin-top: 12px; }
+  .mt14 { margin-top: 14px; }
+  .mt16 { margin-top: 16px; }
+  .mb8 { margin-bottom: 8px; }
+  .mb10 { margin-bottom: 10px; }
+  .mb12 { margin-bottom: 12px; }
+  .mb14 { margin-bottom: 14px; }
+  .mb16 { margin-bottom: 16px; }
+
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 13px; color: white;
+    flex-shrink: 0;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,0.55);
+  }
+  .avatar.sm { width: 28px; height: 28px; font-size: 11px; }
+  .avatar.lg { width: 48px; height: 48px; font-size: 16px; }
+  .avatar.you { background: linear-gradient(145deg, #FF8FA0, #FF6B7A); }
+  .avatar.ta { background: linear-gradient(145deg, #B0A3FF, #8B7BFF); }
+  .avatar.stack { margin-left: -10px; box-shadow: 0 0 0 2px #fff; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 10px; border-radius: var(--r-pill);
+    font-size: 11px; font-weight: 800;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    border: 0; border-radius: var(--r-pill);
+    font: inherit; font-weight: 800; cursor: default;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--coral), #FF9A7A);
+    color: white;
+    padding: 12px 16px;
+    box-shadow: 0 10px 20px rgba(255, 123, 138, 0.28);
+  }
+  .btn-soft {
+    background: var(--lavender-soft);
+    color: #6B5AD6;
+    padding: 10px 14px;
+  }
+  .btn-mint {
+    background: var(--mint);
+    color: white;
+    padding: 10px 14px;
+    box-shadow: 0 8px 16px rgba(78, 214, 176, 0.28);
+  }
+  .btn-block { width: 100%; }
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--r-card);
+    padding: 12px;
+    box-shadow: 0 6px 16px rgba(40,48,72,0.03);
+  }
+  .card.soft { background: #FAFBFE; }
+  .card.tint-coral { background: linear-gradient(160deg, #FFF5F7, #FFE9ED); border-color: #FFD6DD; }
+  .card.tint-lav { background: linear-gradient(160deg, #F7F5FF, #EEEAFF); border-color: #DDD6FF; }
+  .card.tint-mint { background: linear-gradient(160deg, #F2FCF8, #E4F8F0); border-color: #C8F0E1; }
+  .card.tint-sky { background: linear-gradient(160deg, #F3F9FF, #E5F1FF); border-color: #CDE5FF; }
+  .card.tint-sun { background: linear-gradient(160deg, #FFF9EC, #FFF1CF); border-color: #FFE4A3; }
+  .card.tint-orange { background: linear-gradient(160deg, #FFF6F0, #FFEADF); border-color: #FFD5BE; }
+
+  .title { font-family: "Outfit", "Nunito", sans-serif; font-weight: 800; letter-spacing: -0.02em; }
+  .h1 { font-size: 26px; line-height: 1.15; }
+  .h2 { font-size: 20px; line-height: 1.2; }
+  .h3 { font-size: 16px; line-height: 1.25; }
+  .body { font-size: 13px; line-height: 1.45; color: var(--ink-soft); }
+  .small { font-size: 11px; line-height: 1.35; color: var(--muted); font-weight: 700; }
+  .caption { font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
+  .ink { color: var(--ink); }
+  .strong { font-weight: 800; }
+
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .icon-chip {
+    width: 36px; height: 36px; border-radius: 14px;
+    display: grid; place-items: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  .icon-chip.lg { width: 44px; height: 44px; border-radius: 16px; font-size: 20px; }
+
+  .progress {
+    height: 10px; border-radius: var(--r-pill); background: #EEF1F7; overflow: hidden;
+  }
+  .progress > i {
+    display: block; height: 100%; border-radius: inherit;
+    background: linear-gradient(90deg, var(--coral), var(--sun));
+  }
+
+  .tabbar {
+    margin-top: 12px;
+    border-top: 1px solid var(--line);
+    padding: 10px 8px 4px;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+  }
+  .tab {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    font-size: 10px; font-weight: 800; color: var(--muted);
+  }
+  .tab.active { color: var(--coral); }
+  .tab .ico {
+    width: 28px; height: 28px; border-radius: 12px;
+    display: grid; place-items: center; font-size: 14px;
+  }
+  .tab.active .ico {
+    background: var(--coral-soft);
+  }
+
+  .check {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid #D5DBE8;
+    display: grid; place-items: center;
+    flex-shrink: 0;
+  }
+  .check.on {
+    border-color: transparent;
+    background: linear-gradient(145deg, var(--mint), #39C49A);
+    color: white;
+    font-size: 13px;
+    box-shadow: 0 6px 12px rgba(78,214,176,0.28);
+  }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    padding: 4px 8px; border-radius: var(--r-pill);
+    font-size: 10px; font-weight: 800;
+  }
+
+  .bento {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stat {
+    border-radius: 16px;
+    padding: 10px;
+  }
+  .stat .num {
+    font-family: "Outfit", sans-serif;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+
+  .ring-wrap {
+    width: 92px; height: 92px; position: relative;
+    display: grid; place-items: center;
+  }
+  .ring-wrap svg { position: absolute; inset: 0; transform: rotate(-90deg); }
+  .ring-wrap .inner {
+    text-align: center; z-index: 1;
+  }
+  .ring-wrap .inner .num {
+    font-family: "Outfit", sans-serif;
+    font-size: 22px; font-weight: 800; line-height: 1;
+  }
+
+  .calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .calendar .d {
+    aspect-ratio: 1;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-size: 10px; font-weight: 800;
+    color: var(--muted);
+    background: #F6F7FB;
+  }
+  .calendar .d.done { background: var(--mint-soft); color: #1F9B78; }
+  .calendar .d.both { background: linear-gradient(135deg, var(--coral-soft), var(--lavender-soft)); color: var(--ink); }
+  .calendar .d.today { box-shadow: inset 0 0 0 1.5px var(--coral); }
+
+  .map-path {
+    height: 170px;
+    border-radius: 18px;
+    background:
+      radial-gradient(circle at 20% 70%, rgba(255,200,87,0.35), transparent 30%),
+      radial-gradient(circle at 70% 30%, rgba(155,140,255,0.3), transparent 32%),
+      radial-gradient(circle at 80% 75%, rgba(78,214,176,0.28), transparent 28%),
+      linear-gradient(160deg, #F7F8FF, #EEF7FF 50%, #F8FFF8);
+    position: relative;
+    overflow: hidden;
+  }
+  .node {
+    position: absolute;
+    width: 34px; height: 34px; border-radius: 50%;
+    display: grid; place-items: center;
+    font-size: 14px; font-weight: 800;
+    background: white;
+    box-shadow: 0 8px 16px rgba(40,48,72,0.1);
+  }
+  .node.lock { opacity: 0.55; filter: grayscale(0.4); }
+  .node.now {
+    outline: 3px solid rgba(255,123,138,0.35);
+    background: linear-gradient(145deg, var(--coral), #FF9A7A);
+    color: white;
+  }
+  .deco {
+    position: absolute;
+    font-size: 18px;
+    opacity: 0.85;
+  }
+
+  .badge-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .badge {
+    aspect-ratio: 1;
+    border-radius: 18px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px;
+    font-size: 22px;
+  }
+  .badge span {
+    font-size: 10px; font-weight: 800; color: var(--ink-soft);
+  }
+  .badge.off { filter: grayscale(1); opacity: 0.45; }
+
+  .shop-card .thumb {
+    height: 72px;
+    border-radius: 14px;
+    display: grid; place-items: center;
+    font-size: 30px;
+    margin-bottom: 8px;
+  }
+
+  .list-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 0;
+  }
+  .list-item + .list-item { border-top: 1px solid var(--line); }
+
+  .note {
+    margin-top: 36px;
+    padding: 18px 20px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(255,255,255,0.95);
+    box-shadow: var(--shadow-soft);
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .note strong { color: var(--ink); }
+  .footer-meta {
+    margin-top: 16px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+  <div class="page">
+    <header class="hero">
+      <div class="hero-badge">🎨 Design Prototype · UI Showcase Board v1 · 不改业务代码</div>
+      <h1>每日打卡 <span>糖果社交设计系统</span></h1>
+      <p>
+        面向双人共享的习惯打卡产品全套界面汇总。浅灰白底 + 大圆角白卡片 + 糖果色点缀，
+        轻游戏化、社交感、成熟产品气质。统一设计语言下的 9 个核心场景。
+      </p>
+      <div class="palette">
+        <div class="swatch"><i style="background:#FF7B8A"></i>Coral</div>
+        <div class="swatch"><i style="background:#9B8CFF"></i>Lavender</div>
+        <div class="swatch"><i style="background:#4ED6B0"></i>Mint</div>
+        <div class="swatch"><i style="background:#6CB8FF"></i>Sky</div>
+        <div class="swatch"><i style="background:#FFC857"></i>Sun</div>
+        <div class="swatch"><i style="background:#FF9B6A"></i>Orange</div>
+      </div>
+    </header>
+
+    <main class="board">
+
+      <!-- 1 今日 -->
+      <section class="shot">
+        <div class="shot-label"><b>01 · 今日首页</b><span>Today</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen dense">
+            <div class="row between mb12">
+              <div>
+                <div class="caption">Good morning</div>
+                <div class="title h2">一起打卡 ✨</div>
+              </div>
+              <div class="row">
+                <div class="avatar you">你</div>
+                <div class="avatar ta stack">TA</div>
+              </div>
+            </div>
+
+            <div class="card tint-coral mb12">
+              <div class="row between">
+                <div>
+                  <div class="small" style="color:#C45B6A">今日进度</div>
+                  <div class="title h2 mt6">3 / 5 完成</div>
+                  <div class="body mt6">再完成 2 项可解锁今日印章</div>
+                  <div class="row gap8 mt12">
+                    <span class="pill" style="background:#fff;color:#E25C70">🔥 连续 12 天</span>
+                    <span class="pill" style="background:rgba(255,255,255,.7);color:#7A5AD6">💎 1280 XP</span>
+                  </div>
+                </div>
+                <div class="ring-wrap">
+                  <svg width="92" height="92" viewBox="0 0 92 92">
+                    <circle cx="46" cy="46" r="36" fill="none" stroke="#FFD5DC" stroke-width="8"/>
+                    <circle cx="46" cy="46" r="36" fill="none" stroke="url(#g1)" stroke-width="8" stroke-linecap="round"
+                      stroke-dasharray="226" stroke-dashoffset="90"/>
+                    <defs>
+                      <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#FF7B8A"/>
+                        <stop offset="100%" stop-color="#FFC857"/>
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  <div class="inner">
+                    <div class="num">60%</div>
+                    <div class="small">done</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row between mb8">
+              <div class="title h3">待办清单</div>
+              <span class="small">今天 · 周三</span>
+            </div>
+
+            <div class="card mb8">
+              <div class="row gap10">
+                <div class="check on">✓</div>
+                <div class="grow">
+                  <div class="row between">
+                    <div class="strong ink" style="font-size:14px">早起拉伸</div>
+                    <span class="tag" style="background:var(--mint-soft);color:#1F9B78">+20 XP</span>
+                  </div>
+                  <div class="small mt4">你已完成 · TA 也完成了</div>
+                </div>
+              </div>
+            </div>
+            <div class="card mb8">
+              <div class="row gap10">
+                <div class="check on">✓</div>
+                <div class="grow">
+                  <div class="row between">
+                    <div class="strong ink" style="font-size:14px">阅读 20 分钟</div>
+                    <span class="tag" style="background:var(--mint-soft);color:#1F9B78">+30 XP</span>
+                  </div>
+                  <div class="small mt4">连续 7 天 · 里程碑将至</div>
+                </div>
+              </div>
+            </div>
+            <div class="card mb8">
+              <div class="row gap10">
+                <div class="check"></div>
+                <div class="grow">
+                  <div class="row between">
+                    <div class="strong ink" style="font-size:14px">喝水 8 杯</div>
+                    <span class="tag" style="background:var(--sky-soft);color:#3E86D1">5/8</span>
+                  </div>
+                  <div class="progress mt8"><i style="width:62%;background:linear-gradient(90deg,#6CB8FF,#9B8CFF)"></i></div>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="row gap10">
+                <div class="check"></div>
+                <div class="grow">
+                  <div class="row between">
+                    <div class="strong ink" style="font-size:14px">一起散步</div>
+                    <span class="tag" style="background:var(--lavender-soft);color:#6B5AD6">双人</span>
+                  </div>
+                  <div class="small mt4">等 TA 一起完成更有趣</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="tabbar">
+              <div class="tab active"><div class="ico">☀️</div>今日</div>
+              <div class="tab"><div class="ico">🔁</div>习惯</div>
+              <div class="tab"><div class="ico">🗺️</div>闯关</div>
+              <div class="tab"><div class="ico">🎁</div>商城</div>
+              <div class="tab"><div class="ico">👤</div>我的</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2 习惯 -->
+      <section class="shot">
+        <div class="shot-label"><b>02 · 习惯管理</b><span>Habits</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="row between mb12">
+              <div>
+                <div class="title h1">习惯</div>
+                <div class="body mt6">管理你们的共同节奏</div>
+              </div>
+              <button class="btn btn-primary" style="padding:10px 14px">＋ 新增</button>
+            </div>
+
+            <div class="bento mb12">
+              <div class="stat" style="background:var(--coral-soft)">
+                <div class="small" style="color:#C45B6A">进行中</div>
+                <div class="num" style="color:#E25C70">6</div>
+              </div>
+              <div class="stat" style="background:var(--lavender-soft)">
+                <div class="small" style="color:#6B5AD6">本周完成率</div>
+                <div class="num" style="color:#6B5AD6">84%</div>
+              </div>
+            </div>
+
+            <div class="card mb10">
+              <div class="row gap10">
+                <div class="icon-chip lg" style="background:var(--sun-soft)">📖</div>
+                <div class="grow">
+                  <div class="row between">
+                    <div class="strong ink" style="font-size:14px">阅读 20 分钟</div>
+                    <span class="tag" style="background:var(--mint-soft);color:#1F9B78">活跃</span>
+                  </div>
+                  <div class="small mt4">每天 · 晚 21:00 提醒</div>
+                  <div class="row gap6 mt8">
+                    <span class="tag" style="background:var(--coral-soft);color:#E25C70">+30 XP</span>
+                    <span class="tag" style="background:#F1F3F8;color:var(--ink-soft)">🔥 7</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card mb10">
+              <div class="row gap10">
+                <div class="icon-chip lg" style="background:var(--sky-soft)">💧</div>
+                <div class="grow">
+                  <div class="row between">
+                    <div class="strong ink" style="font-size:14px">喝水 8 杯</div>
+                    <span class="tag" style="background:var(--sky-soft);color:#3E86D1">数值</span>
+                  </div>
+                  <div class="small mt4">每天 · 目标 8</div>
+                </div>
+              </div>
+            </div>
+            <div class="card mb10">
+              <div class="row gap10">
+                <div class="icon-chip lg" style="background:var(--mint-soft)">🏃</div>
+                <div class="grow">
+                  <div class="row between">
+                    <div class="strong ink" style="font-size:14px">慢跑 3km</div>
+                    <span class="tag" style="background:var(--orange-soft);color:#D67B40">工作日</span>
+                  </div>
+                  <div class="small mt4">一三五 · 早 07:30</div>
+                </div>
+              </div>
+            </div>
+            <div class="card tint-lav">
+              <div class="row gap10">
+                <div class="icon-chip lg" style="background:white">🤖</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:14px">让 AI 帮你规划</div>
+                  <div class="body mt4">输入目标，生成可执行分阶段计划</div>
+                  <button class="btn btn-soft mt10" style="padding:8px 12px;font-size:12px">生成计划</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3 闯关 -->
+      <section class="shot">
+        <div class="shot-label"><b>03 · 闯关旅程</b><span>Adventure</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="card" style="background:linear-gradient(145deg,#FF7B8A,#FF9A7A 45%,#FFC857);border:0;color:white;margin-bottom:12px">
+              <div class="small" style="color:rgba(255,255,255,.85)">双人旅程 · Chapter 04</div>
+              <div class="title h2 mt6" style="color:white">星光步道</div>
+              <div class="body mt6" style="color:rgba(255,255,255,.92)">累计 2,480 XP · 已解锁 4/8 章 · 徽章 3</div>
+              <div class="progress mt12" style="background:rgba(255,255,255,.25)">
+                <i style="width:50%;background:white"></i>
+              </div>
+              <div class="row between mt8">
+                <span class="small" style="color:rgba(255,255,255,.9)">下一章还差 520 XP</span>
+                <span class="pill" style="background:rgba(255,255,255,.2);color:white">查看地图</span>
+              </div>
+            </div>
+
+            <div class="title h3 mb10">旅程进度</div>
+            <div class="card mb8">
+              <div class="row gap10">
+                <div class="icon-chip" style="background:var(--sun-soft)">🌅</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:14px">启程清晨</div>
+                  <div class="small mt4">已领取 · 徽章已点亮</div>
+                </div>
+                <span class="tag" style="background:var(--mint-soft);color:#1F9B78">完成</span>
+              </div>
+            </div>
+            <div class="card mb8">
+              <div class="row gap10">
+                <div class="icon-chip" style="background:var(--lavender-soft)">🌌</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:14px">星光步道</div>
+                  <div class="small mt4">进行中 · 可领取章节奖励</div>
+                </div>
+                <span class="tag" style="background:var(--coral-soft);color:#E25C70">当前</span>
+              </div>
+            </div>
+            <div class="card mb12" style="opacity:.7">
+              <div class="row gap10">
+                <div class="icon-chip" style="background:#F1F3F8">🔒</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:14px">云上灯塔</div>
+                  <div class="small mt4">达到 3,000 XP 解锁</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card tint-sun">
+              <div class="row between">
+                <div>
+                  <div class="caption" style="color:#B8860B">How it works</div>
+                  <div class="body mt6 ink">打卡赚 XP → 解锁章节 → 领取徽章与奖励</div>
+                </div>
+                <div style="font-size:28px">🎖️</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4 商城 -->
+      <section class="shot">
+        <div class="shot-label"><b>04 · 奖励商城</b><span>Shop</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="row between mb12">
+              <div>
+                <div class="title h1">商城</div>
+                <div class="body mt6">用 XP 兑换小心意</div>
+              </div>
+              <div class="pill" style="background:var(--sun-soft);color:#B8860B">💎 1,280</div>
+            </div>
+
+            <div class="bento mb12">
+              <div class="card shop-card" style="padding:10px">
+                <div class="thumb" style="background:var(--coral-soft)">🍿</div>
+                <div class="strong ink" style="font-size:13px">电影之夜</div>
+                <div class="small mt4">现实奖励</div>
+                <div class="row between mt8">
+                  <span class="tag" style="background:var(--sun-soft);color:#B8860B">300 XP</span>
+                  <span class="tag" style="background:var(--mint-soft);color:#1F9B78">可兑</span>
+                </div>
+              </div>
+              <div class="card shop-card" style="padding:10px">
+                <div class="thumb" style="background:var(--lavender-soft)">🍰</div>
+                <div class="strong ink" style="font-size:13px">甜点惊喜</div>
+                <div class="small mt4">现实奖励</div>
+                <div class="row between mt8">
+                  <span class="tag" style="background:var(--sun-soft);color:#B8860B">180 XP</span>
+                  <span class="tag" style="background:var(--mint-soft);color:#1F9B78">可兑</span>
+                </div>
+              </div>
+              <div class="card shop-card" style="padding:10px">
+                <div class="thumb" style="background:var(--sky-soft)">🎮</div>
+                <div class="strong ink" style="font-size:13px">游戏晚 2h</div>
+                <div class="small mt4">虚拟奖励</div>
+                <div class="mt8">
+                  <div class="progress"><i style="width:72%;background:linear-gradient(90deg,var(--sky),var(--lavender))"></i></div>
+                  <div class="small mt4">还差 120</div>
+                </div>
+              </div>
+              <div class="card shop-card" style="padding:10px">
+                <div class="thumb" style="background:var(--mint-soft)">🌷</div>
+                <div class="strong ink" style="font-size:13px">一束花</div>
+                <div class="small mt4">现实奖励</div>
+                <div class="mt8">
+                  <div class="progress"><i style="width:45%"></i></div>
+                  <div class="small mt4">还差 420</div>
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-primary btn-block">兑换记录</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5 我的 -->
+      <section class="shot">
+        <div class="shot-label"><b>05 · 个人中心</b><span>Profile</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="card tint-lav mb12" style="padding:16px">
+              <div class="row gap12">
+                <div class="row">
+                  <div class="avatar lg you">你</div>
+                  <div class="avatar lg ta stack">TA</div>
+                </div>
+                <div class="grow">
+                  <div class="title h3">我们的空间</div>
+                  <div class="body mt4">恋恋粉紫主题 · 已同步</div>
+                  <div class="row gap6 mt10">
+                    <span class="pill" style="background:white;color:#E25C70">XP 1,280</span>
+                    <span class="pill" style="background:white;color:#6B5AD6">累计 2,480</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bento mb12">
+              <div class="stat" style="background:var(--sun-soft)">
+                <div class="small" style="color:#B8860B">连续打卡</div>
+                <div class="num" style="color:#C9901A">12</div>
+              </div>
+              <div class="stat" style="background:var(--mint-soft)">
+                <div class="small" style="color:#1F9B78">徽章</div>
+                <div class="num" style="color:#1F9B78">3</div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="list-item">
+                <div class="icon-chip" style="background:var(--coral-soft)">☁️</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">账号与同步</div>
+                  <div class="small">云端空间 · 实时推送</div>
+                </div>
+                <span class="small">›</span>
+              </div>
+              <div class="list-item">
+                <div class="icon-chip" style="background:var(--lavender-soft)">🎨</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">主题外观</div>
+                  <div class="small">粉紫 / 薄荷 / 暖阳</div>
+                </div>
+                <span class="small">›</span>
+              </div>
+              <div class="list-item">
+                <div class="icon-chip" style="background:var(--sky-soft)">🔔</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">提醒与免打扰</div>
+                  <div class="small">晚间小结 21:30</div>
+                </div>
+                <span class="small">›</span>
+              </div>
+              <div class="list-item">
+                <div class="icon-chip" style="background:var(--orange-soft)">📤</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">导出数据</div>
+                  <div class="small">JSON 备份</div>
+                </div>
+                <span class="small">›</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6 习惯详情 -->
+      <section class="shot">
+        <div class="shot-label"><b>06 · 习惯详情</b><span>Detail</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="row between mb12">
+              <span class="small">‹ 返回</span>
+              <span class="small">编辑</span>
+            </div>
+            <div class="row gap12 mb14">
+              <div class="icon-chip lg" style="background:var(--sun-soft)">📖</div>
+              <div>
+                <div class="title h2">阅读 20 分钟</div>
+                <div class="body mt4">每天 · 晚 21:00 · +30 XP</div>
+              </div>
+            </div>
+
+            <div class="bento mb12">
+              <div class="stat" style="background:var(--coral-soft)">
+                <div class="small" style="color:#C45B6A">当前连续</div>
+                <div class="num" style="color:#E25C70">7 天</div>
+              </div>
+              <div class="stat" style="background:var(--lavender-soft)">
+                <div class="small" style="color:#6B5AD6">本月完成</div>
+                <div class="num" style="color:#6B5AD6">18</div>
+              </div>
+            </div>
+
+            <div class="card mb12">
+              <div class="row between mb10">
+                <div class="title h3">七月日历</div>
+                <div class="chip-row">
+                  <span class="tag" style="background:var(--mint-soft);color:#1F9B78">你</span>
+                  <span class="tag" style="background:var(--lavender-soft);color:#6B5AD6">双人</span>
+                </div>
+              </div>
+              <div class="calendar">
+                <div class="d">一</div><div class="d">二</div><div class="d">三</div><div class="d">四</div><div class="d">五</div><div class="d">六</div><div class="d">日</div>
+                <div class="d"></div><div class="d done">1</div><div class="d both">2</div><div class="d done">3</div><div class="d">4</div><div class="d done">5</div><div class="d both">6</div>
+                <div class="d done">7</div><div class="d done">8</div><div class="d both">9</div><div class="d done">10</div><div class="d">11</div><div class="d both">12</div><div class="d done">13</div>
+                <div class="d both">14</div><div class="d done">15</div><div class="d done">16</div><div class="d both today">17</div><div class="d">18</div><div class="d">19</div><div class="d">20</div>
+              </div>
+            </div>
+
+            <div class="card tint-mint">
+              <div class="row between">
+                <div>
+                  <div class="caption" style="color:#1F9B78">下一步里程碑</div>
+                  <div class="strong ink mt6" style="font-size:14px">连续 14 天 · 再坚持 7 天</div>
+                </div>
+                <div style="font-size:26px">🏅</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 7 AI 计划 -->
+      <section class="shot">
+        <div class="shot-label"><b>07 · AI 计划预览</b><span>AI Plan</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="caption mb8">AI Generated</div>
+            <div class="title h1 mb8">21 天轻运动计划</div>
+            <div class="body mb14">根据你们的基础与时间偏好生成，可一键导入为习惯。</div>
+
+            <div class="card tint-sky mb10">
+              <div class="row gap10">
+                <div class="icon-chip" style="background:white;color:#3E86D1;font-weight:800">1</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:14px">适应期 · Day 1-7</div>
+                  <div class="body mt4">每天拉伸 10 分钟 + 散步 15 分钟</div>
+                  <div class="row gap6 mt8">
+                    <span class="tag" style="background:white;color:#3E86D1">低强度</span>
+                    <span class="tag" style="background:white;color:#E25C70">+20 XP</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card tint-lav mb10">
+              <div class="row gap10">
+                <div class="icon-chip" style="background:white;color:#6B5AD6;font-weight:800">2</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:14px">建立期 · Day 8-14</div>
+                  <div class="body mt4">慢跑或快走 20 分钟，每周 4 次</div>
+                  <div class="row gap6 mt8">
+                    <span class="tag" style="background:white;color:#6B5AD6">中强度</span>
+                    <span class="tag" style="background:white;color:#E25C70">+30 XP</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="card tint-orange mb14">
+              <div class="row gap10">
+                <div class="icon-chip" style="background:white;color:#D67B40;font-weight:800">3</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:14px">巩固期 · Day 15-21</div>
+                  <div class="body mt4">加入力量训练 15 分钟，保持节奏</div>
+                  <div class="row gap6 mt8">
+                    <span class="tag" style="background:white;color:#D67B40">进阶</span>
+                    <span class="tag" style="background:white;color:#E25C70">+40 XP</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="row gap8">
+              <button class="btn btn-soft grow" style="padding:12px">重新生成</button>
+              <button class="btn btn-primary grow">导入习惯</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 8 世界地图 -->
+      <section class="shot">
+        <div class="shot-label"><b>08 · 世界地图</b><span>Map</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="row between mb12">
+              <div>
+                <div class="title h2">世界地图</div>
+                <div class="body mt4">点亮章节，收集徽章</div>
+              </div>
+              <span class="pill" style="background:var(--lavender-soft);color:#6B5AD6">4/8 解锁</span>
+            </div>
+
+            <div class="map-path mb12">
+              <div class="deco" style="left:12%;top:18%">☁️</div>
+              <div class="deco" style="right:14%;top:12%">✨</div>
+              <div class="deco" style="left:42%;bottom:14%">🌿</div>
+              <div class="node" style="left:12%;bottom:22%">1</div>
+              <div class="node" style="left:30%;top:38%">2</div>
+              <div class="node" style="left:48%;bottom:28%">3</div>
+              <div class="node now" style="left:64%;top:22%">4</div>
+              <div class="node lock" style="left:78%;bottom:36%">5</div>
+            </div>
+
+            <div class="card tint-coral mb10">
+              <div class="row between">
+                <div>
+                  <div class="caption" style="color:#C45B6A">Current Chapter</div>
+                  <div class="title h3 mt6">星光步道</div>
+                  <div class="body mt4">阈值 2,000 XP · 奖励：夜行徽章</div>
+                </div>
+                <div style="font-size:32px">🌌</div>
+              </div>
+            </div>
+            <button class="btn btn-mint btn-block">领取章节奖励</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 9 徽章 / 账号 -->
+      <section class="shot">
+        <div class="shot-label"><b>09 · 徽章收藏</b><span>Badges</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="title h1 mb8">徽章墙</div>
+            <div class="body mb14">把共同坚持变成可见纪念</div>
+
+            <div class="badge-grid mb14">
+              <div class="badge" style="background:var(--sun-soft)"><div>🌅</div><span>启程</span></div>
+              <div class="badge" style="background:var(--coral-soft)"><div>🔥</div><span>七日火</span></div>
+              <div class="badge" style="background:var(--lavender-soft)"><div>🌌</div><span>星光</span></div>
+              <div class="badge off" style="background:#F1F3F8"><div>🗼</div><span>灯塔</span></div>
+              <div class="badge off" style="background:#F1F3F8"><div>🏆</div><span>月冠</span></div>
+              <div class="badge off" style="background:#F1F3F8"><div>💞</div><span>双人</span></div>
+            </div>
+
+            <div class="card soft">
+              <div class="row gap10">
+                <div class="icon-chip" style="background:var(--sun-soft)">✨</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">下一枚徽章</div>
+                  <div class="body mt4">累计 XP 达到 3,000 解锁「云上灯塔」</div>
+                  <div class="progress mt10"><i style="width:82%;background:linear-gradient(90deg,var(--lavender),var(--sky))"></i></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10 账号同步 -->
+      <section class="shot">
+        <div class="shot-label"><b>10 · 账号同步</b><span>Account</span></div>
+        <div class="phone">
+          <div class="status"><span>9:41</span><span class="icons">▮▮▮ ☀︎ 🔋</span></div>
+          <div class="screen">
+            <div class="title h1 mb8">账号与同步</div>
+            <div class="body mb14">同一空间，实时共享习惯与奖励</div>
+
+            <div class="card mb12" style="padding:14px">
+              <div class="row gap12">
+                <div class="avatar lg you">你</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:15px">cheng@space</div>
+                  <div class="small mt4">Owner · Space #A208</div>
+                </div>
+                <span class="tag" style="background:var(--mint-soft);color:#1F9B78">在线</span>
+              </div>
+            </div>
+
+            <div class="card mb10">
+              <div class="list-item" style="padding-top:0">
+                <div class="icon-chip" style="background:var(--sky-soft)">🔗</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">邀请 TA 加入</div>
+                  <div class="small">分享邀请码即可同步</div>
+                </div>
+              </div>
+              <div class="list-item">
+                <div class="icon-chip" style="background:var(--mint-soft)">⚡</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">实时同步</div>
+                  <div class="small">WebSocket 已连接</div>
+                </div>
+                <div class="dot" style="background:var(--mint)"></div>
+              </div>
+              <div class="list-item">
+                <div class="icon-chip" style="background:var(--lavender-soft)">🛡️</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">权限</div>
+                  <div class="small">Owner 可管理奖励与兑现</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card tint-sun mb12">
+              <div class="row gap10">
+                <div style="font-size:24px">📦</div>
+                <div class="grow">
+                  <div class="strong ink" style="font-size:13px">本地优先</div>
+                  <div class="body mt4">SQLite 本地可用，云端变更后自动刷新</div>
+                </div>
+              </div>
+            </div>
+            <button class="btn btn-primary btn-block">立即同步</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <section class="note">
+      <strong>设计说明（v1 原型，未改 App 代码）</strong><br/>
+      1. 设计系统：浅灰白背景、大圆角白卡片、柔和阴影；主色 Coral × Lavender 表达双人关系；Mint/Sky/Sun/Orange 作场景点缀。<br/>
+      2. 页面覆盖：今日、习惯、闯关、商城、我的、习惯详情、AI 计划、世界地图、徽章墙、账号同步——映射现有产品能力。<br/>
+      3. 语言：Bento 数据卡、胶囊标签、圆形头像叠放、轻 3D/emoji 插画装饰、进度环与游戏化章节节点。<br/>
+      4. 下一步：你确认方向后，我再按此系统重做前端实现（theme tokens / 组件 / 各 Tab 页）。
+    </section>
+    <div class="footer-meta">每日打卡 · Candy Social UI System · Showcase Board v1 · 2026-07-18</div>
+  </div>
+</body>
+</html>

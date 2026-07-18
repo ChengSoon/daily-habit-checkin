@@ -2,8 +2,8 @@ import { Pressable, View } from "react-native";
 import { Habit } from "../habits/types";
 import { Avatar, AvatarTone } from "./Avatar";
 import { CheckButton } from "./CheckButton";
-import { AppText, Badge } from "./Controls";
-import { radius, spacing } from "./theme";
+import { AppText } from "./Controls";
+import { radius, shadow, spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 function frequencyLabel(habit: Habit): string {
@@ -17,14 +17,12 @@ function frequencyLabel(habit: Habit): string {
 }
 
 export type HabitCompleter = {
-  /** 完成者昵称。 */
   name: string;
-  /** 完成者分色（you=粉 / partner=紫）。 */
   tone: AvatarTone;
-  /** 完成者头像图片 URL（R2 公开域名直读）；没上传则回退字母头像。 */
   imageUri?: string | null;
 };
 
+/** 设计稿风格习惯行：白卡片 + 薄荷绿勾选 + 右侧糖果色标签 */
 export function HabitRow({
   habit,
   isCompleted,
@@ -36,7 +34,8 @@ export function HabitRow({
   showCheck = true,
   completedBy,
   canUndo = false,
-  isUndoing = false
+  isUndoing = false,
+  xpLabel = "+10 XP"
 }: {
   habit: Habit;
   isCompleted: boolean;
@@ -46,19 +45,48 @@ export function HabitRow({
   onOpen: () => void;
   streak?: number;
   showCheck?: boolean;
-  /** 完成者信息，用于已完成项标注是谁打的卡。 */
   completedBy?: HabitCompleter;
   canUndo?: boolean;
   isUndoing?: boolean;
+  xpLabel?: string;
 }) {
   const { colors } = useTheme();
-  const dimmed = isCompleted || habit.isPaused;
 
-  const meta: string[] = [frequencyLabel(habit)];
-  meta.push(habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒");
-  if (habit.trackType === "numeric" && habit.numericUnit) {
-    meta.push(habit.numericUnit);
+  let subtitle = `${frequencyLabel(habit)}`;
+  if (isCompleted && completedBy) {
+    subtitle = `${completedBy.name} 已完成`;
+  } else if (habit.isPaused) {
+    subtitle = "已暂停";
+  } else if (typeof streak === "number" && streak > 0) {
+    subtitle = `连续 ${streak} 天 · ${habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒"}`;
+  } else {
+    subtitle = `${frequencyLabel(habit)} · ${habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒"}`;
   }
+
+  const hasStreak = typeof streak === "number" && streak > 0;
+  const tagBg = isCompleted
+    ? colors.successSurface
+    : habit.trackType === "numeric"
+      ? colors.candySkySurface
+      : hasStreak
+        ? colors.partnerSurface
+        : colors.candySunSurface;
+  const tagFg = isCompleted
+    ? colors.success
+    : habit.trackType === "numeric"
+      ? colors.candySky
+      : hasStreak
+        ? colors.partnerInk
+        : colors.candyOrange;
+  const tagText = isCompleted
+    ? xpLabel
+    : habit.trackType === "numeric"
+      ? habit.numericUnit
+        ? `目标 · ${habit.numericUnit}`
+        : "数值"
+      : hasStreak
+        ? `🔥 ${streak}`
+        : "待完成";
 
   return (
     <Pressable
@@ -69,13 +97,14 @@ export function HabitRow({
           alignItems: "center",
           gap: spacing.md,
           borderRadius: radius.lg,
+          backgroundColor: colors.surface,
           borderWidth: 1,
           borderColor: colors.line,
-          backgroundColor: dimmed ? colors.surfaceMuted : colors.surface,
-          paddingVertical: spacing.md,
-          paddingHorizontal: spacing.md
+          paddingVertical: 14,
+          paddingHorizontal: spacing.md,
+          ...shadow.soft
         },
-        pressed ? { opacity: 0.85 } : null
+        pressed ? { opacity: 0.92, transform: [{ scale: 0.99 }] } : null
       ]}
     >
       {showCheck ? (
@@ -91,39 +120,36 @@ export function HabitRow({
         />
       ) : null}
 
-      <View style={{ flex: 1, gap: 3 }}>
+      <View style={{ flex: 1, gap: 4 }}>
         <AppText
           variant="bodyStrong"
-          tone={dimmed ? "muted" : "default"}
+          tone={isCompleted || habit.isPaused ? "muted" : "default"}
           numberOfLines={1}
           style={isCompleted ? { textDecorationLine: "line-through" } : null}
         >
           {habit.name}
         </AppText>
-        <AppText variant="small" tone="faint" numberOfLines={1}>
-          {meta.join(" · ")}
-        </AppText>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          {isCompleted && completedBy ? (
+            <Avatar name={completedBy.name} tone={completedBy.tone} size={16} imageUri={completedBy.imageUri} />
+          ) : null}
+          <AppText variant="small" tone="faint" numberOfLines={1} style={{ flex: 1 }}>
+            {subtitle}
+          </AppText>
+        </View>
       </View>
 
-      <View style={{ alignItems: "flex-end", gap: 4 }}>
-        {isCompleted && completedBy ? (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-            <Avatar
-              name={completedBy.name}
-              tone={completedBy.tone}
-              size={20}
-              imageUri={completedBy.imageUri}
-            />
-            <AppText variant="small" tone="muted" numberOfLines={1}>
-              {completedBy.name}
-            </AppText>
-          </View>
-        ) : null}
-        {habit.isPaused ? (
-          <Badge label="已暂停" tone="muted" />
-        ) : typeof streak === "number" && streak > 0 ? (
-          <Badge label={`连续 ${streak} 天`} tone="primary" />
-        ) : null}
+      <View
+        style={{
+          borderRadius: radius.pill,
+          backgroundColor: tagBg,
+          paddingHorizontal: 10,
+          paddingVertical: 5
+        }}
+      >
+        <AppText variant="small" style={{ color: tagFg, fontWeight: "800" }} numberOfLines={1}>
+          {tagText}
+        </AppText>
       </View>
     </Pressable>
   );

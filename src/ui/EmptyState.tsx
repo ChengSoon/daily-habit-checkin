@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { View } from "react-native";
 import { AppText } from "./Controls";
-import { radius, spacing } from "./theme";
+import { radius, shadow, spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -21,17 +21,20 @@ export function EmptyState({
     <View style={{ alignItems: "center", gap: spacing.md, paddingVertical: spacing.xxl }}>
       <View
         style={{
-          width: 64,
-          height: 64,
-          borderRadius: radius.pill,
+          width: 72,
+          height: 72,
+          borderRadius: radius.xl,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: colors.surfaceTint
+          backgroundColor: colors.surfaceTint,
+          borderWidth: 1,
+          borderColor: colors.line,
+          ...shadow.soft
         }}
       >
         <Ionicons name={icon} size={30} color={colors.primaryInk} />
       </View>
-      <View style={{ alignItems: "center", gap: spacing.xs }}>
+      <View style={{ alignItems: "center", gap: spacing.xs, paddingHorizontal: spacing.lg }}>
         <AppText variant="section" style={{ textAlign: "center" }}>
           {title}
         </AppText>
