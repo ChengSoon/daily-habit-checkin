@@ -1,3 +1,5 @@
+import { Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from "@expo-google-fonts/nunito";
+import { Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold, useFonts } from "@expo-google-fonts/outfit";
 import { Stack } from "expo-router";
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
@@ -41,6 +43,17 @@ function ThemedStack() {
 }
 
 export default function RootLayout() {
+  // 加载 board 同款字体：Outfit（标题/数字）+ Nunito（正文）。系统字体气质与设计稿差距大。
+  const [fontsLoaded, fontError] = useFonts({
+    Outfit_600SemiBold,
+    Outfit_700Bold,
+    Outfit_800ExtraBold,
+    Nunito_500Medium,
+    Nunito_600SemiBold,
+    Nunito_700Bold,
+    Nunito_800ExtraBold
+  });
+
   useEffect(() => {
     configureNotificationHandler();
     void initializeDatabase()
@@ -49,6 +62,11 @@ export default function RootLayout() {
         console.warn("Failed to initialize app reminders", error);
       });
   }, []);
+
+  // 字体未就绪先不渲染（保持 splash）；加载出错则照常渲染，回退系统字体，避免卡死。
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

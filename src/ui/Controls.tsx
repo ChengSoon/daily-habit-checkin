@@ -41,6 +41,25 @@ function toneColor(colors: Palette, tone: TextTone): string {
   }
 }
 
+/** board 同款字体：Outfit 用于标题/数字，Nunito 用于正文。按 useFonts 注册的键名映射。 */
+function fontFamilyForVariant(variant: TextVariant): string {
+  switch (variant) {
+    case "display":
+    case "title":
+      return "Outfit_800ExtraBold";
+    case "section":
+      return "Outfit_700Bold";
+    case "bodyStrong":
+    case "caption":
+      return "Nunito_700Bold";
+    case "small":
+      return "Nunito_600SemiBold";
+    case "body":
+    default:
+      return "Nunito_500Medium";
+  }
+}
+
 export function AppText({
   children,
   variant = "body",
@@ -64,6 +83,7 @@ export function AppText({
           fontSize: scale.fontSize,
           lineHeight: scale.lineHeight,
           fontWeight: scale.fontWeight,
+          fontFamily: fontFamilyForVariant(variant),
           letterSpacing: scale.letterSpacing,
           color: toneColor(colors, tone)
         },
@@ -542,7 +562,7 @@ export function Badge({
         paddingVertical: 4
       }}
     >
-      <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "700", color: fg }}>{label}</Text>
+      <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "700", fontFamily: "Nunito_700Bold", color: fg }}>{label}</Text>
     </View>
   );
 }
