@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useCallback, useState } from "react";
 import { View } from "react-native";
 import { listRewards } from "../../src/rewards/rewardRepository";
@@ -115,54 +117,29 @@ export default function ShopScreen() {
 
   return (
     <Screen>
-      <View style={{ gap: spacing.xs }}>
-        <AppText variant="display">商城</AppText>
-        <AppText variant="body" tone="muted">
-          用 XP 兑换小心意
-        </AppText>
-      </View>
-
-      <View
-        style={{
-          borderRadius: 28,
-          overflow: "hidden",
-          backgroundColor: colors.primary,
-          padding: spacing.lg,
-          gap: spacing.xs,
-          shadowColor: colors.primary,
-          shadowOpacity: 0.28,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 10 },
-          elevation: 6
-        }}
-      >
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            right: -24,
-            top: -24,
-            width: 140,
-            height: 140,
-            borderRadius: 999,
-            backgroundColor: colors.candySun,
-            opacity: 0.35
-          }}
-        />
-        <AppText variant="caption" tone="onPrimary" style={{ opacity: 0.85 }}>
-          我的积分钱包
-        </AppText>
-        <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 8 }}>
-          <AppText variant="display" tone="onPrimary" style={{ fontSize: 36, lineHeight: 42 }}>
-            {balance}
-          </AppText>
-          <AppText variant="bodyStrong" tone="onPrimary" style={{ opacity: 0.9, marginBottom: 6 }}>
-            XP
+      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md }}>
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <AppText variant="display">商城</AppText>
+          <AppText variant="body" tone="muted">
+            用 XP 兑换小心意
           </AppText>
         </View>
-        <AppText variant="small" tone="onPrimary" style={{ opacity: 0.9 }}>
-          完成打卡即可累积 XP，兑换喜欢的奖励
-        </AppText>
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
+            backgroundColor: colors.candySunSurface,
+            borderRadius: radius.pill,
+            paddingHorizontal: 13,
+            paddingVertical: 9
+          }}
+        >
+          <Ionicons name="diamond" size={15} color={colors.candyOrange} />
+          <AppText variant="bodyStrong" style={{ color: colors.candyOrange }}>
+            {balance}
+          </AppText>
+        </View>
       </View>
 
       {message ? <HelperText tone="success">{message}</HelperText> : null}
@@ -224,6 +201,13 @@ export default function ShopScreen() {
           ))}
         </View>
       )}
+
+      <AppButton
+        title="兑换记录"
+        variant="secondary"
+        icon="receipt-outline"
+        onPress={() => router.push("/shop/redemptions")}
+      />
     </Screen>
   );
 }

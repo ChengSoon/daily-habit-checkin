@@ -15,10 +15,10 @@ import type { Account } from "../../src/sync/authService";
 import { getCurrentAppVersion } from "../../src/updates/appVersion";
 import { AppUpdateCheckResult, checkForAppUpdate } from "../../src/updates/updateClient";
 import { AppButton, AppText, Badge, Divider, HelperText, SectionCard, SegmentedControl, SwitchRow, TextField } from "../../src/ui/Controls";
+import { IslandHero } from "../../src/ui/IslandHero";
 import { Screen } from "../../src/ui/Screen";
-import { radius, spacing, themeOptions } from "../../src/ui/theme";
+import { radius, shadow, spacing, themeOptions } from "../../src/ui/theme";
 import { ThemeMode, useTheme } from "../../src/ui/ThemeContext";
-import { CoupleAvatars } from "../../src/ui/Avatar";
 import { TimePickerField } from "../../src/ui/TimeWheelPicker";
 import { useCouple } from "../../src/ui/useCouple";
 import { getWallet } from "../../src/xp/xpRepository";
@@ -154,74 +154,64 @@ export default function ProfileScreen() {
         </AppText>
       </View>
 
-      <View
-        style={{
-          borderRadius: radius.xl,
-          backgroundColor: colors.partnerSurface,
-          borderWidth: 1,
-          borderColor: colors.line,
-          padding: spacing.lg,
-          gap: spacing.md,
-          shadowColor: "#283048",
-          shadowOpacity: 0.08,
-          shadowRadius: 16,
-          shadowOffset: { width: 0, height: 8 },
-          elevation: 3
-        }}
-      >
-        {account ? (
-          <>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
-              {couple.people.length > 0 ? (
-                <CoupleAvatars
-                  people={couple.people.map((person) => ({
-                    name: person.name,
-                    tone: person.tone,
-                    imageUri: person.avatarUrl
-                  }))}
-                  size={48}
-                  showRibbon={false}
-                />
-              ) : null}
-              <View style={{ gap: 4, flex: 1 }}>
-                <AppText variant="caption" style={{ color: colors.partnerInk, textTransform: "none", letterSpacing: 0 }}>
-                  我们的空间
-                </AppText>
-                <AppText variant="section">{account.displayName}</AppText>
-                <AppText variant="small" tone="muted">
-                  {account.email}
-                </AppText>
-              </View>
+      {account ? (
+        <>
+          <IslandHero
+            variant="profile"
+            islandKey="lighthouse"
+            islandName="灯塔湾"
+            eyebrow="我们的空间"
+            detail={
+              couple.partner
+                ? `你和 ${couple.partner.name} 共享 · 已同步`
+                : "还差另一半 · 把邀请码发给 TA"
+            }
+            people={couple.people.map((person) => ({
+              name: person.name,
+              tone: person.tone,
+              imageUri: person.avatarUrl
+            }))}
+            xpBalance={xpBalance}
+          />
+          <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <View style={{ flex: 1, borderRadius: radius.lg, backgroundColor: colors.surfaceTint, padding: spacing.md, gap: 4, ...shadow.soft }}>
+              <AppText variant="small" tone="primary">
+                当前积分
+              </AppText>
+              <AppText variant="title" tone="primary" style={{ fontSize: 26, lineHeight: 32 }}>
+                {xpBalance}
+              </AppText>
             </View>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
-              <View style={{ backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-                <AppText variant="small" tone="primary" style={{ fontWeight: "800" }}>
-                  💎 {xpBalance} XP
-                </AppText>
-              </View>
-              <View style={{ backgroundColor: colors.surface, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-                <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800" }}>
-                  累计 {lifetimeEarned}
-                </AppText>
-              </View>
+            <View style={{ flex: 1, borderRadius: radius.lg, backgroundColor: colors.partnerSurface, padding: spacing.md, gap: 4, ...shadow.soft }}>
+              <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "700" }}>
+                累计获得
+              </AppText>
+              <AppText variant="title" style={{ color: colors.partnerInk, fontSize: 26, lineHeight: 32 }}>
+                {lifetimeEarned}
+              </AppText>
             </View>
-            <AppText variant="small" tone="muted">
-              {couple.partner
-                ? `你和 ${couple.partner.name} 正在共享同一个空间 💞`
-                : "还差另一半 —— 把邀请码发给 TA，一起打卡吧。"}
-            </AppText>
-            <AppButton title="管理账号" variant="secondary" icon="person-outline" onPress={() => router.push("/account")} />
-          </>
-        ) : (
-          <>
-            <AppText variant="section">加入双人空间</AppText>
-            <AppText variant="body" tone="soft">
-              登录后，你和另一半可以在两台设备共享习惯、积分和奖励。
-            </AppText>
-            <AppButton title="登录 / 注册" icon="log-in-outline" onPress={() => router.push("/account")} />
-          </>
-        )}
-      </View>
+          </View>
+          <AppButton title="管理账号" variant="secondary" icon="person-outline" onPress={() => router.push("/account")} />
+        </>
+      ) : (
+        <View
+          style={{
+            borderRadius: radius.xl,
+            backgroundColor: colors.partnerSurface,
+            borderWidth: 1,
+            borderColor: colors.line,
+            padding: spacing.lg,
+            gap: spacing.md,
+            ...shadow.card
+          }}
+        >
+          <AppText variant="section">加入双人空间</AppText>
+          <AppText variant="body" tone="soft">
+            登录后，你和另一半可以在两台设备共享习惯、积分和奖励。
+          </AppText>
+          <AppButton title="登录 / 注册" icon="log-in-outline" onPress={() => router.push("/account")} />
+        </View>
+      )}
 
       <SectionCard>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
