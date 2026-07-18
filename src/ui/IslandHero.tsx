@@ -64,7 +64,8 @@ export function IslandHero({
   islandName,
   islandLevel,
   title,
-  caption,
+  eyebrow,
+  detail,
   ratio = 0,
   people = [],
   streakDays,
@@ -80,8 +81,10 @@ export function IslandHero({
   islandLevel?: number;
   /** 覆盖主标题；默认用 islandName。 */
   title?: string;
-  /** 明细文案，如「今天一起浇灌 3 次 · 繁荣 +12」/ adventure 的「双人旅程 · Chapter 04」。 */
-  caption?: string;
+  /** 顶部小标题行；缺省 adventure→「双人旅程」/ 其它→「我们的小岛 · Lv.N」。 */
+  eyebrow?: string;
+  /** 标题下的明细行，如「今天你们一起浇灌了 3 次」/「累计 2,480 XP · 已点亮 4/8 岛」。 */
+  detail?: string;
   /** 今日完成率 0..1（today 变体的进度环）。 */
   ratio?: number;
   people?: CouplePerson[];
@@ -111,10 +114,9 @@ export function IslandHero({
     ...shadow.soft
   };
 
-  const capText =
-    variant === "adventure"
-      ? caption ?? "双人旅程"
-      : `我们的小岛${levelLabel ? " · " + levelLabel : ""}`;
+  const eyebrowText =
+    eyebrow ??
+    (variant === "adventure" ? "双人旅程" : `我们的小岛${levelLabel ? " · " + levelLabel : ""}`);
 
   return (
     <View
@@ -164,14 +166,14 @@ export function IslandHero({
         {/* 左列文案 */}
         <View style={{ flex: 1, gap: 5 }}>
           <AppText variant="caption" tone="primary" style={{ textTransform: "none", letterSpacing: 0.2 }}>
-            {capText}
+            {eyebrowText}
           </AppText>
           <AppText variant="title" style={{ fontSize: compact ? 20 : 23, lineHeight: compact ? 26 : 29, color: colors.ink }}>
             {title ?? islandName ?? "我们的小岛"}
           </AppText>
-          {variant !== "adventure" && caption ? (
+          {detail ? (
             <AppText variant="small" tone="soft" style={{ fontWeight: "600" }}>
-              {caption}
+              {detail}
             </AppText>
           ) : null}
 

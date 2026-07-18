@@ -84,7 +84,7 @@ export function ProgressHeader({
         islandKey={islandKey}
         islandName={islandName}
         ratio={ratio}
-        caption={caption}
+        detail={caption}
         people={people}
         streakDays={streakDays}
         xpBalance={xpBalance}

@@ -9,6 +9,7 @@ import {
 import { loadAdventureState } from "../../src/adventure/adventureService";
 import type { AdventureState } from "../../src/adventure/types";
 import { AppButton, AppText, Card } from "../../src/ui/Controls";
+import { IslandHero } from "../../src/ui/IslandHero";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { radius, spacing } from "../../src/ui/theme";
@@ -40,7 +41,6 @@ export default function AdventureHomeScreen() {
     state.chapters
       .filter((chapter) => chapter.sortOrder <= state.highestUnlockedOrder)
       .sort((a, b) => b.sortOrder - a.sortOrder)[0] ?? state.chapters[0];
-  const claimedCount = state.chapters.filter((chapter) => chapter.viewStatus === "claimed").length;
 
   function openChapter(chapterId: string) {
     router.push({ pathname: "/adventure/[chapterId]", params: { chapterId } });
@@ -52,79 +52,17 @@ export default function AdventureHomeScreen() {
 
   return (
     <Screen>
-      <View
-        style={{
-          borderRadius: radius.xl,
-          overflow: "hidden",
-          backgroundColor: colors.primary,
-          shadowColor: colors.primary,
-          shadowOpacity: 0.28,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 10 },
-          elevation: 6
+      <IslandHero
+        variant="adventure"
+        islandKey={current?.mapThemeKey}
+        islandName={current ? current.title : "启程之前"}
+        eyebrow={current ? `双人旅程 · Chapter ${current.sortOrder}` : "双人旅程"}
+        detail={`累计 ${state.lifetimeEarned} XP · 已点亮 ${state.highestUnlockedOrder}/${total} 岛`}
+        progressBar={{
+          ratio: progressRatio,
+          label: next && remaining > 0 ? `距下一岛还差 ${remaining} XP` : undefined
         }}
-      >
-        {/* 设计稿珊瑚→暖橙→阳光渐变（分层近似，避免额外依赖） */}
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            top: 0,
-            right: 0,
-            width: "70%",
-            height: "100%",
-            backgroundColor: "#FF9A7A",
-            opacity: 0.55
-          }}
-        />
-        <View
-          pointerEvents="none"
-          style={{
-            position: "absolute",
-            right: -20,
-            bottom: -30,
-            width: 160,
-            height: 160,
-            borderRadius: 999,
-            backgroundColor: colors.candySun,
-            opacity: 0.55
-          }}
-        />
-        <View style={{ padding: spacing.lg, gap: spacing.sm }}>
-          <AppText variant="caption" tone="onPrimary" style={{ opacity: 0.85 }}>
-            双人旅程 · Chapter
-          </AppText>
-          <AppText variant="title" tone="onPrimary">
-            {current ? current.title : "启程之前"}
-          </AppText>
-          <AppText variant="small" tone="onPrimary" style={{ opacity: 0.92 }}>
-            累计 {state.lifetimeEarned} XP · 已解锁 {state.highestUnlockedOrder}/{total} 章 · 徽章 {claimedCount}
-          </AppText>
-          <View
-            style={{
-              marginTop: spacing.sm,
-              height: 12,
-              borderRadius: 999,
-              backgroundColor: "rgba(255,255,255,0.22)",
-              overflow: "hidden"
-            }}
-          >
-            <View
-              style={{
-                width: `${Math.round(progressRatio * 100)}%`,
-                height: "100%",
-                borderRadius: 999,
-                backgroundColor: "#FFFFFF"
-              }}
-            />
-          </View>
-          {next && remaining > 0 ? (
-            <AppText variant="small" tone="onPrimary" style={{ opacity: 0.9 }}>
-              下一章还差 {remaining} XP
-            </AppText>
-          ) : null}
-        </View>
-      </View>
+      />
 
       <Card style={{ gap: spacing.sm, marginTop: spacing.sm }}>
         <AppText variant="section">当前进度</AppText>
