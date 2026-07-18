@@ -5,7 +5,7 @@ import Svg, { Circle, Defs, LinearGradient, Stop } from "react-native-svg";
 import { resolveDefaultIslandSource } from "../adventure/mapAssets";
 import { CoupleAvatars, type CouplePerson } from "./Avatar";
 import { AppText } from "./Controls";
-import { formatIslandLevel, shouldUseIslandImage } from "./islandHero";
+import { formatIslandLevel, shouldUseIslandImage } from "./islandHeroLogic";
 import { Palette, radius, shadow, spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 

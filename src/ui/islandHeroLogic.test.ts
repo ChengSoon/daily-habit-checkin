@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatIslandLevel, shouldUseIslandImage } from "./islandHero";
+import { formatIslandLevel, shouldUseIslandImage } from "./islandHeroLogic";
 
 describe("shouldUseIslandImage", () => {
   it("无有效 key 时回退抽象柔光（false）", () => {
