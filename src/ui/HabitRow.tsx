@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Pressable, View } from "react-native";
 import { Habit } from "../habits/types";
 import { Avatar, AvatarTone } from "./Avatar";
@@ -35,7 +36,10 @@ export function HabitRow({
   completedBy,
   canUndo = false,
   isUndoing = false,
-  xpLabel = "+10 XP"
+  xpLabel = "+10 XP",
+  icon,
+  iconBg,
+  iconColor
 }: {
   habit: Habit;
   isCompleted: boolean;
@@ -49,6 +53,10 @@ export function HabitRow({
   canUndo?: boolean;
   isUndoing?: boolean;
   xpLabel?: string;
+  /** 不显示打卡按钮时（如习惯管理页），左侧改用 icon-chip。 */
+  icon?: keyof typeof Ionicons.glyphMap;
+  iconBg?: string;
+  iconColor?: string;
 }) {
   const { colors } = useTheme();
 
@@ -118,6 +126,19 @@ export function HabitRow({
           optimistic={habit.trackType !== "numeric"}
           canUndo={isCompleted && canUndo}
         />
+      ) : icon ? (
+        <View
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: radius.md,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: iconBg ?? colors.surfaceMuted
+          }}
+        >
+          <Ionicons name={icon} size={21} color={iconColor ?? colors.primaryInk} />
+        </View>
       ) : null}
 
       <View style={{ flex: 1, gap: 4 }}>
