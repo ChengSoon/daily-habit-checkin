@@ -1,13 +1,12 @@
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Pressable, View } from "react-native";
+import { Image, Pressable, View } from "react-native";
 import {
   buildBadgeWallItems,
-  fulfillmentLabel,
-  fulfillmentTone,
   selectPendingClaims
 } from "../../src/adventure/badgeWall";
 import { loadAdventureState } from "../../src/adventure/adventureService";
+import { resolveDefaultIslandSource } from "../../src/adventure/mapAssets";
 import type { AdventureState } from "../../src/adventure/types";
 import { publicUrl } from "../../src/sync/publicUrl";
 import { AppButton, AppText, Badge, Card } from "../../src/ui/Controls";
@@ -15,7 +14,7 @@ import { EmptyState } from "../../src/ui/EmptyState";
 import { RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { radius, spacing } from "../../src/ui/theme";
+import { radius, shadow, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 
 export default function AdventureBadgesScreen() {
@@ -30,6 +29,10 @@ export default function AdventureBadgesScreen() {
 
   const items = useMemo(() => (state ? buildBadgeWallItems(state) : []), [state]);
   const pending = useMemo(() => (state ? selectPendingClaims(state) : []), [state]);
+  const chapterByBadge = useMemo(
+    () => new Map((state?.chapters ?? []).map((chapter) => [chapter.id, chapter])),
+    [state]
+  );
   const claimedCount = items.filter((item) => item.kind === "claimed").length;
 
   if (status !== "ready") {
@@ -91,15 +94,13 @@ export default function AdventureBadgesScreen() {
         style={{
           flexDirection: "row",
           flexWrap: "wrap",
-          justifyContent: "space-between",
           gap: spacing.sm,
           marginTop: claimedCount === 0 ? spacing.sm : 0
         }}
       >
         {items.map((item) => {
           const claimed = item.kind === "claimed";
-          const label = fulfillmentLabel(item.fulfillmentStatus);
-          const tone = fulfillmentTone(item.fulfillmentStatus);
+          const chapter = chapterByBadge.get(item.chapterId);
           return (
             <Pressable
               key={item.chapterId}
@@ -110,55 +111,48 @@ export default function AdventureBadgesScreen() {
                 })
               }
               style={({ pressed }) => ({
-                width: "48%",
-                borderRadius: radius.md,
+                width: "31%",
+                flexGrow: 1,
+                minWidth: 96,
+                borderRadius: radius.lg,
                 borderWidth: 1,
-                borderColor:
-                  item.viewStatus === "claimable"
-                    ? colors.primary
-                    : claimed
-                      ? colors.line
-                      : colors.line,
+                borderColor: item.viewStatus === "claimable" ? colors.primary : colors.line,
                 backgroundColor: claimed ? colors.surface : colors.surfaceMuted,
-                padding: spacing.sm,
+                paddingVertical: spacing.md,
+                paddingHorizontal: spacing.xs,
                 gap: 6,
-                opacity: pressed ? 0.9 : claimed ? 1 : 0.72,
-                minHeight: 148
+                alignItems: "center",
+                opacity: pressed ? 0.9 : 1,
+                ...shadow.soft
               })}
             >
-              <View style={{ alignItems: "center", gap: 6 }}>
-                {item.badgeImageKey ? (
-                  <RewardThumb
-                    uri={publicUrl(item.badgeImageKey)}
-                    type={item.rewardType === "real_pending" ? "real_world" : "virtual"}
-                    size={56}
-                  />
-                ) : (
-                  <AppText style={{ fontSize: claimed ? 36 : 30, lineHeight: 42, opacity: claimed ? 1 : 0.55 }}>
-                    {claimed ? item.badgeEmoji?.trim() || "🏅" : item.viewStatus === "claimable" ? "✨" : "🔒"}
-                  </AppText>
-                )}
-                <AppText variant="small" numberOfLines={1} style={{ fontWeight: "700", textAlign: "center" }}>
-                  {item.badgeName}
+              {item.badgeImageKey ? (
+                <RewardThumb
+                  uri={publicUrl(item.badgeImageKey)}
+                  type={item.rewardType === "real_pending" ? "real_world" : "virtual"}
+                  size={58}
+                />
+              ) : chapter ? (
+                <Image
+                  source={resolveDefaultIslandSource(chapter.mapThemeKey)}
+                  style={{ width: 58, height: 58, opacity: claimed ? 1 : 0.4 }}
+                  resizeMode="contain"
+                />
+              ) : (
+                <AppText style={{ fontSize: 32, lineHeight: 40, opacity: claimed ? 1 : 0.5 }}>
+                  {claimed ? item.badgeEmoji?.trim() || "🏅" : item.viewStatus === "claimable" ? "✨" : "🔒"}
                 </AppText>
-                <AppText
-                  variant="caption"
-                  tone="muted"
-                  numberOfLines={1}
-                  style={{ textTransform: "none", letterSpacing: 0, textAlign: "center" }}
-                >
-                  {item.chapterTitle}
+              )}
+              <AppText variant="small" numberOfLines={1} style={{ fontWeight: "700", textAlign: "center" }}>
+                {item.badgeName}
+              </AppText>
+              {!claimed && item.viewStatus === "claimable" ? (
+                <Badge label="可领取" tone="primary" />
+              ) : !claimed ? (
+                <AppText variant="caption" tone="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
+                  未解锁
                 </AppText>
-                {label ? <Badge label={label} tone={tone} /> : null}
-                {!claimed && item.viewStatus === "claimable" ? (
-                  <Badge label="可领取" tone="primary" />
-                ) : null}
-                {!claimed && item.viewStatus === "locked" ? (
-                  <AppText variant="caption" tone="muted" style={{ textAlign: "center", textTransform: "none" }}>
-                    未解锁
-                  </AppText>
-                ) : null}
-              </View>
+              ) : null}
             </Pressable>
           );
         })}
