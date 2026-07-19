@@ -70,7 +70,6 @@ export async function streamChatWithModel(rawInput: unknown, response: Response)
   response.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   response.setHeader("Cache-Control", "no-cache, no-transform");
   response.setHeader("Connection", "keep-alive");
-  // @ts-expect-error Express 可能没有 flushHeaders
   response.flushHeaders?.();
 
   const stream = await getClient().chat.completions.create({

@@ -70,20 +70,24 @@ type StreamListItem = ChatMessage & {
 };
 
 export default function AiChatScreen() {
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [engine, setEngine] = useState<ChatEngineState>(() => createInitialChatState());
   const engineRef = useRef(engine);
-  engineRef.current = engine;
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [streamDraft, setStreamDraft] = useState<{
     id: string;
     text: string;
     phase: "thinking" | "streaming";
+    createdAt: number;
   } | null>(null);
   const listRef = useRef<FlatList<StreamListItem>>(null);
   const applying = useRef(false);
+
+  useEffect(() => {
+    engineRef.current = engine;
+  }, [engine]);
 
   const scrollToEnd = useCallback(() => {
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
@@ -98,7 +102,12 @@ export default function AiChatScreen() {
     for (const effect of effects) {
       if (effect.type === "generate_plan") {
         setBusy(true);
-        setStreamDraft({ id: createId("stream"), text: "", phase: "thinking" });
+        setStreamDraft({
+          id: createId("stream"),
+          text: "",
+          phase: "thinking",
+          createdAt: Date.now()
+        });
         try {
           const plan = await requestAIHabitPlan(draftToRequest(effect.draft));
           setStreamDraft(null);
@@ -126,7 +135,8 @@ export default function AiChatScreen() {
       if (effect.type === "llm_chat") {
         setBusy(true);
         const streamId = createId("stream");
-        setStreamDraft({ id: streamId, text: "", phase: "thinking" });
+        const streamCreatedAt = Date.now();
+        setStreamDraft({ id: streamId, text: "", phase: "thinking", createdAt: streamCreatedAt });
         try {
           const history = current.messages
             .filter((m) => m.role === "user" || m.role === "assistant")
@@ -137,11 +147,17 @@ export default function AiChatScreen() {
             {
               onDelta: (chunk) => {
                 setStreamDraft((prev) => {
-                  const base = prev ?? { id: streamId, text: "", phase: "thinking" as const };
+                  const base = prev ?? {
+                    id: streamId,
+                    text: "",
+                    phase: "thinking" as const,
+                    createdAt: streamCreatedAt
+                  };
                   return {
                     id: base.id,
                     text: `${base.text}${chunk}`,
-                    phase: "streaming"
+                    phase: "streaming",
+                    createdAt: base.createdAt
                   };
                 });
               }
@@ -377,7 +393,7 @@ export default function AiChatScreen() {
                     id: streamDraft.id,
                     role: "assistant" as const,
                     text: streamDraft.text,
-                    createdAt: Date.now(),
+                    createdAt: streamDraft.createdAt,
                     isStream: true,
                     phase: streamDraft.phase
                   }
@@ -645,4 +661,3 @@ function MessageBubble({
     </View>
   );
 }
-
