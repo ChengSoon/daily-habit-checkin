@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { useMemo } from "react";
 import { Image, Platform, Pressable, ScrollView, View } from "react-native";
 import type { AdventureChapterView } from "./types";
-import { resolveDefaultIslandSource } from "./mapAssets";
+import { resolveChapterIslandSource } from "./mapAssets";
 import { publicUrl } from "../sync/publicUrl";
 import { AppButton, AppText, Card } from "../ui/Controls";
 import { RewardThumb } from "../ui/RewardImage";
@@ -76,7 +76,7 @@ function BadgeVisual({
   );
 }
 
-/** 章节航线：一眼看到整段旅程走到哪。 */
+/** 章节航线：board .rail-isle 紧凑卡；横向滚动时禁止子项被纵向 stretch 拉高。 */
 export function JourneyRail({
   chapters,
   onOpen,
@@ -87,7 +87,7 @@ export function JourneyRail({
   /** board 风格：无外层 Card、无标题（由页面自带）。 */
   bare?: boolean;
 }) {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const sorted = useMemo(
     () => [...chapters].sort((a, b) => a.sortOrder - b.sortOrder),
     [chapters]
@@ -97,81 +97,109 @@ export function JourneyRail({
     return null;
   }
 
+  const currentOrder = (() => {
+    const claimable = sorted.find((c) => c.viewStatus === "claimable");
+    if (claimable) return claimable.sortOrder;
+    const unlocked = sorted.filter((c) => c.viewStatus !== "locked");
+    return unlocked.length ? unlocked[unlocked.length - 1].sortOrder : -1;
+  })();
+
   const rail = (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 9 }}>
-        {sorted.map((chapter) => {
-          const meta = statusMeta(chapter, colors);
-          const locked = chapter.viewStatus === "locked";
-          return (
-            <Pressable
-              key={chapter.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${chapter.title}，${meta.label}`}
-              disabled={locked}
-              onPress={() => onOpen(chapter.id)}
-              style={({ pressed }) => {
-                const isCurrent =
-                  chapter.viewStatus === "claimable" ||
-                  (chapter.viewStatus !== "locked" &&
-                    !sorted.some((c) => c.sortOrder > chapter.sortOrder && c.viewStatus !== "locked"));
-                return {
-                  width: 92,
-                  borderRadius: 14,
-                  borderWidth: 1,
-                  borderColor: isCurrent ? colors.primary : colors.line,
-                  backgroundColor: "#FAFBFE",
-                  paddingVertical: 8,
-                  paddingHorizontal: 6,
-                  gap: 4,
-                  alignItems: "center" as const,
-                  opacity: pressed && !locked ? 0.88 : 1,
-                  ...(isCurrent
-                    ? {
-                        shadowColor: colors.primary,
-                        shadowOpacity: 0.18,
-                        shadowRadius: 12,
-                        shadowOffset: { width: 0, height: 6 }
-                      }
-                    : {})
-                };
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      // flexGrow:0 避免在父 ScrollView 里被撑满；alignItems 防止子卡纵向拉长
+      style={{ flexGrow: 0 }}
+      contentContainerStyle={{ gap: 9, alignItems: "flex-start", paddingVertical: 2, paddingRight: 4 }}
+    >
+      {sorted.map((chapter) => {
+        const meta = statusMeta(chapter, colors);
+        const locked = chapter.viewStatus === "locked";
+        const isCurrent = chapter.sortOrder === currentOrder;
+        const statusLabel =
+          chapter.viewStatus === "claimable" ? "当前" : chapter.viewStatus === "claimed" ? "已获" : "锁定";
+
+        return (
+          <Pressable
+            key={chapter.id}
+            accessibilityRole="button"
+            accessibilityLabel={`${chapter.title}，${statusLabel}`}
+            disabled={locked}
+            onPress={() => onOpen(chapter.id)}
+            style={({ pressed }) => ({
+              width: 96,
+              alignSelf: "flex-start",
+              borderRadius: 16,
+              borderWidth: isCurrent ? 1.5 : 1,
+              borderColor: isCurrent ? colors.primary : colors.line,
+              backgroundColor: scheme === "dark" ? colors.surface : "#FAFBFE",
+              paddingTop: 10,
+              paddingBottom: 10,
+              paddingHorizontal: 8,
+              gap: 6,
+              alignItems: "center" as const,
+              opacity: pressed && !locked ? 0.88 : locked ? 0.92 : 1,
+              ...(isCurrent
+                ? {
+                    shadowColor: colors.primary,
+                    shadowOpacity: 0.16,
+                    shadowRadius: 10,
+                    shadowOffset: { width: 0, height: 5 },
+                    elevation: 3
+                  }
+                : {
+                    shadowColor: "#283048",
+                    shadowOpacity: 0.04,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 3 },
+                    elevation: 1
+                  })
+            })}
+          >
+            <Image
+              source={resolveChapterIslandSource(chapter)}
+              style={{
+                width: 58,
+                height: 58,
+                opacity: locked ? 0.48 : 1,
+                ...(Platform.OS === "web" && locked
+                  ? ({ filter: "grayscale(0.8) brightness(1.05)" } as object)
+                  : {})
+              }}
+              resizeMode="contain"
+            />
+            <AppText
+              variant="small"
+              numberOfLines={1}
+              style={{
+                fontWeight: "800",
+                fontSize: 12,
+                lineHeight: 15,
+                color: locked ? colors.muted : colors.ink,
+                maxWidth: 80,
+                textAlign: "center"
               }}
             >
-              <Image
-                source={resolveDefaultIslandSource(chapter.mapThemeKey)}
-                style={{
-                  width: 56,
-                  height: 56,
-                  opacity: locked ? 0.5 : 1,
-                  shadowColor: "#283048",
-                  shadowOpacity: locked ? 0.06 : 0.12,
-                  shadowRadius: 8,
-                  shadowOffset: { width: 0, height: 4 },
-                  ...(Platform.OS === "web" && locked
-                    ? ({ filter: "grayscale(0.8) brightness(1.05)" } as object)
-                    : {})
-                }}
-                resizeMode="contain"
-              />
-              <View
-                style={{
-                  borderRadius: 999,
-                  backgroundColor: meta.bg,
-                  paddingHorizontal: 8,
-                  paddingVertical: 3
-                }}
-              >
-                <AppText variant="small" style={{ color: meta.fg, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
-                  {chapter.viewStatus === "claimable"
-                    ? "当前"
-                    : chapter.viewStatus === "claimed"
-                      ? "已获"
-                      : "锁定"}
-                </AppText>
-              </View>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+              {chapter.title}
+            </AppText>
+            <View
+              style={{
+                borderRadius: 999,
+                backgroundColor: meta.bg,
+                paddingHorizontal: 9,
+                paddingVertical: 3,
+                borderWidth: chapter.viewStatus === "claimable" ? 1 : 0,
+                borderColor: chapter.viewStatus === "claimable" ? colors.primary : "transparent"
+              }}
+            >
+              <AppText variant="small" style={{ color: meta.fg, fontWeight: "800", fontSize: 11, lineHeight: 14 }}>
+                {statusLabel}
+              </AppText>
+            </View>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
 
   if (bare) {
@@ -282,7 +310,7 @@ export function HowItWorksCard() {
         {steps.map((step) => (
           <View key={step.text} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Ionicons name={step.icon} size={16} color={step.color} />
-            <AppText variant="body" tone="soft" style={{ fontSize: 12.5, lineHeight: 19 }}>
+            <AppText variant="body" tone="soft" style={{ fontSize: 15, lineHeight: 22 }}>
               {step.text}
             </AppText>
           </View>

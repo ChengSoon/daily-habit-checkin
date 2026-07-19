@@ -105,3 +105,14 @@
 - 每屏改完由用户 `npm run ios`(或 `npm run web`)实机/浏览器验收。
 - 关键纯逻辑(如 islandHeroLogic)已有单测;视觉改动以人眼验收为准。
 - 不改业务逻辑/数据层,仅 UI 表现层。
+
+
+## 2026-07-19 反馈补丁
+
+用户反馈：开屏/加载白屏、字号偏小、空态与列表留白过大。
+
+落地：
+1. **字阶整体上调**（`theme.ts`）：body 12.5→15、title 20→22、display 25→28 等，适配中文可读。
+2. **品牌开屏** `src/ui/AppSplash.tsx` + `expo-splash-screen` 生命周期：原生 splash → 品牌动画 → 主界面。
+3. **LoadingFallback**：去掉 320ms 空白延迟，立刻显示印章动画 +「正在连接小岛」文案。
+4. **EmptyState**：加大图标/间距，支持 `fill` 撑满可用高度，减少页面中部空洞。

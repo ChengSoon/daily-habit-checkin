@@ -347,6 +347,22 @@ export const shadow = {
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 12 },
     elevation: 6
+  },
+  /** 主按钮立体阴影（色影 + 深度） */
+  button: {
+    shadowColor: "#283048",
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 7
+  },
+  /** 按下后收起，模拟下沉 */
+  buttonPressed: {
+    shadowColor: "#283048",
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2
   }
 } as const;
 
@@ -363,19 +379,19 @@ export type TypeScale = {
 };
 
 export const type: Record<"display" | "title" | "section" | "body" | "bodyStrong" | "small" | "caption", TypeScale> = {
-  // v2 board：Outfit 标题用负字距（.title -0.02em），Nunito 正文不用负字距。
-  // RN letterSpacing 为绝对 px，由 em×fontSize 换算：-0.02em × {25,20,15.5} ≈ {-0.5,-0.4,-0.3}。
-  display: { fontSize: 25, lineHeight: 30, fontWeight: "800", letterSpacing: -0.5 },
-  title: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.4 },
-  section: { fontSize: 15.5, lineHeight: 20, fontWeight: "700", letterSpacing: -0.3 },
-  body: { fontSize: 12.5, lineHeight: 19, fontWeight: "600" },
-  bodyStrong: { fontSize: 14, lineHeight: 20, fontWeight: "700" },
-  small: { fontSize: 11, lineHeight: 15, fontWeight: "700" },
-  caption: { fontSize: 10, lineHeight: 14, fontWeight: "800", letterSpacing: 0 }
+  // 实机可读优先：中文正文不宜 <15，标题按 board 比例略放大一档。
+  // RN letterSpacing 为绝对 px，由 em×fontSize 换算：-0.02em × {28,22,17} ≈ {-0.56,-0.44,-0.34}。
+  display: { fontSize: 28, lineHeight: 34, fontWeight: "800", letterSpacing: -0.56 },
+  title: { fontSize: 22, lineHeight: 28, fontWeight: "800", letterSpacing: -0.44 },
+  section: { fontSize: 17, lineHeight: 22, fontWeight: "700", letterSpacing: -0.34 },
+  body: { fontSize: 15, lineHeight: 22, fontWeight: "600" },
+  bodyStrong: { fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  small: { fontSize: 13, lineHeight: 18, fontWeight: "700" },
+  caption: { fontSize: 12, lineHeight: 16, fontWeight: "800", letterSpacing: 0 }
 };
 
-/** v2 数字负字距（.num -0.03em）。用于 Outfit 大数字（统计/进度/连续天数）。约 -0.03em × 23px。 */
-export const numberLetterSpacing = -0.7;
+/** 数字负字距（.num -0.03em）。用于 Outfit 大数字（统计/进度/连续天数）。约 -0.03em × 26px。 */
+export const numberLetterSpacing = -0.8;
 
 export type TintName = "coral" | "lavender" | "mint" | "sky" | "sun" | "orange";
 

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { ReactNode } from "react";
 import { Image, Pressable, View, type ViewStyle } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Rect, Stop } from "react-native-svg";
-import { resolveDefaultIslandSource } from "../adventure/mapAssets";
+import { resolveChapterIslandSource } from "../adventure/mapAssets";
 import { CoupleAvatars, type CouplePerson } from "./Avatar";
 import { AppText } from "./Controls";
 import { formatIslandLevel, shouldUseIslandImage } from "./islandHeroLogic";
@@ -43,7 +43,7 @@ function IslandRing({ ratio, colors }: { ratio: number; colors: Palette }) {
           transform={`rotate(-90 ${center} ${center})`}
         />
       </Svg>
-      <AppText variant="bodyStrong" style={{ fontSize: 15, lineHeight: 18, color: colors.ink }}>
+      <AppText variant="bodyStrong" style={{ fontSize: 16, lineHeight: 20, color: colors.ink }}>
         {Math.round(clamped * 100)}%
       </AppText>
     </View>
@@ -61,6 +61,7 @@ function IslandRing({ ratio, colors }: { ratio: number; colors: Palette }) {
 export function IslandHero({
   variant,
   islandKey,
+  islandImageKey,
   islandName,
   islandLevel,
   title,
@@ -76,8 +77,10 @@ export function IslandHero({
   progressBar
 }: {
   variant: IslandHeroVariant;
-  /** 岛屿主题 key（lighthouse/forest/…）；经 resolveDefaultIslandSource 取图。缺失→柔光态。 */
+  /** 岛屿主题 key（lighthouse/forest/…）；经 resolveChapterIslandSource 取图。缺失→柔光态。 */
   islandKey?: string | null;
+  /** 自定义岛图 R2 key，优先于默认主题。 */
+  islandImageKey?: string | null;
   islandName?: string;
   islandLevel?: number;
   /** 覆盖主标题；默认用 islandName。 */
@@ -100,7 +103,7 @@ export function IslandHero({
 }) {
   const { colors, scheme } = useTheme();
   const isDark = scheme === "dark";
-  const showIsland = shouldUseIslandImage(islandKey);
+  const showIsland = shouldUseIslandImage(islandKey, islandImageKey);
   const levelLabel = formatIslandLevel(islandLevel);
   const compact = variant === "profile";
   const showRing = variant === "today";
@@ -212,7 +215,7 @@ export function IslandHero({
               {eyebrowText}
             </AppText>
           ) : null}
-          <AppText variant="title" style={{ fontSize: compact ? 18 : 23, lineHeight: compact ? 24 : 29, color: colors.ink }}>
+          <AppText variant="title" style={{ fontSize: compact ? 20 : 26, lineHeight: compact ? 26 : 32, color: colors.ink }}>
             {title ?? islandName ?? "我们的小岛"}
           </AppText>
           {detail ? (
@@ -302,7 +305,7 @@ export function IslandHero({
             }}
           >
             <Image
-              source={resolveDefaultIslandSource(islandKey)}
+              source={resolveChapterIslandSource({ mapThemeKey: islandKey, nodeImageKey: islandImageKey })}
               style={{ width: "100%", height: "100%" }}
               resizeMode="contain"
             />

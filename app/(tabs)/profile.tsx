@@ -180,6 +180,7 @@ export default function ProfileScreen() {
           <IslandHero
             variant="profile"
             islandKey={island?.key}
+            islandImageKey={island?.nodeImageKey}
             islandName={island?.name ?? "我们的小岛"}
             eyebrow=""
             title={`我们的空间 · ${island?.name ?? "小岛"}`}
@@ -221,7 +222,7 @@ export default function ProfileScreen() {
               iconColor={colors.primaryInk}
               onPress={() => router.push("/account")}
             >
-              <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                 账号与同步
               </AppText>
               <AppText variant="small" tone="muted">
@@ -245,7 +246,7 @@ export default function ProfileScreen() {
                 </View>
               }
             >
-              <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                 主题外观
               </AppText>
               <AppText variant="small" tone="muted">
@@ -259,7 +260,7 @@ export default function ProfileScreen() {
               iconColor={colors.candySkyInk}
               onPress={() => setSettingsPanel(settingsPanel === "reminders" ? null : "reminders")}
             >
-              <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                 提醒与免打扰
               </AppText>
               <AppText variant="small" tone="muted">
@@ -273,7 +274,7 @@ export default function ProfileScreen() {
               iconColor={colors.candyOrangeInk}
               onPress={() => void exportData()}
             >
-              <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                 导出数据
               </AppText>
               <AppText variant="small" tone="muted">
@@ -314,7 +315,7 @@ export default function ProfileScreen() {
                         <View style={{ width: 18, height: 18, borderRadius: 999, backgroundColor: option.swatch[1], borderWidth: 2, borderColor: colors.surface, marginLeft: -6 }} />
                       </View>
                       <View style={{ flex: 1, gap: 2 }}>
-                        <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+                        <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                           {option.label}
                         </AppText>
                         <AppText variant="small" tone="muted">
@@ -394,7 +395,7 @@ export default function ProfileScreen() {
               iconColor={colors.inkSoft}
               onPress={() => setSettingsPanel(settingsPanel === "more" ? null : "more")}
             >
-              <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                 {settingsPanel === "more" ? "收起更多" : "更多"}
               </AppText>
               <AppText variant="small" tone="muted">

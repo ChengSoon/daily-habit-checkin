@@ -303,12 +303,12 @@ export default function HabitDetailScreen() {
           <AppText variant="section">{monthTitle}</AppText>
           <View style={{ flexDirection: "row", gap: 6 }}>
             <View style={{ borderRadius: 999, backgroundColor: colors.successSurface, paddingHorizontal: 9, paddingVertical: 4 }}>
-              <AppText variant="small" style={{ color: colors.candyMintInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+              <AppText variant="small" style={{ color: colors.candyMintInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                 你
               </AppText>
             </View>
             <View style={{ borderRadius: 999, backgroundColor: colors.partnerSurface, paddingHorizontal: 9, paddingVertical: 4 }}>
-              <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+              <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                 双人
               </AppText>
             </View>

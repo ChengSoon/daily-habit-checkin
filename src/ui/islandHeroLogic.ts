@@ -4,9 +4,12 @@
  * 组件 IslandHero.tsx 里才做真实岛图解析与渲染。
  */
 
-/** 有有效 islandKey 才显示真实岛图；否则回退抽象柔光态。 */
-export function shouldUseIslandImage(islandKey?: string | null): boolean {
-  return Boolean(islandKey && islandKey.trim());
+/** 有主题 key 或自定义岛图时显示真实岛图；否则回退抽象柔光态。 */
+export function shouldUseIslandImage(
+  islandKey?: string | null,
+  islandImageKey?: string | null
+): boolean {
+  return Boolean((islandKey && islandKey.trim()) || (islandImageKey && islandImageKey.trim()));
 }
 
 /** 岛屿等级标签："Lv.4"；缺失/非正数返回空串。 */

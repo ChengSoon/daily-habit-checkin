@@ -92,7 +92,7 @@ export function MonthCalendar({
       <View style={{ flexDirection: "row" }}>
         {WEEKDAY_LABELS.map((label) => (
           <View key={label} style={{ width: cellW, alignItems: "center", paddingVertical: 2 }}>
-            <AppText variant="caption" tone="faint" style={{ fontSize: 9, letterSpacing: 0, textTransform: "none" }}>
+            <AppText variant="caption" tone="faint" style={{ fontSize: 11, letterSpacing: 0, textTransform: "none" }}>
               {label}
             </AppText>
           </View>
@@ -161,7 +161,7 @@ export function MonthCalendar({
                     <Rect x="0" y="0" width="40" height="40" fill={`url(#both-${cell.key})`} />
                   </Svg>
                 ) : null}
-                <AppText variant="small" style={{ color: textColor, fontWeight: "800", fontSize: 10, lineHeight: 12, zIndex: 1 }}>
+                <AppText variant="small" style={{ color: textColor, fontWeight: "800", fontSize: 12, lineHeight: 14, zIndex: 1 }}>
                   {cell.day}
                 </AppText>
               </View>

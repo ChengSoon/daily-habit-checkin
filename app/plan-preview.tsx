@@ -190,13 +190,13 @@ export default function PlanPreviewScreen() {
                 >
                   <AppText
                     variant="title"
-                    style={{ color: colors[tint.fg], fontSize: 16, lineHeight: 20, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}
+                    style={{ color: colors[tint.fg], fontSize: 17, lineHeight: 22, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}
                   >
                     {phase.n}
                   </AppText>
                 </View>
                 <View style={{ flex: 1, gap: 6 }}>
-                  <AppText variant="bodyStrong" style={{ fontFamily: "Outfit_700Bold", fontSize: 14 }}>
+                  <AppText variant="bodyStrong" style={{ fontFamily: "Outfit_700Bold", fontSize: 16 }}>
                     {phase.title}
                   </AppText>
                   <AppText variant="body" tone="muted">

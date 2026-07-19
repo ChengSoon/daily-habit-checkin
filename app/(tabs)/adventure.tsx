@@ -4,13 +4,15 @@ import { Pressable, View } from "react-native";
 import { HowItWorksCard, JourneyRail } from "../../src/adventure/AdventureHomeSections";
 import { loadAdventureState } from "../../src/adventure/adventureService";
 import type { AdventureState } from "../../src/adventure/types";
-import { AppButton, AppText } from "../../src/ui/Controls";
+import { AppButton, AppText, Card } from "../../src/ui/Controls";
 import { IslandHero } from "../../src/ui/IslandHero";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
+import { useTheme } from "../../src/ui/ThemeContext";
 
-/** board 03 · 闯关旅程：岛屿 hero + 章节航线 + How it works（不塞旧进度卡/多按钮）。 */
+/** board 03 · 闯关旅程：岛屿 hero + 章节航线 + How it works。 */
 export default function AdventureHomeScreen() {
+  const { colors } = useTheme();
   const [state, setState] = useState<AdventureState | null>(null);
 
   const load = useCallback(async () => {
@@ -30,9 +32,10 @@ export default function AdventureHomeScreen() {
   const unlocked = state.highestUnlockedOrder;
   const next = state.nextChapter;
   const remaining = next ? Math.max(0, next.thresholdLifetimeXp - state.lifetimeEarned) : 0;
-  const progressRatio = next && next.thresholdLifetimeXp > 0
-    ? Math.min(1, state.lifetimeEarned / next.thresholdLifetimeXp)
-    : Math.min(1, unlocked / total);
+  const progressRatio =
+    next && next.thresholdLifetimeXp > 0
+      ? Math.min(1, state.lifetimeEarned / next.thresholdLifetimeXp)
+      : Math.min(1, unlocked / total);
   const current =
     state.chapters
       .filter((chapter) => chapter.sortOrder <= unlocked)
@@ -43,38 +46,54 @@ export default function AdventureHomeScreen() {
       <IslandHero
         variant="adventure"
         islandKey={current?.mapThemeKey}
+        islandImageKey={current?.nodeImageKey}
         islandName={current ? current.title : "启程之前"}
         eyebrow={current ? `双人旅程 · Chapter ${String(current.sortOrder).padStart(2, "0")}` : "双人旅程"}
         detail={`累计 ${state.lifetimeEarned.toLocaleString("en-US")} XP · 已点亮 ${unlocked} / ${total} 岛`}
         progressBar={{
           ratio: progressRatio,
-          label: next && remaining > 0 ? `距下一岛还差 ${remaining} XP` : unlocked >= total ? "群岛已全部点亮" : undefined
+          label:
+            next && remaining > 0
+              ? `距下一岛还差 ${remaining} XP`
+              : unlocked >= total
+                ? "群岛已全部点亮"
+                : undefined
         }}
       />
 
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 2 }}>
-        <AppText variant="section">章节航线</AppText>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <Pressable onPress={() => router.push("/adventure/badges")}>
-            <AppText variant="small" tone="muted">
-              徽章墙
-            </AppText>
-          </Pressable>
-          <AppText variant="small" tone="muted">
-            共 {total} 站 · {unlocked} 已点亮
+      <View style={{ gap: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+          <AppText variant="section" style={{ flexShrink: 0 }}>
+            章节航线
           </AppText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 }}>
+            <Pressable
+              onPress={() => router.push("/adventure/badges")}
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800" }}>
+                徽章墙
+              </AppText>
+            </Pressable>
+            <AppText variant="small" tone="muted" numberOfLines={1}>
+              共 {total} 站 · {unlocked} 已点亮
+            </AppText>
+          </View>
         </View>
-      </View>
 
-      <JourneyRail
-        chapters={state.chapters}
-        onOpen={(chapterId) => router.push({ pathname: "/adventure/[chapterId]", params: { chapterId } })}
-        bare
-      />
+        {/* 白卡包住航线，避免横向滚动区直接贴灰底显得空洞 */}
+        <Card elevated={false} style={{ gap: 0, paddingVertical: 12, paddingHorizontal: 10 }}>
+          <JourneyRail
+            chapters={state.chapters}
+            onOpen={(chapterId) => router.push({ pathname: "/adventure/[chapterId]", params: { chapterId } })}
+            bare
+          />
+        </Card>
+      </View>
 
       <HowItWorksCard />
 
-      {/* board 03 本体止于 How it works；可领时用 mint 主按钮，否则 secondary 进入地图 */}
       <AppButton
         title={state.claimableCount > 0 ? "领取章节奖励" : "打开世界地图"}
         icon={state.claimableCount > 0 ? "ribbon-outline" : "map-outline"}

@@ -32,6 +32,7 @@ export function ProgressHeader({
   doneDateKeys,
   showWeekStrip = false,
   islandKey,
+  islandImageKey,
   islandName = "我们的小岛",
   islandLevel
 }: {
@@ -49,6 +50,7 @@ export function ProgressHeader({
   showWeekStrip?: boolean;
   /** 共同小岛主题 key（跟随世界地图到达的岛，由今日页从闯关进度传入）。 */
   islandKey?: string | null;
+  islandImageKey?: string | null;
   islandName?: string;
   islandLevel?: number;
 }) {
@@ -83,7 +85,7 @@ export function ProgressHeader({
           >
             {greeting} · {WEEKDAY_ZH[now.getDay()]}
           </AppText>
-          <AppText variant="title" style={{ fontSize: 20, lineHeight: 24 }}>
+          <AppText variant="title" style={{ fontSize: 22, lineHeight: 28 }}>
             {hasPartner ? "一起打卡 ✨" : "今日打卡 ✨"}
           </AppText>
         </View>
@@ -93,6 +95,7 @@ export function ProgressHeader({
       <IslandHero
         variant="today"
         islandKey={islandKey}
+        islandImageKey={islandImageKey}
         islandName={islandName}
         islandLevel={islandLevel}
         ratio={ratio}

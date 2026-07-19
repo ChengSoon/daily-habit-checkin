@@ -163,7 +163,7 @@ export default function AdventureBadgesScreen() {
                 numberOfLines={1}
                 style={{
                   fontWeight: "800",
-                  fontSize: 10.5,
+                  fontSize: 12,
                   textAlign: "center",
                   color: claimed || item.viewStatus === "claimable" ? colors.ink : colors.faint
                 }}

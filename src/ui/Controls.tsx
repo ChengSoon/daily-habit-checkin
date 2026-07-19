@@ -146,6 +146,113 @@ function ButtonIcon({
   );
 }
 
+
+/** 简易色值混合，给按钮做同色系深浅渐变（避免跨色相脏边）。 */
+function mixHex(a: string, b: string, t: number): string {
+  const parse = (hex: string) => {
+    const h = hex.replace("#", "").trim();
+    const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+    if (full.length < 6) return [0, 0, 0];
+    return [0, 2, 4].map((i) => Number.parseInt(full.slice(i, i + 2), 16));
+  };
+  const [ar, ag, ab] = parse(a);
+  const [br, bg, bb] = parse(b);
+  const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
+  const r = clamp(ar + (br - ar) * t);
+  const g = clamp(ag + (bg - ag) * t);
+  const bch = clamp(ab + (bb - ab) * t);
+  return `#${[r, g, bch].map((n) => n.toString(16).padStart(2, "0")).join("")}`;
+}
+
+function lighten(hex: string, amount: number): string {
+  return mixHex(hex, "#FFFFFF", amount);
+}
+
+function darken(hex: string, amount: number): string {
+  return mixHex(hex, "#000000", amount);
+}
+
+function buttonShadow(
+  variant: ButtonVariant,
+  colors: Palette,
+  pressed: boolean,
+  disabled: boolean
+): ViewStyle {
+  if (disabled) {
+    return {
+      shadowColor: "#283048",
+      shadowOpacity: 0.05,
+      shadowRadius: 5,
+      shadowOffset: { width: 0, height: 2 },
+      elevation: 0
+    };
+  }
+
+  const baseColor =
+    variant === "primary"
+      ? colors.primary
+      : variant === "mint"
+        ? colors.success
+        : variant === "secondary"
+          ? colors.partner
+          : variant === "danger"
+            ? colors.danger
+            : "#283048";
+
+  if (pressed) {
+    return {
+      shadowColor: baseColor,
+      shadowOpacity: 0.18,
+      shadowRadius: 7,
+      shadowOffset: { width: 0, height: 3 },
+      elevation: 2
+    };
+  }
+
+  if (variant === "primary" || variant === "mint") {
+    return {
+      shadowColor: baseColor,
+      shadowOpacity: 0.36,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 8 },
+      elevation: 7
+    };
+  }
+
+  if (variant === "secondary" || variant === "danger") {
+    return {
+      shadowColor: baseColor,
+      shadowOpacity: 0.18,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      elevation: 4
+    };
+  }
+
+  return {
+    shadowColor: "#283048",
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3
+  };
+}
+
+function primaryGradientStops(colors: Palette, themeName: string): [string, string, string] {
+  // 同色系微立体：顶端只轻微提亮，避免出现白边；底端略压深。
+  if (themeName === "mint") {
+    return [lighten(colors.primary, 0.06), colors.primary, darken(colors.primary, 0.1)];
+  }
+  if (themeName === "sunset") {
+    return [lighten(colors.primary, 0.06), colors.primary, darken(colors.candyOrange, 0.05)];
+  }
+  return [lighten(colors.primary, 0.06), colors.primary, mixHex(colors.primary, colors.candyOrange, 0.4)];
+}
+
+function mintGradientStops(colors: Palette): [string, string, string] {
+  return [lighten(colors.success, 0.06), colors.success, darken(colors.success, 0.08)];
+}
+
 export function AppButton({
   title,
   onPress,
@@ -167,19 +274,12 @@ export function AppButton({
   iconSpin?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { colors } = useTheme();
+  const { colors, themeName } = useTheme();
 
   const background: Record<ButtonVariant, string> = {
     primary: colors.primary,
     secondary: colors.partnerSurface,
-    ghost: "transparent",
-    danger: colors.dangerSurface,
-    mint: colors.success
-  };
-  const border: Record<ButtonVariant, string> = {
-    primary: colors.primary,
-    secondary: colors.line,
-    ghost: colors.lineStrong,
+    ghost: colors.surface,
     danger: colors.dangerSurface,
     mint: colors.success
   };
@@ -190,12 +290,22 @@ export function AppButton({
     danger: "danger",
     mint: "onPrimary"
   };
-  // 禁用态统一走中性底色 + 可读文字，避免在主题色上叠低透明度导致文字糊成一片。
   const iconColor = disabled ? colors.muted : toneColor(colors, textTone[variant]);
-
   const useGradient = (variant === "primary" || variant === "mint") && !disabled;
-  // board: primary coral→orange；secondary = lavender soft；mint 变体用 success 渐变留给业务侧 style 覆盖
-  const gradientId = `btn-${variant}-${compact ? "c" : "n"}`;
+  const gradientId = `btn-${variant}-${themeName}-${compact ? "c" : "n"}-${colors.primary.replace("#", "")}`;
+
+  const stops =
+    variant === "mint" ? mintGradientStops(colors) : primaryGradientStops(colors, themeName);
+
+  const labelColor = disabled
+    ? colors.muted
+    : variant === "secondary"
+      ? colors.partnerInk
+      : variant === "danger"
+        ? colors.danger
+        : variant === "ghost"
+          ? colors.ink
+          : colors.onPrimary;
 
   return (
     <Pressable
@@ -205,86 +315,96 @@ export function AppButton({
       onPress={onPress}
       style={({ pressed }) => [
         {
-          minHeight: compact ? 40 : 48,
+          borderRadius: radius.pill,
+          ...buttonShadow(variant, colors, pressed && !disabled, disabled),
+          transform:
+            pressed && !disabled
+              ? [{ translateY: 1.5 }, { scale: 0.985 }]
+              : [{ translateY: 0 }, { scale: 1 }]
+        },
+        fullWidth ? { alignSelf: "stretch" } : null,
+        style
+      ]}
+    >
+      <View
+        style={{
+          minHeight: compact ? 38 : 48,
           borderRadius: radius.pill,
           overflow: "hidden",
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
-          gap: 6,
-          paddingHorizontal: compact ? 14 : 16,
-          paddingVertical: compact ? 10 : 13,
+          gap: compact ? 5 : 7,
+          paddingHorizontal: compact ? 14 : 18,
+          paddingVertical: compact ? 9 : 13,
           backgroundColor: disabled ? colors.surfaceMuted : useGradient ? "transparent" : background[variant],
-          borderWidth: variant === "ghost" ? 1 : 0,
+          borderWidth: variant === "ghost" || variant === "secondary" || variant === "danger" ? 1 : 0,
           borderColor: disabled
             ? colors.lineStrong
             : variant === "ghost"
-              ? border[variant]
-              : "transparent",
-          ...((variant === "primary" || variant === "mint") && !disabled
-            ? {
-                shadowColor: variant === "mint" ? colors.success : colors.primary,
-                shadowOpacity: 0.3,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 10 },
-                elevation: 4
-              }
-            : {})
-        },
-        fullWidth ? { alignSelf: "stretch" } : null,
-        pressed && !disabled ? { opacity: 0.9, transform: [{ scale: 0.985 }] } : null,
-        style
-      ]}
-    >
-      {useGradient ? (
-        <Svg
-          pointerEvents="none"
-          viewBox="0 0 200 52"
-          preserveAspectRatio="none"
-          style={StyleSheet.absoluteFill}
-        >
-          <Defs>
-            <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-              <Stop offset="0%" stopColor={variant === "mint" ? "#4ED6B0" : colors.primary} />
-              <Stop offset="100%" stopColor={variant === "mint" ? colors.success : colors.candyOrange} />
-            </SvgLinearGradient>
-          </Defs>
-          <Rect x="0" y="0" width="200" height="52" fill={`url(#${gradientId})`} />
-        </Svg>
-      ) : null}
-      {icon ? (
-        <View style={{ zIndex: 1 }}>
-          <ButtonIcon
-            activeSpin={iconSpin}
-            name={icon}
-            size={compact ? 15 : 16}
-            color={
-              disabled
-                ? colors.muted
-                : variant === "secondary"
-                  ? colors.partnerInk
-                  : iconColor
-            }
-          />
-        </View>
-      ) : null}
-      <AppText
-        variant="bodyStrong"
-        tone={disabled ? "muted" : variant === "secondary" ? "default" : textTone[variant]}
-        style={{
-          zIndex: 1,
-          fontSize: 13,
-          fontWeight: "800",
-          letterSpacing: 0,
-          color: disabled
-            ? colors.muted
-            : variant === "secondary"
-              ? colors.partnerInk
-              : undefined
+              ? colors.lineStrong
+              : variant === "secondary"
+                ? mixHex(colors.partner, "#FFFFFF", 0.55)
+                : variant === "danger"
+                  ? mixHex(colors.danger, "#FFFFFF", 0.7)
+                  : "transparent"
         }}
       >
-        {title}
-      </AppText>
+        {useGradient ? (
+          <Svg
+            pointerEvents="none"
+            viewBox="0 0 200 56"
+            preserveAspectRatio="none"
+            style={StyleSheet.absoluteFill}
+          >
+            <Defs>
+              {/* 自上而下同色系微立体，不再叠白色 sheen，避免顶边发白 */}
+              <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%" stopColor={stops[0]} />
+                <Stop offset="55%" stopColor={stops[1]} />
+                <Stop offset="100%" stopColor={stops[2]} />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="200" height="56" fill={`url(#${gradientId})`} />
+          </Svg>
+        ) : null}
+
+        {/* secondary / ghost 也加极轻顶部高光 */}
+        {!useGradient && !disabled && (variant === "secondary" || variant === "ghost") ? (
+          <View
+            pointerEvents="none"
+            style={{
+              ...StyleSheet.absoluteFill,
+              borderTopWidth: StyleSheet.hairlineWidth,
+              borderTopColor: "rgba(255,255,255,0.35)"
+            }}
+          />
+        ) : null}
+
+        {icon ? (
+          <View style={{ zIndex: 1, marginTop: 0.5 }}>
+            <ButtonIcon
+              activeSpin={iconSpin}
+              name={icon}
+              size={compact ? 16 : 17}
+              color={labelColor}
+            />
+          </View>
+        ) : null}
+        <AppText
+          variant="bodyStrong"
+          style={{
+            zIndex: 1,
+            fontSize: compact ? 14 : 15,
+            lineHeight: compact ? 18 : 20,
+            fontWeight: "800",
+            letterSpacing: 0.2,
+            color: labelColor
+          }}
+        >
+          {title}
+        </AppText>
+      </View>
     </Pressable>
   );
 }
@@ -320,12 +440,17 @@ export function IconButton({
           borderRadius: radius.pill,
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: colors.surfaceMuted,
+          backgroundColor: colors.surface,
           borderWidth: 1,
-          borderColor: colors.line
+          borderColor: colors.line,
+          shadowColor: "#283048",
+          shadowOpacity: pressed && !disabled ? 0.06 : 0.12,
+          shadowRadius: pressed && !disabled ? 4 : 8,
+          shadowOffset: { width: 0, height: pressed && !disabled ? 2 : 4 },
+          elevation: pressed && !disabled ? 1 : 3
         },
         disabled ? { opacity: 0.35 } : null,
-        pressed && !disabled ? { opacity: 0.7, transform: [{ scale: 0.96 }] } : null
+        pressed && !disabled ? { opacity: 0.9, transform: [{ translateY: 1 }, { scale: 0.96 }] } : null
       ]}
     >
       <Ionicons name={name} size={16} color={disabled ? colors.faint : color} />
@@ -425,7 +550,7 @@ export function SegmentedControl<T extends string | number>({
               style={{
                 color: active ? colors.primaryInk : colors.muted,
                 fontWeight: "800",
-                fontSize: 13
+                fontSize: 14
               }}
             >
               {option.label}
@@ -526,30 +651,43 @@ export function Card({
   // 渐变 id 由色值推导：同色对共享无害，异色对天然唯一，避免 web 上 SVG defs id 冲突。
   const gradId = gradient ? `cg${gradient[0].replace(/[^0-9a-z]/gi, "")}${gradient[1].replace(/[^0-9a-z]/gi, "")}` : "";
 
+  // 渐变卡底色用渐变终点色兜底：SVG 在圆角抗锯齿/部分端上铺不满时，
+  // 不再露出白色 surface，避免右下角「缺一块」的观感。
+  const gradientFallback = hasGradient && gradient ? gradient[1] : background;
+  const [cardSize, setCardSize] = useState({ width: 0, height: 0 });
+
   const content = (
     <View
+      onLayout={(event) => {
+        if (!hasGradient) {
+          return;
+        }
+        const { width, height } = event.nativeEvent.layout;
+        if (width !== cardSize.width || height !== cardSize.height) {
+          setCardSize({ width, height });
+        }
+      }}
       style={[
         {
           borderRadius: radius.lg,
           borderWidth: 1,
           borderColor: hasGradient ? gradientBorder ?? colors.line : colors.line,
-          backgroundColor: hasGradient ? colors.surface : background,
+          backgroundColor: gradientFallback,
           padding: 13,
           gap: 12,
-          overflow: hasGradient ? "hidden" : undefined,
+          overflow: "hidden",
+          position: "relative",
           ...(elevated ? shadow.card : {})
         },
         style
       ]}
     >
-      {gradient ? (
+      {gradient && cardSize.width > 0 && cardSize.height > 0 ? (
         <Svg
           pointerEvents="none"
-          width="100%"
-          height="100%"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          style={StyleSheet.absoluteFill}
+          width={cardSize.width}
+          height={cardSize.height}
+          style={{ position: "absolute", top: 0, left: 0 }}
         >
           <Defs>
             {/* 原型 158° 双色；两色极近，方向近似即可 */}
@@ -558,7 +696,14 @@ export function Card({
               <Stop offset="100%" stopColor={gradient[1]} />
             </SvgLinearGradient>
           </Defs>
-          <Rect x="0" y="0" width="100" height="100" fill={`url(#${gradId})`} />
+          {/* 像素级外扩 2px，盖住圆角抗锯齿缝 */}
+          <Rect
+            x={-2}
+            y={-2}
+            width={cardSize.width + 4}
+            height={cardSize.height + 4}
+            fill={`url(#${gradId})`}
+          />
         </Svg>
       ) : null}
       {children}
@@ -588,7 +733,7 @@ export function SectionCard({ title, children }: PropsWithChildren<{ title?: str
 
 export function Label({ children }: PropsWithChildren) {
   return (
-    <AppText variant="small" tone="soft" style={{ fontWeight: "800", fontSize: 12 }}>
+    <AppText variant="small" tone="soft" style={{ fontWeight: "800", fontSize: 13 }}>
       {children}
     </AppText>
   );
@@ -631,12 +776,12 @@ export function StatTile({
         gap: 4
       }}
     >
-      <AppText variant="small" style={{ color: labelColor ?? fg, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+      <AppText variant="small" style={{ color: labelColor ?? fg, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
         {label}
       </AppText>
       <AppText
         variant="title"
-        style={{ color: fg, fontSize: 23, lineHeight: 28, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}
+        style={{ color: fg, fontSize: 26, lineHeight: 32, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}
       >
         {value}
       </AppText>
@@ -671,7 +816,7 @@ export function Badge({
         paddingVertical: 4
       }}
     >
-      <Text style={{ fontSize: 11, lineHeight: 14, fontWeight: "800", fontFamily: "Nunito_800ExtraBold", color: fg }}>
+      <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "800", fontFamily: "Nunito_800ExtraBold", color: fg }}>
         {label}
       </Text>
     </View>
@@ -739,7 +884,7 @@ export function WeekdayPicker({
               variant="bodyStrong"
               style={{
                 color: active ? colors.onPrimary : colors.muted,
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: "800"
               }}
             >
@@ -769,7 +914,7 @@ export function SwitchRow({
   return (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
       <View style={{ flex: 1, gap: 2 }}>
-        <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+        <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
           {label}
         </AppText>
         {description ? <AppText variant="small" tone="muted">{description}</AppText> : null}

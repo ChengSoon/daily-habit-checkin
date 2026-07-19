@@ -13,6 +13,15 @@ import type {
   AdventureRewardType
 } from "../../src/adventure/types";
 import { DEFAULT_ISLAND_THEME_KEYS } from "../../src/adventure/mapThemeKeys";
+
+const THEME_LABELS: Record<(typeof DEFAULT_ISLAND_THEME_KEYS)[number], string> = {
+  lighthouse: "灯塔",
+  forest: "森林",
+  market: "市集",
+  camp: "营地",
+  bridge: "云桥",
+  summit: "山顶"
+};
 import type { PickedImage } from "../../src/rewards/rewardImage";
 import { publicUrl, uploadImage } from "../../src/sync/uploadClient";
 import {
@@ -263,7 +272,7 @@ function AdminAdventureContent() {
               return (
                 <AppButton
                   key={key}
-                  title={key}
+                  title={THEME_LABELS[key] ?? key}
                   variant={active ? "primary" : "secondary"}
                   compact
                   onPress={() => setMapThemeKey(key)}

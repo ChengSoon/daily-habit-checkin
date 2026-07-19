@@ -298,7 +298,7 @@ export default function AccountScreen() {
             iconColor={colors.candySkyInk}
             onPress={paired ? undefined : () => setShowInviteForm((v) => !v)}
           >
-            <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+            <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
               邀请 TA 加入
             </AppText>
             <AppText variant="small" tone="muted">
@@ -312,7 +312,7 @@ export default function AccountScreen() {
             iconColor={colors.candyMintInk}
             right={<View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: colors.success }} />}
           >
-            <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+            <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
               实时同步
             </AppText>
             <AppText variant="small" tone="muted">
@@ -321,7 +321,7 @@ export default function AccountScreen() {
           </ListRow>
           <Divider />
           <ListRow icon="shield-outline" iconBg={colors.partnerSurface} iconColor={colors.partnerInk}>
-            <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+            <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
               权限
             </AppText>
             <AppText variant="small" tone="muted">
@@ -342,7 +342,7 @@ export default function AccountScreen() {
               showRibbon={false}
             />
             <View style={{ flex: 1, gap: 2 }}>
-              <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                 你和 {couple.partner!.name} 已连接
               </AppText>
               <AppText variant="body" tone="muted">

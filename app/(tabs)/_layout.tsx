@@ -254,7 +254,7 @@ export default function TabLayout() {
           elevation: 6
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 11.5,
           fontWeight: "800",
           letterSpacing: 0,
           marginTop: 2
@@ -303,7 +303,7 @@ const styles = StyleSheet.create({
     top: 0
   },
   tabLabel: {
-    fontSize: 10,
+    fontSize: 11.5,
     fontWeight: "800",
     fontFamily: "Nunito_800ExtraBold",
     letterSpacing: 0,

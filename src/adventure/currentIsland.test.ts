@@ -2,8 +2,13 @@ import { describe, expect, it } from "vitest";
 import { selectCurrentIsland } from "./currentIsland";
 import type { AdventureChapterView, AdventureState } from "./types";
 
-function ch(sortOrder: number, mapThemeKey: string | null, title: string): AdventureChapterView {
-  return { sortOrder, mapThemeKey, title } as AdventureChapterView;
+function ch(
+  sortOrder: number,
+  mapThemeKey: string | null,
+  title: string,
+  nodeImageKey: string | null = null
+): AdventureChapterView {
+  return { sortOrder, mapThemeKey, title, nodeImageKey } as AdventureChapterView;
 }
 
 function st(over: Partial<AdventureState>): AdventureState {
@@ -21,8 +26,13 @@ function st(over: Partial<AdventureState>): AdventureState {
 
 describe("selectCurrentIsland", () => {
   it("空状态回退默认（无岛 key → 柔光态）", () => {
-    expect(selectCurrentIsland(null)).toEqual({ key: null, name: "我们的小岛", level: 0 });
-    expect(selectCurrentIsland(st({ chapters: [] }))).toEqual({ key: null, name: "我们的小岛", level: 0 });
+    expect(selectCurrentIsland(null)).toEqual({ key: null, nodeImageKey: null, name: "我们的小岛", level: 0 });
+    expect(selectCurrentIsland(st({ chapters: [] }))).toEqual({
+      key: null,
+      nodeImageKey: null,
+      name: "我们的小岛",
+      level: 0
+    });
   });
 
   it("取世界地图里已到达的最高章节岛", () => {
@@ -33,8 +43,19 @@ describe("selectCurrentIsland", () => {
     ];
     const r = selectCurrentIsland(st({ chapters, highestUnlockedOrder: 2 }));
     expect(r.key).toBe("forest");
+    expect(r.nodeImageKey).toBeNull();
     expect(r.name).toBe("松语林");
     expect(r.level).toBe(2);
+  });
+
+  it("透传当前岛的自定义 nodeImageKey", () => {
+    const chapters = [
+      ch(1, "lighthouse", "灯塔湾", null),
+      ch(2, "forest", "松语林", "islands/custom.png")
+    ];
+    const r = selectCurrentIsland(st({ chapters, highestUnlockedOrder: 2 }));
+    expect(r.key).toBe("forest");
+    expect(r.nodeImageKey).toBe("islands/custom.png");
   });
 
   it("尚未解锁任何章节时取第一章岛", () => {

@@ -54,7 +54,7 @@ export default function AdventureMapScreen() {
         <View style={{ flex: 1, gap: 4 }}>
           <AppText variant="title">世界地图</AppText>
           <AppText variant="body" tone="muted">
-            点亮群岛，收集徽章
+            点亮群岛，收集徽章 · 地图框内可滑动浏览全部航站
           </AppText>
         </View>
         <View
@@ -65,7 +65,7 @@ export default function AdventureMapScreen() {
             paddingVertical: 8
           }}
         >
-          <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800", fontSize: 11, lineHeight: 14 }}>
+          <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
             {state.highestUnlockedOrder} / {total} 解锁
           </AppText>
         </View>

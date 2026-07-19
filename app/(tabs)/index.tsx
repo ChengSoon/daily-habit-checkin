@@ -314,6 +314,7 @@ export default function TodayScreen() {
           }))}
           hasPartner={couple.partner !== null}
           islandKey={island?.key}
+          islandImageKey={island?.nodeImageKey}
           islandName={island?.name}
           islandLevel={island?.level}
           streakDays={Math.max(0, ...Object.values(streaks), 0)}
@@ -364,7 +365,7 @@ export default function TodayScreen() {
                 <Ionicons name="bulb-outline" size={18} color={colors.candyOrange} />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
-                <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+                <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                   小贴士
                 </AppText>
                 <AppText variant="small" tone="muted">

@@ -172,7 +172,7 @@ export function HabitRow({
             variant="bodyStrong"
             tone={habit.isPaused ? "muted" : "default"}
             numberOfLines={1}
-            style={{ fontFamily: "Outfit_700Bold", fontSize: 14, flex: 1, letterSpacing: 0 }}
+            style={{ fontFamily: "Outfit_700Bold", fontSize: 16, flex: 1, letterSpacing: 0 }}
           >
             {habit.name}
           </AppText>
@@ -188,7 +188,7 @@ export function HabitRow({
               {dualLabel && !isCompleted ? <Ionicons name="people-outline" size={11} color={tagFg} /> : null}
               <AppText
                 variant="small"
-                style={{ color: tagFg, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}
+                style={{ color: tagFg, fontWeight: "800", fontSize: 12, lineHeight: 16 }}
                 numberOfLines={1}
               >
                 {tagText}

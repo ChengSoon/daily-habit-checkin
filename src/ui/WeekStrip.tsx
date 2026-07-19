@@ -85,7 +85,7 @@ export function WeekStrip({
                 color: weekdayColor,
                 textTransform: "none",
                 letterSpacing: 0,
-                fontSize: 10
+                fontSize: 12
               }}
             >
               {item.weekdayLabel}

@@ -112,18 +112,18 @@ export default function HabitsScreen() {
       {/* Bento 双数据卡 */}
       <View style={{ flexDirection: "row", gap: 9 }}>
         <View style={{ flex: 1, borderRadius: 15, backgroundColor: colors.surfaceTint, paddingHorizontal: 12, paddingVertical: 11, gap: 4 }}>
-          <AppText variant="small" tone="primary" style={{ fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+          <AppText variant="small" tone="primary" style={{ fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
             进行中
           </AppText>
-          <AppText variant="title" tone="primary" style={{ fontSize: 23, lineHeight: 28, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}>
+          <AppText variant="title" tone="primary" style={{ fontSize: 26, lineHeight: 32, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}>
             {activeCount}
           </AppText>
         </View>
         <View style={{ flex: 1, borderRadius: 15, backgroundColor: colors.partnerSurface, paddingHorizontal: 12, paddingVertical: 11, gap: 4 }}>
-          <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+          <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
             本周完成率
           </AppText>
-          <AppText variant="title" style={{ color: colors.partnerInk, fontSize: 23, lineHeight: 28, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}>
+          <AppText variant="title" style={{ color: colors.partnerInk, fontSize: 26, lineHeight: 32, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}>
             {weekRate}%
           </AppText>
         </View>
@@ -136,7 +136,7 @@ export default function HabitsScreen() {
       ) : null}
 
       {habits.length === 0 ? (
-        <EmptyState title="岛上还没有角落" body="先新增一个习惯，或让 AI 帮你规划可执行的分阶段计划。" />
+        <EmptyState fill title="岛上还没有角落" body="先新增一个习惯，或让 AI 帮你规划可执行的分阶段计划。" />
       ) : (
         <View style={{ gap: 8 }}>
           {habits.map((habit, index) => {
@@ -172,7 +172,7 @@ export default function HabitsScreen() {
                       variant="bodyStrong"
                       tone={habit.isPaused ? "muted" : "default"}
                       numberOfLines={1}
-                      style={{ flex: 1, fontFamily: "Outfit_700Bold", fontSize: 14 }}
+                      style={{ flex: 1, fontFamily: "Outfit_700Bold", fontSize: 16 }}
                     >
                       {habit.name}
                     </AppText>
@@ -184,25 +184,25 @@ export default function HabitsScreen() {
                   </AppText>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
                     <View style={{ borderRadius: 999, backgroundColor: colors.surfaceTint, paddingHorizontal: 9, paddingVertical: 4 }}>
-                      <AppText variant="small" tone="primary" style={{ fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                      <AppText variant="small" tone="primary" style={{ fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                         +10 XP
                       </AppText>
                     </View>
                     {habit.trackType === "numeric" ? (
                       <View style={{ borderRadius: 999, backgroundColor: colors.candySkySurface, paddingHorizontal: 9, paddingVertical: 4 }}>
-                        <AppText variant="small" style={{ color: colors.candySkyInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                        <AppText variant="small" style={{ color: colors.candySkyInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                           数值
                         </AppText>
                       </View>
                     ) : habit.frequency.type === "weekdays" ? (
                       <View style={{ borderRadius: 999, backgroundColor: colors.candyOrangeSurface, paddingHorizontal: 9, paddingVertical: 4 }}>
-                        <AppText variant="small" style={{ color: colors.candyOrangeInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                        <AppText variant="small" style={{ color: colors.candyOrangeInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                           工作日
                         </AppText>
                       </View>
                     ) : null}
                     <View style={{ borderRadius: 999, backgroundColor: colors[pair.bg], paddingHorizontal: 9, paddingVertical: 4 }}>
-                      <AppText variant="small" style={{ color: colors[pair.fg], fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                      <AppText variant="small" style={{ color: colors[pair.fg], fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                         {CORNER_NAMES[index % CORNER_NAMES.length]}
                       </AppText>
                     </View>
@@ -221,7 +221,7 @@ export default function HabitsScreen() {
             <Ionicons name="sparkles" size={18} color={colors.partnerInk} />
           </View>
           <View style={{ flex: 1, gap: 4 }}>
-            <AppText variant="bodyStrong" style={{ fontFamily: "Outfit_700Bold", fontSize: 14 }}>
+            <AppText variant="bodyStrong" style={{ fontFamily: "Outfit_700Bold", fontSize: 16 }}>
               让 AI 规划新角落
             </AppText>
             <AppText variant="body" tone="muted">

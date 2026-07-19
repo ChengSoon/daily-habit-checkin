@@ -53,7 +53,7 @@ export function ProgressRing({
         />
       </Svg>
       <View style={{ alignItems: "center" }}>
-        <AppText variant="title" style={{ fontSize: 22, lineHeight: 26, color: colors.ink }}>
+        <AppText variant="title" style={{ fontSize: 24, lineHeight: 28, color: colors.ink }}>
           {percent}%
         </AppText>
         <AppText variant="caption" tone="muted" style={{ textTransform: "none", letterSpacing: 0 }}>

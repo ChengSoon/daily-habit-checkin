@@ -9,6 +9,7 @@ import { publicUrl } from "../../src/sync/uploadClient";
 import { Reward } from "../../src/rewards/types";
 import { AppButton, AppText, Card, HelperText } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
+import { ImagePreviewModal } from "../../src/ui/ImagePreviewModal";
 import { RewardImage } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
@@ -66,6 +67,7 @@ export default function ShopScreen() {
   const [rewards, setRewards] = useState<Reward[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ uri: string; title: string } | null>(null);
 
   const load = useCallback(async () => {
     await ensureDefaultRewards();
@@ -114,7 +116,7 @@ export default function ShopScreen() {
           }}
         >
           <Ionicons name="diamond" size={15} color={colors.candySunInk} />
-          <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 11 }}>
+          <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 12 }}>
             {balance.toLocaleString("en-US")}
           </AppText>
         </View>
@@ -135,18 +137,47 @@ export default function ShopScreen() {
                 const canRedeem = balance >= reward.priceXp;
                 return (
                   <Card key={reward.id} elevated={false} style={{ flex: 1, padding: 10, overflow: "hidden", gap: 8, borderRadius: 20 }}>
-                    <View style={{ height: GRID_IMAGE_HEIGHT, borderRadius: 12, backgroundColor: thumbBg, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
-                      <RewardImage
-                        uri={publicUrl(reward.imageKey)}
-                        type={reward.type}
-                        height={GRID_IMAGE_HEIGHT}
-                        radiusToken={0}
-                        contentFit="contain"
-                      />
-                    </View>
+                    {(() => {
+                      const imageUri = publicUrl(reward.imageKey);
+                      const imageNode = (
+                        <View
+                          style={{
+                            height: GRID_IMAGE_HEIGHT,
+                            borderRadius: 12,
+                            backgroundColor: thumbBg,
+                            alignItems: "center",
+                            justifyContent: "center",
+                            overflow: "hidden"
+                          }}
+                        >
+                          <RewardImage
+                            uri={imageUri}
+                            type={reward.type}
+                            height={GRID_IMAGE_HEIGHT}
+                            radiusToken={0}
+                            contentFit="cover"
+                          />
+                        </View>
+                      );
+
+                      if (!imageUri) {
+                        return imageNode;
+                      }
+
+                      return (
+                        <Pressable
+                          accessibilityRole="imagebutton"
+                          accessibilityLabel={`预览 ${reward.title}`}
+                          onPress={() => setPreview({ uri: imageUri, title: reward.title })}
+                          style={({ pressed }) => (pressed ? { opacity: 0.9 } : null)}
+                        >
+                          {imageNode}
+                        </Pressable>
+                      );
+                    })()}
                     <View style={{ flex: 1, gap: 6 }}>
                       <View style={{ flex: 1, gap: 3 }}>
-                        <AppText variant="bodyStrong" numberOfLines={2} style={{ fontSize: 13 }}>
+                        <AppText variant="bodyStrong" numberOfLines={2} style={{ fontSize: 15 }}>
                           {reward.title}
                         </AppText>
                         <AppText variant="small" tone="muted">
@@ -156,7 +187,7 @@ export default function ShopScreen() {
                       {canRedeem ? (
                         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
                           <View style={{ borderRadius: 999, backgroundColor: colors.candySunSurface, paddingHorizontal: 9, paddingVertical: 4 }}>
-                            <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                            <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                               {reward.priceXp} XP
                             </AppText>
                           </View>
@@ -164,7 +195,7 @@ export default function ShopScreen() {
                             onPress={() => redeem(reward)}
                             style={{ borderRadius: 999, backgroundColor: colors.successSurface, paddingHorizontal: 9, paddingVertical: 4 }}
                           >
-                            <AppText variant="small" style={{ color: colors.candyMintInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                            <AppText variant="small" style={{ color: colors.candyMintInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                               可兑
                             </AppText>
                           </Pressable>
@@ -172,7 +203,7 @@ export default function ShopScreen() {
                       ) : (
                         <View style={{ gap: 6 }}>
                           <View style={{ borderRadius: 999, backgroundColor: colors.candySunSurface, paddingHorizontal: 9, paddingVertical: 4, alignSelf: "flex-start" }}>
-                            <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                            <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 12, lineHeight: 16 }}>
                               {reward.priceXp} XP
                             </AppText>
                           </View>
@@ -194,6 +225,13 @@ export default function ShopScreen() {
         icon="gift-outline"
         fullWidth
         onPress={() => router.push("/shop/redemptions")}
+      />
+
+      <ImagePreviewModal
+        visible={preview !== null}
+        uri={preview?.uri ?? null}
+        title={preview?.title}
+        onClose={() => setPreview(null)}
       />
     </Screen>
   );

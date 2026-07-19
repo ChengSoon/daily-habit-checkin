@@ -15,6 +15,11 @@ describe("shouldUseIslandImage", () => {
     // 未知 key 也算"有意向"，交给 resolveDefaultIslandSource 兜底成 fallback 岛
     expect(shouldUseIslandImage("mystery")).toBe(true);
   });
+
+  it("仅有自定义岛图 key 时也显示岛图", () => {
+    expect(shouldUseIslandImage(null, "adventure/islands/a.png")).toBe(true);
+    expect(shouldUseIslandImage("", "adventure/islands/a.png")).toBe(true);
+  });
 });
 
 describe("formatIslandLevel", () => {

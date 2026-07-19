@@ -9,12 +9,11 @@ import Animated, {
   withRepeat,
   withTiming
 } from "react-native-reanimated";
-import { publicUrl } from "../sync/publicUrl";
 import { AppText } from "../ui/Controls";
 import { radius } from "../ui/theme";
 import { useTheme } from "../ui/ThemeContext";
 import { IslandStageBackground } from "./IslandStageBackground";
-import { resolveDefaultIslandSource } from "./mapAssets";
+import { resolveChapterIslandSource } from "./mapAssets";
 import type { AdventureChapterView } from "./types";
 
 type Props = {
@@ -39,8 +38,8 @@ export function ChapterIslandHero({ chapter, height = 280 }: Props) {
   const claimable = chapter.viewStatus === "claimable";
   const claimed = chapter.viewStatus === "claimed";
 
-  const customUri = chapter.nodeImageKey ? publicUrl(chapter.nodeImageKey) : null;
-  const themeSource = resolveDefaultIslandSource(chapter.mapThemeKey);
+  const islandSource = resolveChapterIslandSource(chapter);
+  const customUri = typeof islandSource === "object" && islandSource && "uri" in islandSource ? String(islandSource.uri) : null;
   const isGif = Boolean(customUri && customUri.toLowerCase().includes(".gif"));
   const islandSize = Math.min(width * 0.72, height * 0.78, 240);
 
@@ -97,7 +96,7 @@ export function ChapterIslandHero({ chapter, height = 280 }: Props) {
             ]}
           />
           <Image
-            source={customUri ? { uri: customUri } : themeSource}
+            source={islandSource}
             style={{
               width: islandSize,
               height: islandSize,

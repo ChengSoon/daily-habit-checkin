@@ -11,11 +11,10 @@ import Animated, {
   withSpring,
   withTiming
 } from "react-native-reanimated";
-import { publicUrl } from "../sync/publicUrl";
 import { AppText } from "../ui/Controls";
 import { radius } from "../ui/theme";
 import { useTheme } from "../ui/ThemeContext";
-import { resolveDefaultIslandSource } from "./mapAssets";
+import { resolveChapterIslandSource } from "./mapAssets";
 import type { AdventureChapterView } from "./types";
 
 type Props = {
@@ -47,9 +46,9 @@ export function IslandMarker({
   const locked = chapter.viewStatus === "locked";
   const claimable = chapter.viewStatus === "claimable";
   const claimed = chapter.viewStatus === "claimed";
-  const customUri = chapter.nodeImageKey ? publicUrl(chapter.nodeImageKey) : null;
-  const themeSource = resolveDefaultIslandSource(chapter.mapThemeKey);
-  const isGif = Boolean(customUri && customUri.toLowerCase().includes(".gif"));
+  const islandSource = resolveChapterIslandSource(chapter);
+  const customUri = typeof islandSource === "object" && islandSource && "uri" in islandSource ? islandSource.uri : null;
+  const isGif = Boolean(customUri && String(customUri).toLowerCase().includes(".gif"));
 
   const floatY = useSharedValue(0);
   const pressScale = useSharedValue(1);
@@ -245,7 +244,7 @@ export function IslandMarker({
             ]}
           />
           <Image
-            source={customUri ? { uri: customUri } : themeSource}
+            source={islandSource}
             style={{
               width: bodyW,
               height: bodyH,
