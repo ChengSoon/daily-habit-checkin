@@ -1,68 +1,26 @@
 import { PropsWithChildren } from "react";
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 
-/** 页面壳：浅灰白底 + 角落糖果色光晕，贴近设计稿氛围。 */
+/** 页面壳：board 干净 --bg，内边距贴近 .screen。 */
 export function Screen({
   children,
   scroll = true
 }: PropsWithChildren<{ scroll?: boolean }>) {
-  const { colors, scheme } = useTheme();
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  // board .screen: padding 10px 16px 18px（安全区外再贴 board 节奏）
   const padding = {
-    paddingBottom: spacing.xxl + insets.bottom,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg + insets.top
+    paddingBottom: 24 + insets.bottom,
+    paddingHorizontal: 16,
+    paddingTop: 10 + insets.top
   };
 
-  const ambience =
-    scheme === "dark" ? null : (
-      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-        <View
-          style={{
-            position: "absolute",
-            top: -40,
-            left: -30,
-            width: 180,
-            height: 180,
-            borderRadius: 999,
-            backgroundColor: colors.candySun,
-            opacity: 0.12
-          }}
-        />
-        <View
-          style={{
-            position: "absolute",
-            top: 20,
-            right: -50,
-            width: 200,
-            height: 200,
-            borderRadius: 999,
-            backgroundColor: colors.partner,
-            opacity: 0.1
-          }}
-        />
-        <View
-          style={{
-            position: "absolute",
-            bottom: 80,
-            left: 40,
-            width: 220,
-            height: 220,
-            borderRadius: 999,
-            backgroundColor: colors.success,
-            opacity: 0.08
-          }}
-        />
-      </View>
-    );
-
+  // board 手机壳内是干净 --bg，不做全页装饰光晕
   if (!scroll) {
     return (
       <View style={[styles.flex, { backgroundColor: colors.background }]}>
-        {ambience}
         <View style={[styles.content, styles.flex, padding]}>{children}</View>
       </View>
     );
@@ -73,7 +31,6 @@ export function Screen({
       style={[styles.flex, { backgroundColor: colors.background }]}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
-      {ambience}
       <ScrollView
         style={{ backgroundColor: "transparent" }}
         contentContainerStyle={[styles.content, padding]}
@@ -94,6 +51,6 @@ const styles = StyleSheet.create({
   },
   content: {
     flexGrow: 1,
-    gap: spacing.md + 2
+    gap: 12 // board 8-12 节奏
   }
 });

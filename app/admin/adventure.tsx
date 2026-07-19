@@ -29,7 +29,6 @@ import { OwnerGate } from "../../src/ui/OwnerGate";
 import { ImagePickerField, RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
 
 const STATUS_OPTIONS: { label: string; value: AdventureChapterStatus }[] = [
   { label: "发布", value: "published" },
@@ -211,15 +210,20 @@ function AdminAdventureContent() {
 
   return (
     <Screen>
-      <AppText variant="display">章节管理</AppText>
-      <HelperText>可配置门槛、叙事、徽章图与现实惊喜。已解锁章节不会因改门槛回锁。</HelperText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="display">章节管理</AppText>
+        <AppText variant="body" tone="muted">
+          配置群岛航线、门槛与徽章 · 已解锁章不会回锁
+        </AppText>
+      </View>
       <AppButton
-        title="章节兑现管理"
+        title="章节兑现"
         variant="secondary"
+        icon="checkmark-done-outline"
         onPress={() => router.push("/admin/adventure-claims")}
       />
 
-      <Card style={{ gap: spacing.sm }}>
+      <Card elevated={false} style={{ gap: 12 }}>
         <AppText variant="section">{editingId ? "编辑章节" : "新建章节"}</AppText>
         <TextField label="标题" value={title} onChangeText={setTitle} placeholder="例如：启程灯塔" />
         <TextField label="副标题" value={subtitle} onChangeText={setSubtitle} placeholder="一句话" />
@@ -251,7 +255,7 @@ function AdminAdventureContent() {
             }
           }}
         />
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: 8 }}>
           <Label>默认主题岛（无自定义岛图时）</Label>
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             {DEFAULT_ISLAND_THEME_KEYS.map((key) => {
@@ -261,6 +265,7 @@ function AdminAdventureContent() {
                   key={key}
                   title={key}
                   variant={active ? "primary" : "secondary"}
+                  compact
                   onPress={() => setMapThemeKey(key)}
                 />
               );
@@ -295,7 +300,7 @@ function AdminAdventureContent() {
             }
           }}
         />
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: 8 }}>
           <Label>奖励类型</Label>
           <SegmentedControl<AdventureRewardType>
             value={rewardType}
@@ -303,7 +308,7 @@ function AdminAdventureContent() {
             options={REWARD_TYPE_OPTIONS}
           />
         </View>
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: 8 }}>
           <Label>状态</Label>
           <SegmentedControl<AdventureChapterStatus>
             value={status}
@@ -311,7 +316,7 @@ function AdminAdventureContent() {
             options={STATUS_OPTIONS}
           />
         </View>
-        <View style={{ flexDirection: "row", gap: spacing.sm, flexWrap: "wrap" }}>
+        <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
           <AppButton title={busy ? "保存中…" : "保存"} onPress={() => void save()} disabled={busy} />
           <AppButton title="清空表单" variant="secondary" onPress={startCreate} disabled={busy} />
         </View>
@@ -321,8 +326,8 @@ function AdminAdventureContent() {
 
       <AppText variant="section">全部章节（{chapters.length}）</AppText>
       {chapters.map((chapter, index) => (
-        <Card key={chapter.id} style={{ gap: spacing.sm }}>
-          <View style={{ flexDirection: "row", gap: spacing.md }}>
+        <Card key={chapter.id} elevated={false} style={{ gap: 10, padding: 13 }}>
+          <View style={{ flexDirection: "row", gap: 12 }}>
             <RewardThumb
               uri={publicUrl(chapter.badgeImageKey)}
               type={chapter.rewardType === "real_pending" ? "real_world" : "virtual"}
@@ -339,7 +344,7 @@ function AdminAdventureContent() {
             </View>
             <Badge label={statusLabel(chapter.status)} />
           </View>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
             <AppButton title="编辑" compact variant="secondary" onPress={() => startEdit(chapter)} disabled={busy} />
             <AppButton
               title="上移"

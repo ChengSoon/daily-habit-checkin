@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, View } from "react-native";
@@ -15,13 +16,13 @@ import { Habit } from "../../src/habits/types";
 import { rescheduleHabitReminders, rescheduleTodayEveningSummary } from "../../src/reminders/reminderService";
 import { getAppSettings } from "../../src/settings/settingsRepository";
 import { AppButton, AppText, Card, TextField } from "../../src/ui/Controls";
+import { sceneTint } from "../../src/ui/theme";
 import { CheckInCelebration, FullCelebration, MiniCheckInBurst } from "../../src/ui/CheckInCelebration";
 import { HabitCompleter, HabitRow } from "../../src/ui/HabitRow";
 import { ProgressHeader } from "../../src/ui/ProgressHeader";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
 import { useCouple } from "../../src/ui/useCouple";
-import { radius, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, todayKey } from "../../src/utils/date";
 import { buildCurrentWeekDays } from "../../src/utils/week";
@@ -29,8 +30,22 @@ import { getWallet } from "../../src/xp/xpRepository";
 import { awardXpForCheckIn, revokeXpForCheckIn } from "../../src/xp/xpService";
 import { XpGainLabel } from "../../src/ui/XpGainLabel";
 
+/** board 数值习惯：从名称推断目标（如「喝水 8 杯」→ 8），缺省 8。 */
+function parseNumericTarget(habit: Habit): number {
+  const match = habit.name.match(/(\d+(?:\.\d+)?)/);
+  if (match) {
+    const n = Number(match[1]);
+    if (Number.isFinite(n) && n > 0) return n;
+  }
+  return 8;
+}
+
+function isDualHabit(habit: Habit): boolean {
+  return /一起|双人|情侣|共同/.test(habit.name);
+}
+
 export default function TodayScreen() {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const [habits, setHabits] = useState<Habit[]>([]);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
@@ -144,20 +159,25 @@ export default function TodayScreen() {
     setCheckIns(todayCheckIns);
     setStreaks(nextStreaks);
     setWeekDoneKeys(weekDone);
-    await rescheduleHabitReminders({
-      habits: activeHabits,
-      completedHabitIds: completedIds,
-      quietHours: {
-        isEnabled: settings.isQuietHoursEnabled,
-        start: settings.quietHoursStart,
-        end: settings.quietHoursEnd
-      }
-    });
-    await rescheduleTodayEveningSummary({
-      isEnabled: settings.isEveningSummaryEnabled,
-      incompleteNames,
-      time: settings.eveningSummaryTime
-    });
+    // 提醒调度失败不应阻断今日页（尤其 web 无原生通知）
+    try {
+      await rescheduleHabitReminders({
+        habits: activeHabits,
+        completedHabitIds: completedIds,
+        quietHours: {
+          isEnabled: settings.isQuietHoursEnabled,
+          start: settings.quietHoursStart,
+          end: settings.quietHoursEnd
+        }
+      });
+      await rescheduleTodayEveningSummary({
+        isEnabled: settings.isEveningSummaryEnabled,
+        incompleteNames,
+        time: settings.eveningSummaryTime
+      });
+    } catch (error) {
+      console.warn("Failed to reschedule reminders", error);
+    }
   }, [today]);
 
   const { status, errorMessage, reload } = useSyncScreen(load);
@@ -308,51 +328,54 @@ export default function TodayScreen() {
         />
 
         {habits.length === 0 ? (
-          <View style={{ gap: spacing.md }}>
+          <View style={{ gap: 12 }}>
             <Card
+              {...sceneTint("coral", scheme)}
+              elevated={false}
               style={{
                 alignItems: "center",
-                paddingVertical: spacing.xl,
-                backgroundColor: colors.surfaceTint,
-                borderColor: colors.line
+                paddingVertical: 20,
+                paddingHorizontal: 13,
+                gap: 8
               }}
             >
-              <AppText style={{ fontSize: 40, lineHeight: 48, marginBottom: spacing.sm }}>🌱</AppText>
               <AppText variant="section" style={{ textAlign: "center" }}>
-                今天还没有习惯
+                岛上还没有角落
               </AppText>
-              <AppText variant="small" tone="muted" style={{ textAlign: "center", marginTop: spacing.xs }}>
-                先创建一个想坚持的小习惯，从今天开始。
+              <AppText variant="body" tone="muted" style={{ textAlign: "center", marginTop: 4 }}>
+                先新增一个习惯，或让 AI 生成可执行的分阶段计划
               </AppText>
-              <View style={{ width: "100%", gap: spacing.sm, marginTop: spacing.lg }}>
-                <AppButton title="＋ 新增习惯" onPress={() => router.push("/habit/new")} />
-                <AppButton title="✨ AI 帮我规划" variant="secondary" onPress={() => router.push("/habit/new")} />
+              <View style={{ width: "100%", gap: 8, marginTop: 12 }}>
+                <AppButton title="新增习惯" icon="add" onPress={() => router.push("/habit/new")} />
+                <AppButton title="AI 规划" icon="sparkles" variant="secondary" onPress={() => router.push("/habit/new")} />
               </View>
             </Card>
-            <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+            <Card {...sceneTint("sun", scheme)} elevated={false} style={{ flexDirection: "row", alignItems: "center", gap: 11 }}>
               <View
                 style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: radius.md,
+                  width: 38,
+                  height: 38,
+                  borderRadius: 13,
                   backgroundColor: colors.candySunSurface,
                   alignItems: "center",
                   justifyContent: "center"
                 }}
               >
-                <AppText style={{ fontSize: 18 }}>💡</AppText>
+                <Ionicons name="bulb-outline" size={18} color={colors.candyOrange} />
               </View>
               <View style={{ flex: 1, gap: 2 }}>
-                <AppText variant="bodyStrong">小贴士</AppText>
+                <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+                  小贴士
+                </AppText>
                 <AppText variant="small" tone="muted">
-                  从每天 5 分钟的小事开始，比一口气立 10 个 flag 更容易坚持。
+                  从每天 5 分钟的小事开始，比一口气立很多目标更容易坚持。
                 </AppText>
               </View>
             </Card>
           </View>
         ) : (
-          <View style={{ gap: spacing.md }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ gap: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 2 }}>
               <AppText variant="section">今日待办</AppText>
               <AppText variant="small" tone="muted">
                 {remaining.length > 0
@@ -362,13 +385,17 @@ export default function TodayScreen() {
             </View>
 
             {remaining.length > 0 ? (
-              <View style={{ gap: spacing.sm }}>
+              <View style={{ gap: 8 }}>
                 {remaining.map((habit) => (
                   <HabitRow
                     key={habit.id}
                     habit={habit}
                     isCompleted={false}
                     streak={streaks[habit.id]}
+                    xpLabel="+10"
+                    dualLabel={isDualHabit(habit)}
+                    numericValue={habit.trackType === "numeric" ? 0 : null}
+                    numericTarget={habit.trackType === "numeric" ? parseNumericTarget(habit) : null}
                     onComplete={() => startComplete(habit)}
                     onCelebrate={() => showMiniBurst(habit.name)}
                     onOpen={() => router.push({ pathname: "/habit/[id]", params: { id: habit.id } })}
@@ -377,31 +404,32 @@ export default function TodayScreen() {
               </View>
             ) : (
               <Card
+                {...sceneTint("mint", scheme)}
+                elevated={false}
                 style={{
-                  backgroundColor: colors.successSurface,
-                  borderColor: colors.successSurface,
                   alignItems: "center",
-                  gap: spacing.sm,
-                  paddingVertical: spacing.lg
+                  gap: 8,
+                  paddingVertical: 16,
+                  paddingHorizontal: 13
                 }}
               >
-                <AppText style={{ fontSize: 36, lineHeight: 42 }}>🎉</AppText>
-                <AppText variant="bodyStrong" style={{ color: colors.success, textAlign: "center" }}>
-                  今天全部完成，做得好 🌱
+                <AppText variant="section" style={{ color: colors.success, textAlign: "center" }}>
+                  今日印章已点亮
                 </AppText>
-                <AppText variant="small" tone="muted" style={{ textAlign: "center" }}>
-                  印章已点亮，去商城看看想兑换什么吧
+                <AppText variant="body" tone="muted" style={{ textAlign: "center" }}>
+                  小岛又繁荣了一点，去商城兑换小心意吧
                 </AppText>
                 <AppButton
-                  title="🎁 去商城逛逛"
+                  title="去商城"
+                  icon="gift-outline"
                   onPress={() => router.push("/shop")}
-                  style={{ alignSelf: "stretch", marginTop: spacing.xs }}
+                  style={{ alignSelf: "stretch", marginTop: 4 }}
                 />
               </Card>
             )}
 
             {done.length > 0 ? (
-              <View style={{ gap: spacing.sm }}>
+              <View style={{ gap: 8 }}>
                 <AppText variant="small" tone="muted">
                   已完成 {done.length}
                 </AppText>
@@ -414,7 +442,13 @@ export default function TodayScreen() {
                       habit={habit}
                       isCompleted
                       streak={streaks[habit.id]}
+                      xpLabel="+10"
                       completedBy={completerByHabit[habit.id]}
+                      dualLabel={isDualHabit(habit)}
+                      numericValue={
+                        habit.trackType === "numeric" && checkIn?.value != null ? checkIn.value : null
+                      }
+                      numericTarget={habit.trackType === "numeric" ? parseNumericTarget(habit) : null}
                       canUndo={canUndo}
                       isUndoing={isUndoing}
                       onComplete={() => undefined}
@@ -442,17 +476,17 @@ export default function TodayScreen() {
           <View
             style={{
               backgroundColor: colors.surface,
-              borderTopLeftRadius: radius.xl,
-              borderTopRightRadius: radius.xl,
-              padding: spacing.lg,
-              paddingBottom: spacing.lg + insets.bottom,
-              gap: spacing.md
+              borderTopLeftRadius: 22,
+              borderTopRightRadius: 22,
+              padding: 16,
+              paddingBottom: 16 + insets.bottom,
+              gap: 12
             }}
           >
-            <View style={{ gap: spacing.xs }}>
+            <View style={{ gap: 4 }}>
               <AppText variant="section">{numericHabit?.name}</AppText>
-              <AppText variant="small" tone="muted">
-                完成了多少{numericHabit?.numericUnit ?? ""}？
+              <AppText variant="body" tone="muted">
+                记录今天的进度{numericHabit?.numericUnit ? `（${numericHabit.numericUnit}）` : ""}
               </AppText>
             </View>
             <TextField
@@ -462,10 +496,10 @@ export default function TodayScreen() {
               placeholder="输入数值"
               autoFocus
             />
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <View style={{ flexDirection: "row", gap: 8 }}>
               <AppButton title="取消" variant="ghost" onPress={cancelNumeric} style={{ flex: 1 }} />
               <AppButton
-                title="确认打卡"
+                title="完成"
                 onPress={() => numericHabit && complete(numericHabit, Number(numericValue), true)}
                 disabled={!numericValue || Number.isNaN(Number(numericValue))}
                 style={{ flex: 1 }}

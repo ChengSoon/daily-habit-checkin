@@ -36,6 +36,12 @@ export type Palette = {
   // 糖果色辅助点缀（UI 装饰用，不参与业务语义）
   candySun: string;
   candySunSurface: string;
+  // 暖阳深墨：sun-soft 底上的文字/图标（对齐原型 --sun-ink 金），比 candyOrange 更"金"、对比更足
+  candySunInk: string;
+  // 浅底深墨的其余三色（对齐原型 --sky-ink/--orange-ink/--mint-ink），用于 soft 底上的文字/图标/标签
+  candySkyInk: string;
+  candyOrangeInk: string;
+  candyMintInk: string;
   candySky: string;
   candySkySurface: string;
   candyOrange: string;
@@ -46,8 +52,8 @@ export type Palette = {
 const romanceLight: Palette = {
   background: "#F3F4F8",
   surface: "#FFFFFF",
-  surfaceMuted: "#F0F2F7",
-  surfaceTint: "#FFE8EC",
+  surfaceMuted: "#F6F7FB",
+  surfaceTint: "#FFE4E8",
   ink: "#1F2430",
   inkSoft: "#5B6475",
   muted: "#8B93A7",
@@ -67,10 +73,14 @@ const romanceLight: Palette = {
   dangerSurface: "#FDE8E6",
   success: "#3FBE96",
   successSurface: "#DDF8EF",
-  inputBackground: "#FFFFFF",
+  inputBackground: "#FAFBFE",
   overlay: "rgba(31, 36, 48, 0.38)",
   candySun: "#FFC857",
   candySunSurface: "#FFF3D6",
+  candySunInk: "#B8860B",
+  candySkyInk: "#3E86D1",
+  candyOrangeInk: "#D67B40",
+  candyMintInk: "#1F9B78",
   candySky: "#6CB8FF",
   candySkySurface: "#E3F1FF",
   candyOrange: "#FF9B6A",
@@ -105,6 +115,10 @@ const romanceDark: Palette = {
   overlay: "rgba(0, 0, 0, 0.58)",
   candySun: "#FFD070",
   candySunSurface: "#3A3018",
+  candySunInk: "#E8B65E",
+  candySkyInk: "#7FC0FF",
+  candyOrangeInk: "#E8A06A",
+  candyMintInk: "#63CBA9",
   candySky: "#7EC2FF",
   candySkySurface: "#1C2D42",
   candyOrange: "#FFB085",
@@ -140,6 +154,10 @@ const mintLight: Palette = {
   overlay: "rgba(16, 48, 46, 0.35)",
   candySun: "#FFC857",
   candySunSurface: "#FFF3D6",
+  candySunInk: "#B8860B",
+  candySkyInk: "#3E86D1",
+  candyOrangeInk: "#D67B40",
+  candyMintInk: "#1F9B78",
   candySky: "#6CB8FF",
   candySkySurface: "#E3F1FF",
   candyOrange: "#FF9B6A",
@@ -174,6 +192,10 @@ const mintDark: Palette = {
   overlay: "rgba(0, 0, 0, 0.55)",
   candySun: "#FFD070",
   candySunSurface: "#3A3018",
+  candySunInk: "#E8B65E",
+  candySkyInk: "#7FC0FF",
+  candyOrangeInk: "#E8A06A",
+  candyMintInk: "#63CBA9",
   candySky: "#7EC2FF",
   candySkySurface: "#1C2D42",
   candyOrange: "#FFB085",
@@ -209,6 +231,10 @@ const sunsetLight: Palette = {
   overlay: "rgba(44, 33, 24, 0.35)",
   candySun: "#FFC857",
   candySunSurface: "#FFF3D6",
+  candySunInk: "#B8860B",
+  candySkyInk: "#3E86D1",
+  candyOrangeInk: "#D67B40",
+  candyMintInk: "#1F9B78",
   candySky: "#6CB8FF",
   candySkySurface: "#E3F1FF",
   candyOrange: "#FF9B6A",
@@ -243,6 +269,10 @@ const sunsetDark: Palette = {
   overlay: "rgba(0, 0, 0, 0.55)",
   candySun: "#FFD070",
   candySunSurface: "#3A3018",
+  candySunInk: "#E8B65E",
+  candySkyInk: "#7FC0FF",
+  candyOrangeInk: "#E8A06A",
+  candyMintInk: "#63CBA9",
   candySky: "#7EC2FF",
   candySkySurface: "#1C2D42",
   candyOrange: "#FFB085",
@@ -287,34 +317,35 @@ export const spacing = {
 
 /** 糖果社交系统：更大圆角，卡片更柔软 */
 export const radius = {
-  sm: 12,
+  sm: 14,
   md: 16,
-  lg: 22,
-  xl: 28,
+  lg: 20,
+  xl: 22,
   pill: 999
 } as const;
 
 /** 统一软阴影，避免各页面各自发明 elevation */
 export const shadow = {
+  // board: card 0 6px 16px rgba(40,48,72,0.035) / soft 0 10px 24px 0.06 / float 0 22px 46px 0.16
   card: {
     shadowColor: "#283048",
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 16,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 3
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2
   },
   soft: {
     shadowColor: "#283048",
     shadowOpacity: 0.06,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
     elevation: 2
   },
   float: {
     shadowColor: "#283048",
-    shadowOpacity: 0.12,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.16,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 6
   }
 } as const;
@@ -332,11 +363,40 @@ export type TypeScale = {
 };
 
 export const type: Record<"display" | "title" | "section" | "body" | "bodyStrong" | "small" | "caption", TypeScale> = {
-  display: { fontSize: 30, lineHeight: 36, fontWeight: "800", letterSpacing: -0.4 },
-  title: { fontSize: 22, lineHeight: 28, fontWeight: "800", letterSpacing: -0.25 },
-  section: { fontSize: 17, lineHeight: 22, fontWeight: "700" },
-  body: { fontSize: 15, lineHeight: 22, fontWeight: "500" },
-  bodyStrong: { fontSize: 15, lineHeight: 22, fontWeight: "700" },
-  small: { fontSize: 13, lineHeight: 18, fontWeight: "600" },
-  caption: { fontSize: 11, lineHeight: 15, fontWeight: "700", letterSpacing: 0.3 }
+  // v2 board：Outfit 标题用负字距（.title -0.02em），Nunito 正文不用负字距。
+  // RN letterSpacing 为绝对 px，由 em×fontSize 换算：-0.02em × {25,20,15.5} ≈ {-0.5,-0.4,-0.3}。
+  display: { fontSize: 25, lineHeight: 30, fontWeight: "800", letterSpacing: -0.5 },
+  title: { fontSize: 20, lineHeight: 26, fontWeight: "800", letterSpacing: -0.4 },
+  section: { fontSize: 15.5, lineHeight: 20, fontWeight: "700", letterSpacing: -0.3 },
+  body: { fontSize: 12.5, lineHeight: 19, fontWeight: "600" },
+  bodyStrong: { fontSize: 14, lineHeight: 20, fontWeight: "700" },
+  small: { fontSize: 11, lineHeight: 15, fontWeight: "700" },
+  caption: { fontSize: 10, lineHeight: 14, fontWeight: "800", letterSpacing: 0 }
 };
+
+/** v2 数字负字距（.num -0.03em）。用于 Outfit 大数字（统计/进度/连续天数）。约 -0.03em × 23px。 */
+export const numberLetterSpacing = -0.7;
+
+export type TintName = "coral" | "lavender" | "mint" | "sky" | "sun" | "orange";
+
+/**
+ * v2 场景卡渐变底：对齐原型 `.tint-*`（158° 双色）。
+ * light 用原型精确值；dark 用低饱和暗色对，夜间不刺眼。跨主题共用（同 candy* 逻辑）。
+ */
+export const tintGradients: Record<
+  TintName,
+  { light: { colors: [string, string]; border: string }; dark: { colors: [string, string]; border: string } }
+> = {
+  coral: { light: { colors: ["#FFF5F7", "#FFE7EB"], border: "#FFD6DD" }, dark: { colors: ["#2A1B1F", "#33222A"], border: "#3E2A31" } },
+  lavender: { light: { colors: ["#F7F5FF", "#EDE9FF"], border: "#DDD6FF" }, dark: { colors: ["#211E2E", "#2A2545"], border: "#332C4A" } },
+  mint: { light: { colors: ["#F2FCF8", "#E1F7EF"], border: "#C8F0E1" }, dark: { colors: ["#152420", "#18302A"], border: "#25423B" } },
+  sky: { light: { colors: ["#F3F9FF", "#E4F0FF"], border: "#CDE5FF" }, dark: { colors: ["#161F27", "#1A2C3F"], border: "#26384A" } },
+  sun: { light: { colors: ["#FFF9EC", "#FFF0CD"], border: "#FFE4A3" }, dark: { colors: ["#241E12", "#332B18"], border: "#443A22" } },
+  orange: { light: { colors: ["#FFF6F0", "#FFE9DD"], border: "#FFD5BE" }, dark: { colors: ["#241A12", "#33261C"], border: "#443521" } }
+};
+
+/** 取某场景色的渐变底 Card 属性（随明暗自适应）。纯函数，供 <Card {...sceneTint("sun", scheme)} /> 使用。 */
+export function sceneTint(name: TintName, scheme: ColorScheme): { gradient: [string, string]; gradientBorder: string } {
+  const t = tintGradients[name][scheme];
+  return { gradient: [t.colors[0], t.colors[1]], gradientBorder: t.border };
+}

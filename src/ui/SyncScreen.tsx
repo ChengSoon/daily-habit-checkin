@@ -7,7 +7,6 @@ import { subscribeSyncInvalidations } from "../sync/syncInvalidation";
 import { AppButton } from "./Controls";
 import { EmptyState } from "./EmptyState";
 import { Screen } from "./Screen";
-import { spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 import {
   createQueuedAsyncRunner,
@@ -152,7 +151,7 @@ function LoadingFallback() {
           <Animated.View
             accessible
             accessibilityRole="progressbar"
-            accessibilityLabel="正在准备今日打卡"
+            accessibilityLabel="正在连接小岛"
             style={[styles.loadingMark, { opacity: fade }]}
           >
             <View style={styles.orbitStage}>
@@ -207,8 +206,8 @@ export function SyncFallback({
       <Screen>
         <EmptyState
           icon="lock-closed-outline"
-          title="请先登录"
-          body="登录后同步你和另一半的习惯、积分和奖励。"
+          title="先登录小岛"
+          body="登录后，你和另一半的习惯、积分与奖励会实时同步。"
         />
         <AppButton title="登录 / 注册" icon="log-in-outline" onPress={() => router.push("/account")} />
       </Screen>
@@ -219,10 +218,10 @@ export function SyncFallback({
     <Screen>
       <EmptyState
         icon="cloud-offline-outline"
-        title="加载失败"
+        title="小岛暂时失联"
         body={errorMessage ?? "无法连接服务器，请检查网络后重试。"}
       />
-      <AppButton title="重试" onPress={onRetry} />
+      <AppButton title="重新连接" icon="refresh-outline" onPress={onRetry} />
     </Screen>
   );
 }
@@ -232,7 +231,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.xxl
+    paddingVertical: 32
   },
   loadingMark: {
     width: 176,
@@ -245,7 +244,7 @@ const styles = StyleSheet.create({
     height: 150,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: spacing.lg
+    marginBottom: 16
   },
   glow: {
     position: "absolute",

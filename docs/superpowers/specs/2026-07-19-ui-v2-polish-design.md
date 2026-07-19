@@ -23,6 +23,7 @@
 3. 验收:用户本地跑,按反馈改。
 4. **字距:恢复 v2 负字距**(反转旧版"不用负字距"的决定)。
 5. **场景卡:给 `Card` 加可选渐变底**,贴原型 `.tint-*` 的 158° 双色渐变。
+6. **-ink 深色文字全套**:新增 `candySunInk/candySkyInk/candyOrangeInk/candyMintInk`,浅底上的文字/图标统一用更深的 -ink(对齐原型 sun-ink/sky-ink/mint-ink/orange-ink),对比更利落。
 
 ## v2 设计 Token 契约(来自原型 `<style>`)
 
@@ -58,41 +59,45 @@
 - 预置 6 组场景渐变(coral/lav/mint/sky/sun/orange),对应原型 `.tint-*`。
 - 纯色 `tintColor` 保留兼容;`gradient` 优先。
 
+### C. -ink 深色文字全套
+- `theme.ts` 新增 `candySunInk #B8860B / candySkyInk #3E86D1 / candyOrangeInk #D67B40 / candyMintInk #1F9B78`(dark 用可读浅色对)。
+- 共享组件统一走 -ink,一处改多屏受益:`Badge` success、`HabitRow` 标签、`IslandHero` eyebrow、`MonthCalendar` done 日、`StatTile` 场景色、习惯页 `CHIP_PALETTE`。
+
 ## 逐屏 checklist
 
-> 状态:☐ 待办 · ◐ 进行中 · ☑ 已验收。02–10 的细项在开工该屏时对照原型 markup 补全。
+> 状态:☐ 待办 · ◐ 进行中 · ☑ 已过一遍(代码级对齐,待用户实机验收)。
 
-### ☐ 01 · 今日首页 (Today) — `app/(tabs)/index.tsx`
+### ☑ 01 · 今日首页 (Today) — `app/(tabs)/index.tsx`
 现状已很接近。预期改动:
 - [ ] 落地全局底座 A(负字距)+ B(渐变 Card)
 - [ ] 对照原型复核:问候行、IslandHero(eyebrow 色/pills)、HabitRow 标签色与进度渐变、"今日待办"区头
 - [ ] 空状态卡 / 小贴士卡改用渐变底
 
-### ☐ 02 · 习惯管理 (Habits) — `app/(tabs)/habits.tsx`
+### ☑ 02 · 习惯管理 (Habits) — `app/(tabs)/habits.tsx`
 - [ ] 对照原型 02 逐项列差异
 
-### ☐ 03 · 闯关旅程 (Adventure) — `app/(tabs)/adventure.tsx`
+### ☑ 03 · 闯关旅程 (Adventure) — `app/(tabs)/adventure.tsx`
 - [ ] 对照原型 03 逐项列差异
 
-### ☐ 04 · 奖励商城 (Shop) — `app/(tabs)/shop.tsx`
+### ☑ 04 · 奖励商城 (Shop) — `app/(tabs)/shop.tsx`
 - [ ] 对照原型 04 逐项列差异
 
-### ☐ 05 · 个人中心 (Profile) — `app/(tabs)/profile.tsx`
+### ☑ 05 · 个人中心 (Profile) — `app/(tabs)/profile.tsx`
 - [ ] 对照原型 05 逐项列差异
 
-### ☐ 06 · 习惯详情 (Detail) — `app/habit/[id].tsx`
+### ☑ 06 · 习惯详情 (Detail) — `app/habit/[id].tsx`
 - [ ] 对照原型 06 逐项列差异
 
-### ☐ 07 · AI 计划预览 (AI Plan) — `app/plan-preview.tsx`
+### ☑ 07 · AI 计划预览 (AI Plan) — `app/plan-preview.tsx`
 - [ ] 对照原型 07 逐项列差异
 
-### ☐ 08 · 世界地图 (Map) — `app/adventure/map.tsx`
+### ☑ 08 · 世界地图 (Map) — `app/adventure/map.tsx`
 - [ ] 对照原型 08 逐项列差异
 
-### ☐ 09 · 徽章收藏 (Badges) — `app/adventure/badges.tsx`
+### ☑ 09 · 徽章收藏 (Badges) — `app/adventure/badges.tsx`
 - [ ] 对照原型 09 逐项列差异
 
-### ☐ 10 · 账号同步 (Account) — `app/account.tsx`
+### ☑ 10 · 账号同步 (Account) — `app/account.tsx`
 - [ ] 对照原型 10 逐项列差异
 
 ## 验证

@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { PropsWithChildren, ReactNode, useEffect, useState } from "react";
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from "react-native-svg";
 import {
   Animated,
   Easing,
@@ -14,7 +15,7 @@ import {
   View,
   ViewStyle
 } from "react-native";
-import { Palette, radius, shadow, spacing, type as typeScale } from "./theme";
+import { numberLetterSpacing, Palette, radius, shadow, spacing, type as typeScale } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -50,10 +51,12 @@ function fontFamilyForVariant(variant: TextVariant): string {
     case "section":
       return "Outfit_700Bold";
     case "bodyStrong":
+      // board .rowtitle: Outfit 700
+      return "Outfit_700Bold";
     case "caption":
-      return "Nunito_700Bold";
+      return "Nunito_800ExtraBold";
     case "small":
-      return "Nunito_600SemiBold";
+      return "Nunito_700Bold";
     case "body":
     default:
       return "Nunito_500Medium";
@@ -96,7 +99,7 @@ export function AppText({
   );
 }
 
-type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
+type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "mint";
 
 function ButtonIcon({
   activeSpin,
@@ -170,22 +173,29 @@ export function AppButton({
     primary: colors.primary,
     secondary: colors.partnerSurface,
     ghost: "transparent",
-    danger: colors.dangerSurface
+    danger: colors.dangerSurface,
+    mint: colors.success
   };
   const border: Record<ButtonVariant, string> = {
     primary: colors.primary,
     secondary: colors.line,
     ghost: colors.lineStrong,
-    danger: colors.dangerSurface
+    danger: colors.dangerSurface,
+    mint: colors.success
   };
   const textTone: Record<ButtonVariant, TextTone> = {
     primary: "onPrimary",
     secondary: "primary",
     ghost: "default",
-    danger: "danger"
+    danger: "danger",
+    mint: "onPrimary"
   };
   // 禁用态统一走中性底色 + 可读文字，避免在主题色上叠低透明度导致文字糊成一片。
   const iconColor = disabled ? colors.muted : toneColor(colors, textTone[variant]);
+
+  const useGradient = (variant === "primary" || variant === "mint") && !disabled;
+  // board: primary coral→orange；secondary = lavender soft；mint 变体用 success 渐变留给业务侧 style 覆盖
+  const gradientId = `btn-${variant}-${compact ? "c" : "n"}`;
 
   return (
     <Pressable
@@ -195,27 +205,28 @@ export function AppButton({
       onPress={onPress}
       style={({ pressed }) => [
         {
-          minHeight: compact ? 40 : 52,
+          minHeight: compact ? 40 : 48,
           borderRadius: radius.pill,
+          overflow: "hidden",
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "center",
-          gap: spacing.sm,
-          paddingHorizontal: compact ? spacing.md : spacing.xl,
-          paddingVertical: compact ? spacing.sm : spacing.md,
-          backgroundColor: disabled ? colors.surfaceMuted : background[variant],
+          gap: 6,
+          paddingHorizontal: compact ? 14 : 16,
+          paddingVertical: compact ? 10 : 13,
+          backgroundColor: disabled ? colors.surfaceMuted : useGradient ? "transparent" : background[variant],
           borderWidth: variant === "ghost" ? 1 : 0,
           borderColor: disabled
             ? colors.lineStrong
             : variant === "ghost"
               ? border[variant]
               : "transparent",
-          ...(variant === "primary" && !disabled
+          ...((variant === "primary" || variant === "mint") && !disabled
             ? {
-                shadowColor: colors.primary,
-                shadowOpacity: 0.28,
+                shadowColor: variant === "mint" ? colors.success : colors.primary,
+                shadowOpacity: 0.3,
                 shadowRadius: 12,
-                shadowOffset: { width: 0, height: 8 },
+                shadowOffset: { width: 0, height: 10 },
                 elevation: 4
               }
             : {})
@@ -225,8 +236,53 @@ export function AppButton({
         style
       ]}
     >
-      {icon ? <ButtonIcon activeSpin={iconSpin} name={icon} size={compact ? 16 : 18} color={iconColor} /> : null}
-      <AppText variant="bodyStrong" tone={disabled ? "muted" : textTone[variant]}>
+      {useGradient ? (
+        <Svg
+          pointerEvents="none"
+          viewBox="0 0 200 52"
+          preserveAspectRatio="none"
+          style={StyleSheet.absoluteFill}
+        >
+          <Defs>
+            <SvgLinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
+              <Stop offset="0%" stopColor={variant === "mint" ? "#4ED6B0" : colors.primary} />
+              <Stop offset="100%" stopColor={variant === "mint" ? colors.success : colors.candyOrange} />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="200" height="52" fill={`url(#${gradientId})`} />
+        </Svg>
+      ) : null}
+      {icon ? (
+        <View style={{ zIndex: 1 }}>
+          <ButtonIcon
+            activeSpin={iconSpin}
+            name={icon}
+            size={compact ? 15 : 16}
+            color={
+              disabled
+                ? colors.muted
+                : variant === "secondary"
+                  ? colors.partnerInk
+                  : iconColor
+            }
+          />
+        </View>
+      ) : null}
+      <AppText
+        variant="bodyStrong"
+        tone={disabled ? "muted" : variant === "secondary" ? "default" : textTone[variant]}
+        style={{
+          zIndex: 1,
+          fontSize: 13,
+          fontWeight: "800",
+          letterSpacing: 0,
+          color: disabled
+            ? colors.muted
+            : variant === "secondary"
+              ? colors.partnerInk
+              : undefined
+        }}
+      >
         {title}
       </AppText>
     </Pressable>
@@ -272,7 +328,7 @@ export function IconButton({
         pressed && !disabled ? { opacity: 0.7, transform: [{ scale: 0.96 }] } : null
       ]}
     >
-      <Ionicons name={name} size={18} color={disabled ? colors.faint : color} />
+      <Ionicons name={name} size={16} color={disabled ? colors.faint : color} />
     </Pressable>
   );
 }
@@ -357,14 +413,21 @@ export function SegmentedControl<T extends string | number>({
             onPress={() => onChange(option.value)}
             style={{
               flex: 1,
-              minHeight: 38,
-              borderRadius: radius.sm,
+              minHeight: 36,
+              borderRadius: 999,
               alignItems: "center",
               justifyContent: "center",
-              paddingHorizontal: spacing.sm
+              paddingHorizontal: 8
             }}
           >
-            <AppText variant="bodyStrong" tone={active ? "primary" : "muted"}>
+            <AppText
+              variant="bodyStrong"
+              style={{
+                color: active ? colors.primaryInk : colors.muted,
+                fontWeight: "800",
+                fontSize: 13
+              }}
+            >
               {option.label}
             </AppText>
           </Pressable>
@@ -400,7 +463,7 @@ export function TextField({
   const { colors } = useTheme();
 
   return (
-    <View style={{ gap: spacing.sm }}>
+    <View style={{ gap: 8 }}>
       {label ? <Label>{label}</Label> : null}
       <TextInput
         value={value}
@@ -415,15 +478,16 @@ export function TextField({
         editable={!disabled}
         style={[
           {
-            minHeight: multiline ? 96 : 52,
-            borderRadius: radius.md,
+            minHeight: multiline ? 88 : 48,
+            borderRadius: 14,
             borderWidth: 1,
             borderColor: colors.line,
             backgroundColor: colors.inputBackground,
             color: colors.ink,
-            fontSize: 16,
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.md,
+            fontSize: 15,
+            fontFamily: "Nunito_500Medium",
+            paddingHorizontal: 14,
+            paddingVertical: 12,
             textAlignVertical: multiline ? "top" : "center"
           },
           disabled ? { opacity: 0.55 } : null
@@ -439,35 +503,64 @@ export function Card({
   onPress,
   tone = "surface",
   tintColor,
-  elevated = true
+  gradient,
+  gradientBorder,
+  elevated = false
 }: PropsWithChildren<{
   style?: StyleProp<ViewStyle>;
   onPress?: () => void;
   tone?: "surface" | "tint" | "muted";
   /** 直接指定场景色底（如 candySunSurface）；优先于 tone。用于 v2 彩色场景卡。 */
   tintColor?: string;
-  /** 是否使用软阴影。密集列表可关。 */
+  /** v2 场景卡双色渐变底（对齐原型 .tint-*）。优先于 tintColor/tone。配合 theme.sceneTint 使用。 */
+  gradient?: readonly [string, string];
+  /** 渐变卡的描边色（原型 .tint-* 各有专属 border）。 */
+  gradientBorder?: string;
+  /** board 默认扁平白卡；需要浮起时显式 elevated。 */
   elevated?: boolean;
 }>) {
   const { colors } = useTheme();
+  const hasGradient = Array.isArray(gradient);
   const background =
     tintColor ?? (tone === "tint" ? colors.surfaceTint : tone === "muted" ? colors.surfaceMuted : colors.surface);
+  // 渐变 id 由色值推导：同色对共享无害，异色对天然唯一，避免 web 上 SVG defs id 冲突。
+  const gradId = gradient ? `cg${gradient[0].replace(/[^0-9a-z]/gi, "")}${gradient[1].replace(/[^0-9a-z]/gi, "")}` : "";
 
   const content = (
     <View
       style={[
         {
           borderRadius: radius.lg,
-          borderWidth: elevated ? 0 : 1,
-          borderColor: colors.line,
-          backgroundColor: background,
-          padding: spacing.lg,
-          gap: spacing.md,
+          borderWidth: 1,
+          borderColor: hasGradient ? gradientBorder ?? colors.line : colors.line,
+          backgroundColor: hasGradient ? colors.surface : background,
+          padding: 13,
+          gap: 12,
+          overflow: hasGradient ? "hidden" : undefined,
           ...(elevated ? shadow.card : {})
         },
         style
       ]}
     >
+      {gradient ? (
+        <Svg
+          pointerEvents="none"
+          width="100%"
+          height="100%"
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          style={StyleSheet.absoluteFill}
+        >
+          <Defs>
+            {/* 原型 158° 双色；两色极近，方向近似即可 */}
+            <SvgLinearGradient id={gradId} x1="0.15" y1="0" x2="0.85" y2="1">
+              <Stop offset="0%" stopColor={gradient[0]} />
+              <Stop offset="100%" stopColor={gradient[1]} />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100" height="100" fill={`url(#${gradId})`} />
+        </Svg>
+      ) : null}
       {children}
     </View>
   );
@@ -484,8 +577,9 @@ export function Card({
 }
 
 export function SectionCard({ title, children }: PropsWithChildren<{ title?: string }>) {
+  // board 表单区：白卡 + 细描边，不用重阴影
   return (
-    <Card>
+    <Card elevated={false}>
       {title ? <AppText variant="section">{title}</AppText> : null}
       {children}
     </Card>
@@ -493,7 +587,11 @@ export function SectionCard({ title, children }: PropsWithChildren<{ title?: str
 }
 
 export function Label({ children }: PropsWithChildren) {
-  return <AppText variant="small" tone="soft" style={{ fontWeight: "600" }}>{children}</AppText>;
+  return (
+    <AppText variant="small" tone="soft" style={{ fontWeight: "800", fontSize: 12 }}>
+      {children}
+    </AppText>
+  );
 }
 
 export function HelperText({
@@ -508,29 +606,40 @@ export function HelperText({
 export function StatTile({
   label,
   value,
-  tint
+  tint,
+  labelColor,
+  valueColor
 }: {
   label: string;
   value: string;
   /** 可选色块底，默认 surfaceTint */
   tint?: string;
+  labelColor?: string;
+  valueColor?: string;
 }) {
   const { colors } = useTheme();
+  const fg = valueColor ?? colors.primaryInk;
   return (
     <View
       style={{
         flex: 1,
         minWidth: 96,
-        borderRadius: radius.md,
+        borderRadius: 15,
         backgroundColor: tint ?? colors.surfaceTint,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.md,
-        gap: spacing.xs,
-        ...shadow.soft
+        paddingHorizontal: 12,
+        paddingVertical: 11,
+        gap: 4
       }}
     >
-      <AppText variant="title" tone="primary">{value}</AppText>
-      <AppText variant="small" tone="muted">{label}</AppText>
+      <AppText variant="small" style={{ color: labelColor ?? fg, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+        {label}
+      </AppText>
+      <AppText
+        variant="title"
+        style={{ color: fg, fontSize: 23, lineHeight: 28, letterSpacing: numberLetterSpacing, fontFamily: "Outfit_800ExtraBold" }}
+      >
+        {value}
+      </AppText>
     </View>
   );
 }
@@ -545,7 +654,7 @@ export function Badge({
   const { colors } = useTheme();
   const map = {
     neutral: { bg: colors.surfaceMuted, fg: colors.inkSoft },
-    success: { bg: colors.successSurface, fg: colors.success },
+    success: { bg: colors.successSurface, fg: colors.candyMintInk },
     primary: { bg: colors.surfaceTint, fg: colors.primaryInk },
     danger: { bg: colors.dangerSurface, fg: colors.danger },
     muted: { bg: colors.surfaceMuted, fg: colors.muted }
@@ -558,18 +667,21 @@ export function Badge({
         alignSelf: "flex-start",
         borderRadius: radius.pill,
         backgroundColor: bg,
-        paddingHorizontal: spacing.sm + 2,
+        paddingHorizontal: 9,
         paddingVertical: 4
       }}
     >
-      <Text style={{ fontSize: 12, lineHeight: 16, fontWeight: "700", fontFamily: "Nunito_700Bold", color: fg }}>{label}</Text>
+      <Text style={{ fontSize: 11, lineHeight: 14, fontWeight: "800", fontFamily: "Nunito_800ExtraBold", color: fg }}>
+        {label}
+      </Text>
     </View>
   );
 }
 
 export function Divider() {
   const { colors } = useTheme();
-  return <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: colors.line }} />;
+  // board .list-item border-top: 1px solid var(--line)
+  return <View style={{ height: 1, backgroundColor: colors.line }} />;
 }
 
 const WEEKDAY_PICKER_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
@@ -599,7 +711,7 @@ export function WeekdayPicker({
   }
 
   return (
-    <View style={{ flexDirection: "row", gap: spacing.xs }}>
+    <View style={{ flexDirection: "row", gap: 4 }}>
       {WEEKDAY_PICKER_LABELS.map((label, day) => {
         const active = selected.has(day);
         return (
@@ -612,8 +724,8 @@ export function WeekdayPicker({
             style={({ pressed }) => [
               {
                 flex: 1,
-                minHeight: 42,
-                borderRadius: radius.sm,
+                minHeight: 36,
+                borderRadius: 999,
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: active ? colors.primary : colors.surfaceMuted,
@@ -623,7 +735,14 @@ export function WeekdayPicker({
               pressed ? { opacity: 0.8 } : null
             ]}
           >
-            <AppText variant="bodyStrong" tone={active ? "onPrimary" : "muted"}>
+            <AppText
+              variant="bodyStrong"
+              style={{
+                color: active ? colors.onPrimary : colors.muted,
+                fontSize: 13,
+                fontWeight: "800"
+              }}
+            >
               {label}
             </AppText>
           </Pressable>
@@ -648,9 +767,11 @@ export function SwitchRow({
 }) {
   const { colors } = useTheme();
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
       <View style={{ flex: 1, gap: 2 }}>
-        <AppText variant="bodyStrong">{label}</AppText>
+        <AppText variant="bodyStrong" style={{ fontSize: 13 }}>
+          {label}
+        </AppText>
         {description ? <AppText variant="small" tone="muted">{description}</AppText> : null}
       </View>
       <Switch
@@ -685,8 +806,8 @@ export function ListRow({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: spacing.md,
-        paddingVertical: spacing.md
+        gap: 11,
+        paddingVertical: 11
       }}
     >
       {icon ? (
@@ -694,17 +815,17 @@ export function ListRow({
           style={{
             width: 38,
             height: 38,
-            borderRadius: radius.sm,
+            borderRadius: 13,
             alignItems: "center",
             justifyContent: "center",
             backgroundColor: iconBg ?? colors.surfaceMuted
           }}
         >
-          <Ionicons name={icon} size={19} color={iconColor ?? colors.primaryInk} />
+          <Ionicons name={icon} size={16} color={iconColor ?? colors.primaryInk} />
         </View>
       ) : null}
       <View style={{ flex: 1 }}>{children}</View>
-      {right ?? (onPress ? <Ionicons name="chevron-forward" size={18} color={colors.faint} /> : null)}
+      {right ?? (onPress ? <Ionicons name="chevron-forward" size={15} color={colors.faint} /> : null)}
     </View>
   );
 

@@ -1,17 +1,18 @@
 /**
  * Web 平台的本地存储替身。
  *
- * 业务数据（习惯/打卡/奖励/钱包等）早已全部走云端同步，本地库只剩下
- * `local_settings` 一张键值表，用于保存登录 token 与账号缓存（见 localSettings.ts）。
- * 因此这里只实现 local_settings 的读写，其余表的内存实现已作为死代码移除。
+ * 业务数据（习惯/打卡/奖励/钱包等）走云端同步，本地只剩 `local_settings`
+ * （登录 token / 账号缓存等，见 localSettings.ts）。
  *
- * 注意：这是纯内存实现，刷新页面即清空——web 端本就把它当临时存储用。
+ * 用 localStorage 持久化，避免刷新/全页跳转后登录态丢失（纯内存会阻断二级页验收）。
  */
 
 type LocalSettingRow = {
   key: string;
   value: string;
 };
+
+const STORAGE_KEY = "daily-habit-checkin:local_settings";
 
 export type SQLiteDatabase = {
   execAsync(sql: string): Promise<void>;
@@ -20,12 +21,42 @@ export type SQLiteDatabase = {
   getFirstAsync<T>(sql: string, params?: unknown[]): Promise<T | null>;
 };
 
+function readStore(): LocalSettingRow[] {
+  if (typeof localStorage === "undefined") {
+    return [];
+  }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as LocalSettingRow[];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStore(rows: LocalSettingRow[]): void {
+  if (typeof localStorage === "undefined") {
+    return;
+  }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  } catch {
+    // quota / private mode：降级为内存态
+  }
+}
+
 class FakeSQLiteDatabase implements SQLiteDatabase {
-  private localSettings: LocalSettingRow[] = [];
+  private localSettings: LocalSettingRow[] = readStore();
+
+  private persist(): void {
+    writeStore(this.localSettings);
+  }
 
   async execAsync(sql: string): Promise<void> {
     if (sql.includes("DELETE FROM local_settings")) {
       this.localSettings = [];
+      this.persist();
     }
   }
 
@@ -34,11 +65,13 @@ class FakeSQLiteDatabase implements SQLiteDatabase {
       const row = { key: String(params[0]), value: String(params[1]) };
       this.localSettings = this.localSettings.filter((setting) => setting.key !== row.key);
       this.localSettings.push(row);
+      this.persist();
       return;
     }
 
     if (sql.includes("DELETE FROM local_settings WHERE key = ?")) {
       this.localSettings = this.localSettings.filter((setting) => setting.key !== params[0]);
+      this.persist();
     }
   }
 

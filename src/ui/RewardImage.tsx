@@ -12,7 +12,7 @@ import {
 } from "../rewards/rewardImage";
 import { RewardType } from "../rewards/types";
 import { AppText, Label } from "./Controls";
-import { radius, spacing } from "./theme";
+import { radius } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
@@ -165,7 +165,7 @@ export function ImagePickerField({
   }
 
   return (
-    <View style={{ gap: spacing.sm }}>
+    <View style={{ gap: 8 }}>
       <Label>{label}</Label>
       <Pressable
         accessibilityRole="button"
@@ -174,8 +174,8 @@ export function ImagePickerField({
         disabled={busy}
         style={({ pressed }) => [
           {
-            height: 150,
-            borderRadius: radius.lg,
+            height: 100,
+            borderRadius: 14,
             borderWidth: 1,
             borderColor: colors.line,
             backgroundColor: colors.surfaceMuted,
@@ -189,8 +189,8 @@ export function ImagePickerField({
         {previewUri ? (
           <Image source={{ uri: previewUri }} style={{ width: "100%", height: "100%" }} contentFit="cover" />
         ) : (
-          <View style={{ alignItems: "center", gap: spacing.xs }}>
-            <Ionicons name="image-outline" size={30} color={colors.muted} />
+          <View style={{ alignItems: "center", gap: 4 }}>
+            <Ionicons name="image-outline" size={22} color={colors.muted} />
             <AppText variant="small" tone="muted">
               点击添加图片
             </AppText>
@@ -214,7 +214,7 @@ export function ImagePickerField({
         ) : null}
       </Pressable>
       {previewUri ? (
-        <View style={{ flexDirection: "row", gap: spacing.md }}>
+        <View style={{ flexDirection: "row", gap: 12 }}>
           <Pressable onPress={choose} disabled={busy} hitSlop={6}>
             <AppText variant="small" tone="primary">
               更换

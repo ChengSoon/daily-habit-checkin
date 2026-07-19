@@ -1,3 +1,4 @@
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are intentionally updated from event handlers. */
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable } from "react-native";
@@ -210,15 +211,43 @@ export function CheckButton({
             borderRadius: SIZE / 2,
             alignItems: "center",
             justifyContent: "center",
-            borderWidth: 2,
-            borderColor: effectiveChecked ? colors.success : colors.lineStrong,
-            backgroundColor: effectiveChecked ? colors.success : colors.surface
+            borderWidth: effectiveChecked ? 0 : 2,
+            borderColor: colors.lineStrong,
+            backgroundColor: effectiveChecked ? "transparent" : colors.surface,
+            overflow: "hidden",
+            // board check.on 薄荷阴影
+            ...(effectiveChecked
+              ? {
+                  shadowColor: colors.success,
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  shadowOffset: { width: 0, height: 4 },
+                  elevation: 3
+                }
+              : {})
           },
           circleStyle
         ]}
       >
+        {effectiveChecked ? (
+          <Svg
+            pointerEvents="none"
+            viewBox="0 0 27 27"
+            width={SIZE}
+            height={SIZE}
+            style={{ position: "absolute" }}
+          >
+            <Defs>
+              <LinearGradient id="checkMint" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0%" stopColor="#4ED6B0" />
+                <Stop offset="100%" stopColor={colors.success} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="27" height="27" rx="13.5" fill="url(#checkMint)" />
+          </Svg>
+        ) : null}
         <Animated.View style={checkStyle}>
-          <AppText variant="bodyStrong" tone="onPrimary" style={{ lineHeight: 20 }}>
+          <AppText variant="bodyStrong" tone="onPrimary" style={{ lineHeight: 18, fontSize: 14, fontWeight: "800" }}>
             ✓
           </AppText>
         </Animated.View>

@@ -1,22 +1,22 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { listRewards } from "../../src/rewards/rewardRepository";
 import { ensureDefaultRewards, redeemReward } from "../../src/rewards/rewardService";
 import { publicUrl } from "../../src/sync/uploadClient";
 import { Reward } from "../../src/rewards/types";
-import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Controls";
+import { AppButton, AppText, Card, HelperText } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { RewardImage } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { radius, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { getWallet } from "../../src/xp/xpRepository";
 
-const GRID_GAP = spacing.sm;
-const GRID_IMAGE_HEIGHT = 104;
+const GRID_GAP = 9;
+const GRID_IMAGE_HEIGHT = 68;
 
 function rewardTypeLabel(reward: Reward): string {
   return reward.type === "virtual" ? "虚拟奖励" : "现实奖励";
@@ -31,6 +31,7 @@ function groupRewards(rewards: Reward[]): Reward[][] {
 }
 
 /** 积分不足时的状态条：进度 + 差额，替代禁用购买按钮。 */
+/** board 04 不足态：细进度条 +「还差 N」，无重框。 */
 function ShortfallLabel({ priceXp, balance }: { priceXp: number; balance: number }) {
   const { colors } = useTheme();
   const shortfall = Math.max(0, priceXp - balance);
@@ -38,46 +39,23 @@ function ShortfallLabel({ priceXp, balance }: { priceXp: number; balance: number
   const progressPct = Math.round(progress * 100);
 
   return (
-    <View
-      accessibilityRole="text"
-      accessibilityLabel={`还差 ${shortfall} 积分，已攒 ${progressPct}%`}
-      style={{
-        minHeight: 40,
-        borderRadius: radius.md,
-        backgroundColor: colors.candySkySurface,
-        borderWidth: 1,
-        borderColor: colors.line,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.sm,
-        gap: 6,
-        justifyContent: "center"
-      }}
-    >
-      <View
-        style={{
-          height: 5,
-          borderRadius: radius.pill,
-          backgroundColor: colors.surfaceMuted,
-          overflow: "hidden"
-        }}
-      >
-        <View
-          style={{
-            width: `${progressPct}%`,
-            height: "100%",
-            borderRadius: radius.pill,
-            backgroundColor: colors.primary
-          }}
-        />
+    <View accessibilityRole="text" accessibilityLabel={`还差 ${shortfall}`} style={{ gap: 4 }}>
+      <View style={{ height: 9, borderRadius: 999, backgroundColor: "#EEF1F7", overflow: "hidden" }}>
+        <View style={{ width: `${progressPct}%`, height: "100%", borderRadius: 999, overflow: "hidden" }}>
+          <Svg width={200} height={9} viewBox="0 0 100 9" preserveAspectRatio="none" style={{ width: "100%", height: 9 }}>
+            <Defs>
+              <LinearGradient id="shopProg" x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0%" stopColor={colors.candySky} />
+                <Stop offset="100%" stopColor={colors.partner} />
+              </LinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100" height="9" fill="url(#shopProg)" />
+          </Svg>
+        </View>
       </View>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.xs }}>
-        <AppText variant="small" tone="primary" style={{ fontWeight: "700" }} numberOfLines={1}>
-          还差 {shortfall}
-        </AppText>
-        <AppText variant="caption" tone="muted" numberOfLines={1} style={{ textTransform: "none", letterSpacing: 0 }}>
-          {Math.min(balance, priceXp)}/{priceXp}
-        </AppText>
-      </View>
+      <AppText variant="small" tone="muted" style={{ fontWeight: "700" }}>
+        还差 {shortfall}
+      </AppText>
     </View>
   );
 }
@@ -117,8 +95,8 @@ export default function ShopScreen() {
 
   return (
     <Screen>
-      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: spacing.md }}>
-        <View style={{ flex: 1, gap: spacing.xs }}>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <View style={{ flex: 1, gap: 4 }}>
           <AppText variant="display">商城</AppText>
           <AppText variant="body" tone="muted">
             用 XP 兑换小心意
@@ -130,14 +108,14 @@ export default function ShopScreen() {
             alignItems: "center",
             gap: 5,
             backgroundColor: colors.candySunSurface,
-            borderRadius: radius.pill,
-            paddingHorizontal: 13,
-            paddingVertical: 9
+            borderRadius: 999,
+            paddingHorizontal: 12,
+            paddingVertical: 8
           }}
         >
-          <Ionicons name="diamond" size={15} color={colors.candyOrange} />
-          <AppText variant="bodyStrong" style={{ color: colors.candyOrange }}>
-            {balance}
+          <Ionicons name="diamond" size={15} color={colors.candySunInk} />
+          <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 11 }}>
+            {balance.toLocaleString("en-US")}
           </AppText>
         </View>
       </View>
@@ -149,48 +127,57 @@ export default function ShopScreen() {
         <EmptyState title="商城还没有商品" body="等待管理员上架奖励后，就可以在这里兑换啦。" icon="gift-outline" />
       ) : (
         <View style={{ gap: GRID_GAP }}>
-          {groupRewards(rewards).map((row) => (
+          {groupRewards(rewards).map((row, rowIndex) => (
             <View key={row[0].id} style={{ flexDirection: "row", gap: GRID_GAP }}>
-              {row.map((reward) => {
+              {row.map((reward, colIndex) => {
+                const thumbTints = [colors.surfaceTint, colors.partnerSurface, colors.candySkySurface, colors.successSurface, colors.candySunSurface, colors.candyOrangeSurface];
+                const thumbBg = thumbTints[(rowIndex * 2 + colIndex) % thumbTints.length];
                 const canRedeem = balance >= reward.priceXp;
                 return (
-                  <Card key={reward.id} style={{ flex: 1, padding: 0, overflow: "hidden", gap: 0, borderRadius: radius.lg }}>
-                    <RewardImage
-                      uri={publicUrl(reward.imageKey)}
-                      type={reward.type}
-                      height={GRID_IMAGE_HEIGHT}
-                      radiusToken={0}
-                      contentFit="contain"
-                    />
-                    <View style={{ flex: 1, padding: spacing.sm, gap: spacing.sm }}>
+                  <Card key={reward.id} elevated={false} style={{ flex: 1, padding: 10, overflow: "hidden", gap: 8, borderRadius: 20 }}>
+                    <View style={{ height: GRID_IMAGE_HEIGHT, borderRadius: 12, backgroundColor: thumbBg, alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+                      <RewardImage
+                        uri={publicUrl(reward.imageKey)}
+                        type={reward.type}
+                        height={GRID_IMAGE_HEIGHT}
+                        radiusToken={0}
+                        contentFit="contain"
+                      />
+                    </View>
+                    <View style={{ flex: 1, gap: 6 }}>
                       <View style={{ flex: 1, gap: 3 }}>
-                        <Badge label={rewardTypeLabel(reward)} tone={reward.type === "virtual" ? "primary" : "success"} />
-                        <AppText variant="bodyStrong" numberOfLines={2}>
+                        <AppText variant="bodyStrong" numberOfLines={2} style={{ fontSize: 13 }}>
                           {reward.title}
                         </AppText>
-                        {reward.description ? (
-                          <AppText variant="small" tone="muted" numberOfLines={2}>
-                            {reward.description}
-                          </AppText>
-                        ) : null}
-                      </View>
-                      <View
-                        style={{
-                          alignSelf: "flex-start",
-                          borderRadius: radius.pill,
-                          backgroundColor: colors.candySunSurface,
-                          paddingHorizontal: spacing.sm + 2,
-                          paddingVertical: 4
-                        }}
-                      >
-                        <AppText variant="small" tone="primary" style={{ fontWeight: "700" }}>
-                          {reward.priceXp} XP
+                        <AppText variant="small" tone="muted">
+                          {rewardTypeLabel(reward)}
                         </AppText>
                       </View>
                       {canRedeem ? (
-                        <AppButton title="购买" onPress={() => redeem(reward)} compact fullWidth />
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                          <View style={{ borderRadius: 999, backgroundColor: colors.candySunSurface, paddingHorizontal: 9, paddingVertical: 4 }}>
+                            <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                              {reward.priceXp} XP
+                            </AppText>
+                          </View>
+                          <Pressable
+                            onPress={() => redeem(reward)}
+                            style={{ borderRadius: 999, backgroundColor: colors.successSurface, paddingHorizontal: 9, paddingVertical: 4 }}
+                          >
+                            <AppText variant="small" style={{ color: colors.candyMintInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                              可兑
+                            </AppText>
+                          </Pressable>
+                        </View>
                       ) : (
-                        <ShortfallLabel priceXp={reward.priceXp} balance={balance} />
+                        <View style={{ gap: 6 }}>
+                          <View style={{ borderRadius: 999, backgroundColor: colors.candySunSurface, paddingHorizontal: 9, paddingVertical: 4, alignSelf: "flex-start" }}>
+                            <AppText variant="small" style={{ color: colors.candySunInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                              {reward.priceXp} XP
+                            </AppText>
+                          </View>
+                          <ShortfallLabel priceXp={reward.priceXp} balance={balance} />
+                        </View>
                       )}
                     </View>
                   </Card>
@@ -204,8 +191,8 @@ export default function ShopScreen() {
 
       <AppButton
         title="兑换记录"
-        variant="secondary"
-        icon="receipt-outline"
+        icon="gift-outline"
+        fullWidth
         onPress={() => router.push("/shop/redemptions")}
       />
     </Screen>

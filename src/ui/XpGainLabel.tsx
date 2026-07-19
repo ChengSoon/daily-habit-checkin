@@ -8,7 +8,7 @@ import Animated, {
   withSpring,
   withTiming
 } from "react-native-reanimated";
-import { type as typeScale, radius, spacing } from "./theme";
+import { type as typeScale, radius } from "./theme";
 import { useTheme } from "./ThemeContext";
 import { useReducedMotion } from "./useReducedMotion";
 
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   chip: {
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 12,
     paddingVertical: 5,
     borderRadius: radius.pill,
     borderWidth: 1.5

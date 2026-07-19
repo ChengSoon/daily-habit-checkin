@@ -7,7 +7,6 @@ import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Contro
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
 
 export default function AdminRedemptionsScreen() {
   const [redemptions, setRedemptions] = useState<RewardRedemption[]>([]);
@@ -65,28 +64,29 @@ export default function AdminRedemptionsScreen() {
 
   return (
     <Screen>
-      <View style={{ gap: spacing.xs }}>
-        <AppText variant="display">核销管理</AppText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="display">兑现管理</AppText>
         <AppText variant="body" tone="muted">
-          购买后的奖励在这里核销
+          核销成员兑换的现实奖励
         </AppText>
       </View>
+
       {message ? <HelperText tone="success">{message}</HelperText> : null}
       {error ? <HelperText tone="danger">{error}</HelperText> : null}
       {pending.length === 0 ? (
-        <EmptyState title="没有待核销奖励" body="购买奖励后，会出现在这里等待核销。" />
+        <EmptyState title="没有待核销奖励" body="商城兑换后，现实奖励会出现在这里等待核销。" />
       ) : (
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: 8 }}>
           {pending.map((item) => {
             const reward = rewards[item.rewardId];
             return (
-              <Card key={item.id}>
+              <Card key={item.id} elevated={false} style={{ gap: 10, padding: 13 }}>
                 <Badge label="待核销" tone="primary" />
                 <AppText variant="bodyStrong">{reward?.title ?? "奖励已不存在"}</AppText>
                 <AppText variant="small" tone="muted">
                   {item.priceXp} 积分 · {new Date(item.createdAt).toLocaleString()}
                 </AppText>
-                <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                <View style={{ flexDirection: "row", gap: 8 }}>
                   <AppButton
                     title="核销"
                     compact

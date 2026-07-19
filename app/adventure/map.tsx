@@ -1,165 +1,130 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Pressable, View } from "react-native";
+import { BoardWorldMap } from "../../src/adventure/BoardWorldMap";
 import { loadAdventureState } from "../../src/adventure/adventureService";
-import { shouldPlayUnlockFeedback } from "../../src/adventure/badgeWall";
-import {
-  getLastSeenUnlockedOrder,
-  setLastSeenUnlockedOrder
-} from "../../src/adventure/unlockSeen";
-import { WorldMapCanvas } from "../../src/adventure/WorldMapCanvas";
-import type { AdventureChapterView, AdventureState } from "../../src/adventure/types";
-import type { Account } from "../../src/sync/authService";
-import { getStoredAccount } from "../../src/sync/localSettings";
-import { AppText, Card } from "../../src/ui/Controls";
+import type { AdventureState } from "../../src/adventure/types";
+import { AppButton, AppText, Card } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
+import { sceneTint } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
-
-function resolveFocusChapter(
-  chapters: AdventureChapterView[],
-  highestUnlockedOrder: number
-): AdventureChapterView | null {
-  const ordered = [...chapters].sort((a, b) => a.sortOrder - b.sortOrder);
-  if (ordered.length === 0) return null;
-  return (
-    ordered.find((c) => c.viewStatus === "claimable") ??
-    [...ordered].reverse().find((c) => c.sortOrder <= highestUnlockedOrder) ??
-    ordered[0]
-  );
-}
+import { useCouple } from "../../src/ui/useCouple";
 
 export default function AdventureMapScreen() {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
+  const couple = useCouple();
   const [state, setState] = useState<AdventureState | null>(null);
-  const [focus, setFocus] = useState<AdventureChapterView | null>(null);
-  const [pulseSortOrder, setPulseSortOrder] = useState<number | null>(null);
-  const [unlockBanner, setUnlockBanner] = useState<string | null>(null);
-  const unlockCheckedRef = useRef(false);
 
   const load = useCallback(async () => {
-    const next = await loadAdventureState();
-    setState(next);
-    setFocus(resolveFocusChapter(next.chapters, next.highestUnlockedOrder));
+    setState(await loadAdventureState());
   }, []);
 
   const { status, errorMessage, reload } = useSyncScreen(load);
 
-  useEffect(() => {
-    if (!state || unlockCheckedRef.current) {
-      return;
-    }
-    unlockCheckedRef.current = true;
-    void (async () => {
-      const account = await getStoredAccount<Account>();
-      const spaceId = account?.spaceId;
-      if (!spaceId) {
-        return;
-      }
-      const lastSeen = await getLastSeenUnlockedOrder(spaceId);
-      if (shouldPlayUnlockFeedback(state.highestUnlockedOrder, lastSeen)) {
-        setPulseSortOrder(state.highestUnlockedOrder);
-        setUnlockBanner(`新解锁至第 ${state.highestUnlockedOrder} 章`);
-        setTimeout(() => setUnlockBanner(null), 2200);
-      }
-      await setLastSeenUnlockedOrder(spaceId, state.highestUnlockedOrder);
-    })();
+  const focus = useMemo(() => {
+    if (!state) return null;
+    const ordered = [...state.chapters].sort((a, b) => a.sortOrder - b.sortOrder);
+    return (
+      ordered.find((c) => c.viewStatus === "claimable") ??
+      [...ordered].reverse().find((c) => c.viewStatus !== "locked") ??
+      ordered[0] ??
+      null
+    );
   }, [state]);
-
-  const total = state?.chapters.length || 1;
-  const progressRatio =
-    state && total > 0 ? Math.min(1, state.highestUnlockedOrder / total) : 0;
-
-  const focusHint = useMemo(() => {
-    if (!state || !focus) return null;
-    if (focus.viewStatus === "claimable") {
-      return `「${focus.title}」奖励可领取 · 点岛进入`;
-    }
-    if (focus.viewStatus === "claimed") {
-      return `「${focus.title}」已领取 · 可点开回顾`;
-    }
-    const need = Math.max(0, focus.thresholdLifetimeXp - state.lifetimeEarned);
-    return need > 0
-      ? `「${focus.title}」锁定中 · 还需 ${need} XP`
-      : `「${focus.title}」已达门槛 · 等待顺序解锁`;
-  }, [focus, state]);
 
   if (status !== "ready") {
     return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
   }
-
   if (!state) {
     return <SyncFallback status="loading" errorMessage={errorMessage} onRetry={reload} />;
   }
 
+  const total = state.chapters.length || 1;
+  const claimable = focus?.viewStatus === "claimable";
+
   return (
-    <Screen scroll={false}>
-      <Card style={{ marginBottom: spacing.sm, gap: 6 }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <AppText variant="section">世界地图</AppText>
-          <AppText variant="caption" tone="muted" style={{ textTransform: "none" }}>
-            {state.highestUnlockedOrder}/{total} 岛
+    <Screen>
+      <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }} hitSlop={8}>
+        <Ionicons name="chevron-back" size={16} color={colors.inkSoft} />
+        <AppText variant="small" tone="soft">返回</AppText>
+      </Pressable>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <View style={{ flex: 1, gap: 4 }}>
+          <AppText variant="title">世界地图</AppText>
+          <AppText variant="body" tone="muted">
+            点亮群岛，收集徽章
           </AppText>
         </View>
         <View
           style={{
-            height: 6,
+            backgroundColor: colors.partnerSurface,
             borderRadius: 999,
-            backgroundColor: "rgba(0,0,0,0.06)",
-            overflow: "hidden"
+            paddingHorizontal: 12,
+            paddingVertical: 8
           }}
         >
-          <View
-            style={{
-              width: `${Math.max(6, progressRatio * 100)}%`,
-              height: "100%",
-              borderRadius: 999,
-              backgroundColor: state.claimableCount > 0 ? colors.celebration : colors.primary
-            }}
-          />
+          <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800", fontSize: 11, lineHeight: 14 }}>
+            {state.highestUnlockedOrder} / {total} 解锁
+          </AppText>
         </View>
-        <AppText variant="caption" tone="muted" style={{ textTransform: "none" }}>
-          累计 {state.lifetimeEarned} XP
-          {state.claimableCount > 0 ? ` · 可领取 ${state.claimableCount}` : ""}
-        </AppText>
-        {unlockBanner ? (
-          <AppText variant="small" tone="primary">
-            {unlockBanner}
-          </AppText>
-        ) : focusHint ? (
-          <AppText variant="small" tone="soft">
-            {focusHint}
-          </AppText>
-        ) : (
-          <AppText variant="small" tone="soft">
-            上下滑动切换岛屿
-          </AppText>
-        )}
-      </Card>
-
-      <View style={{ flex: 1, minHeight: 0, alignItems: "center", justifyContent: "center" }}>
-        <WorldMapCanvas
-          chapters={state.chapters}
-          highestUnlockedOrder={state.highestUnlockedOrder}
-          pulseSortOrder={pulseSortOrder}
-          onPressChapter={(chapterId) => router.push(`/adventure/${chapterId}`)}
-          onFocusChange={(chapter) => setFocus(chapter)}
-        />
       </View>
 
-      <AppText
-        variant="caption"
-        tone="muted"
-        style={{
-          textAlign: "center",
-          textTransform: "none",
-          marginTop: spacing.sm,
-          marginBottom: spacing.sm
+      <BoardWorldMap
+        chapters={state.chapters}
+        people={couple.people.map((p) => ({ name: p.name, tone: p.tone, imageUri: p.avatarUrl }))}
+        onPressChapter={(chapterId) => router.push(`/adventure/${chapterId}`)}
+      />
+
+      {focus ? (
+        <Card {...sceneTint("coral", scheme)} elevated={false} style={{ gap: 10, padding: 13 }}>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ flex: 1, gap: 4, paddingRight: 8 }}>
+              <AppText
+                variant="caption"
+                style={{ color: colors.primaryInk, textTransform: "none", letterSpacing: 0.8, fontWeight: "800" }}
+              >
+                Current Chapter
+              </AppText>
+              <AppText variant="section">{focus.title}</AppText>
+              <AppText variant="body" tone="muted">
+                阈值 {focus.thresholdLifetimeXp.toLocaleString("en-US")} XP
+                {focus.badgeName ? ` · 奖励：${focus.badgeName}` : ""}
+              </AppText>
+            </View>
+            <View
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: 15,
+                backgroundColor: colors.surface,
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              {focus.badgeEmoji?.trim() ? (
+                <AppText style={{ fontSize: 20 }}>{focus.badgeEmoji.trim()}</AppText>
+              ) : (
+                <Ionicons name="flame" size={20} color={colors.primaryInk} />
+              )}
+            </View>
+          </View>
+        </Card>
+      ) : null}
+
+      <AppButton
+        title={claimable ? "领取章节奖励" : "打开当前岛屿"}
+        icon={claimable ? "ribbon-outline" : "map-outline"}
+        variant={claimable ? "mint" : "primary"}
+        fullWidth
+        onPress={() => {
+          if (focus) {
+            router.push(`/adventure/${focus.id}`);
+          }
         }}
-      >
-        上下滑动或点两侧圆点切换 · 点击岛屿进入
-      </AppText>
+        disabled={!focus}
+      />
     </Screen>
   );
 }

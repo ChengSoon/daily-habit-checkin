@@ -5,7 +5,6 @@ import { goBackOrReplace } from "../navigation/goBackOrReplace";
 import { getCurrentAccount } from "../sync/authService";
 import { AppButton, AppText } from "./Controls";
 import { Screen } from "./Screen";
-import { spacing } from "./theme";
 
 type AccessState = "checking" | "granted" | "denied";
 
@@ -26,7 +25,7 @@ export function OwnerGate({
     return (
       <Screen>
         <AppText variant="body" tone="muted">
-          正在校验权限…
+          正在确认小岛权限…
         </AppText>
       </Screen>
     );
@@ -60,12 +59,15 @@ function useOwnerAccess(): AccessState {
 function OwnerDenied({ fallbackHref }: { fallbackHref: Parameters<typeof router.replace>[0] }) {
   return (
     <Screen>
-      <View style={{ gap: spacing.sm }}>
-        <AppText variant="display">无权访问</AppText>
-        <AppText variant="body" tone="muted">只有创建空间的人可以进行管理操作。</AppText>
+      <View style={{ gap: 12 }}>
+        <AppText variant="display">小岛管理权限</AppText>
+        <AppText variant="body" tone="muted">
+          只有创建空间的人（Owner）可以管理奖励与章节。
+        </AppText>
         <AppButton
           title="返回"
           variant="secondary"
+          icon="chevron-back"
           onPress={() => goBackOrReplace(router, fallbackHref)}
         />
       </View>

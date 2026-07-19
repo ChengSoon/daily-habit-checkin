@@ -1,12 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { getAdjustmentSuggestion } from "../../src/ai/adjustmentRules";
 import { getPlanForHabit } from "../../src/ai/habitPlanRepository";
 import { HabitPlan } from "../../src/ai/types";
 import { listCheckInsForHabit } from "../../src/checkins/checkinRepository";
-import { calculateCurrentStreak, calculateLongestStreak, calculateMonthlyCompletionRate } from "../../src/checkins/stats";
+import { calculateCurrentStreak, calculateMonthlyCompletionRate } from "../../src/checkins/stats";
 import { CheckIn } from "../../src/checkins/types";
 import { deleteHabit, getHabitById, setHabitPaused, updateHabit } from "../../src/habits/habitRepository";
 import { shouldRunOnDate } from "../../src/habits/habitRules";
@@ -15,7 +15,6 @@ import { refreshScheduledReminders } from "../../src/reminders/reminderService";
 import {
   AppButton,
   AppText,
-  Badge,
   Card,
   HelperText,
   Label,
@@ -25,11 +24,11 @@ import {
   TextField,
   WeekdayPicker
 } from "../../src/ui/Controls";
-import { CalendarLegend, MonthCalendar } from "../../src/ui/MonthCalendar";
+import { MonthCalendar } from "../../src/ui/MonthCalendar";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { radius, spacing } from "../../src/ui/theme";
+import { sceneTint } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 import { eachDateKey, startOfMonthKey, todayKey } from "../../src/utils/date";
 import { normalizeTimeInput } from "../../src/utils/time";
@@ -47,7 +46,7 @@ function parseFrequency(value: FrequencyType, weeklyDays: number[]): HabitFreque
 }
 
 export default function HabitDetailScreen() {
-  const { colors } = useTheme();
+  const { colors, scheme } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [habit, setHabit] = useState<Habit | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
@@ -63,6 +62,7 @@ export default function HabitDetailScreen() {
   const [timeError, setTimeError] = useState<string | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [manualRequested, setManualRequested] = useState(false);
+  const [editMode, setEditMode] = useState(false);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -97,7 +97,7 @@ export default function HabitDetailScreen() {
       // 已登录且加载成功，但该习惯不存在（可能已被删除）
       return (
         <Screen>
-          <EmptyState icon="search-outline" title="习惯不存在" body="这个习惯可能已经被删除了。" />
+          <EmptyState icon="search-outline" title="找不到这个角落" body="它可能已被删除，回习惯列表看看其他角落吧。" />
           <AppButton title="返回" variant="secondary" onPress={() => router.back()} />
         </Screen>
       );
@@ -198,7 +198,6 @@ export default function HabitDetailScreen() {
   // 连续天数与最长连续：用完整历史，避免跨月被截断
   const allScheduledDates = eachDateKey(habitStartDate, today).filter(isScheduled);
   const currentStreak = calculateCurrentStreak({ today, scheduledDates: allScheduledDates, checkIns });
-  const longestStreak = calculateLongestStreak({ scheduledDates: allScheduledDates, checkIns });
 
   // 本月完成率与月历：只看本月
   const monthStartDate = startOfMonthKey(today);
@@ -206,8 +205,6 @@ export default function HabitDetailScreen() {
     habitStartDate > monthStartDate ? habitStartDate : monthStartDate,
     today
   ).filter(isScheduled);
-  const completionRate = calculateMonthlyCompletionRate({ scheduledDates: monthScheduledDates, checkIns });
-
   // AI 建议依据最近 7 个应执行日的完成率
   const recent7ScheduledDates = allScheduledDates.slice(-7);
   const completionRate7Days = calculateMonthlyCompletionRate({ scheduledDates: recent7ScheduledDates, checkIns });
@@ -223,42 +220,121 @@ export default function HabitDetailScreen() {
   });
   const nextMilestone = [7, 14, 30, 60, 100, 200].find((m) => m > currentStreak) ?? currentStreak + 50;
 
+  function timePeriodLabel(time: string): string {
+    const hour = Number(time.slice(0, 2));
+    if (!Number.isFinite(hour)) return "";
+    if (hour < 5) return "凌晨";
+    if (hour < 11) return "早";
+    if (hour < 14) return "中午";
+    if (hour < 18) return "下午";
+    return "晚";
+  }
+
+  function frequencyText(): string {
+    if (!habit) return "";
+    if (habit.frequency.type === "daily") return "每天";
+    if (habit.frequency.type === "weekdays") return "工作日";
+    const days = [...(habit.frequency.type === "weekly" ? habit.frequency.daysOfWeek : [])].sort((a, b) => a - b);
+    const names = ["日", "一", "二", "三", "四", "五", "六"];
+    return days.length ? `每周 ${days.map((d) => names[d]).join("")}` : "每周";
+  }
+  const monthDone = monthScheduledDates.filter((d) => completedDates.has(d)).length;
+  const monthTitle = `${Number(today.slice(5, 7))}月`;
+
   return (
     <Screen>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 2 }}>
+        <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4 }} hitSlop={8}>
+          <Ionicons name="chevron-back" size={16} color={colors.inkSoft} />
+          <AppText variant="small" tone="soft">
+            返回
+          </AppText>
+        </Pressable>
+        <Pressable onPress={() => setEditMode((v) => !v)} style={{ flexDirection: "row", alignItems: "center", gap: 4 }} hitSlop={8}>
+          <Ionicons name={editMode ? "checkmark" : "create-outline"} size={16} color={colors.inkSoft} />
+          <AppText variant="small" tone="soft">
+            {editMode ? "完成" : "编辑"}
+          </AppText>
+        </Pressable>
+      </View>
+
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 11, padding: 13 }}>
         <View
           style={{
-            width: 52,
-            height: 52,
-            borderRadius: radius.lg,
+            width: 44,
+            height: 44,
+            borderRadius: 15,
             backgroundColor: colors.candySunSurface,
             alignItems: "center",
             justifyContent: "center"
           }}
         >
-          <Ionicons name={habit.trackType === "numeric" ? "water-outline" : "book-outline"} size={26} color={colors.candyOrange} />
+          <Ionicons name={habit.trackType === "numeric" ? "water-outline" : "book-outline"} size={22} color={colors.candySunInk} />
         </View>
-        <View style={{ flex: 1, gap: 6 }}>
+        <View style={{ flex: 1, gap: 4 }}>
           <AppText variant="title">{habit.name}</AppText>
-          <View style={{ flexDirection: "row", gap: spacing.sm }}>
-            <Badge label={habit.isPaused ? "已暂停" : "进行中"} tone={habit.isPaused ? "muted" : "success"} />
-            <Badge label={habit.reminderTime ? `提醒 ${habit.reminderTime}` : "无提醒"} tone="neutral" />
+          <AppText variant="body" tone="muted">
+            {frequencyText()}
+            {habit.reminderTime ? ` · ${timePeriodLabel(habit.reminderTime)} ${habit.reminderTime}` : ""}
+            {" · +10 XP"}
+          </AppText>
+        </View>
+      </View>
+
+      <View style={{ flexDirection: "row", gap: 9 }}>
+        <StatTile
+          label="当前连续"
+          value={`${currentStreak} 天`}
+          tint={colors.surfaceTint}
+          labelColor={colors.primaryInk}
+          valueColor={colors.primaryInk}
+        />
+        <StatTile
+          label="本月完成"
+          value={String(monthDone)}
+          tint={colors.partnerSurface}
+          labelColor={colors.partnerInk}
+          valueColor={colors.partnerInk}
+        />
+      </View>
+
+      <Card elevated={false} style={{ gap: 10, padding: 13 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <AppText variant="section">{monthTitle}</AppText>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            <View style={{ borderRadius: 999, backgroundColor: colors.successSurface, paddingHorizontal: 9, paddingVertical: 4 }}>
+              <AppText variant="small" style={{ color: colors.candyMintInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                你
+              </AppText>
+            </View>
+            <View style={{ borderRadius: 999, backgroundColor: colors.partnerSurface, paddingHorizontal: 9, paddingVertical: 4 }}>
+              <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800", fontSize: 10.5, lineHeight: 14 }}>
+                双人
+              </AppText>
+            </View>
           </View>
         </View>
-      </View>
+        {scheduledDates.length === 0 ? (
+          <AppText variant="small" tone="muted">
+            本月还没有应执行的日期。
+          </AppText>
+        ) : (
+          <MonthCalendar
+            monthDateKey={today}
+            scheduledDates={new Set(scheduledDates)}
+            completedDates={completedDates}
+            today={today}
+            startDate={habitStartDate}
+          />
+        )}
+      </Card>
 
-      <View style={{ flexDirection: "row", gap: spacing.sm }}>
-        <StatTile label="当前连续" value={`${currentStreak} 天`} />
-        <StatTile label="最长连续" value={`${longestStreak} 天`} />
-        <StatTile label="本月完成率" value={`${completionRate}%`} />
-      </View>
-
-      <Card tintColor={colors.successSurface} style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-        <View style={{ width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}>
-          <Ionicons name="ribbon-outline" size={20} color={colors.success} />
+      <Card {...sceneTint("mint", scheme)} elevated={false} style={{ flexDirection: "row", alignItems: "center", gap: 11, padding: 13 }}>
+        <View style={{ width: 38, height: 38, borderRadius: 13, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}>
+          <Ionicons name="medal-outline" size={16} color={colors.candyMintInk} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
-          <AppText variant="caption" style={{ color: colors.success, textTransform: "none", letterSpacing: 0 }}>
+          <AppText variant="caption" style={{ color: colors.candyMintInk, textTransform: "none", letterSpacing: 0 }}>
             下一步里程碑
           </AppText>
           <AppText variant="bodyStrong">
@@ -267,114 +343,80 @@ export default function HabitDetailScreen() {
         </View>
       </Card>
 
-      <SectionCard title="本月记录">
-        {scheduledDates.length === 0 ? (
-          <AppText variant="small" tone="muted">
-            本月还没有应执行的日期。
-          </AppText>
-        ) : (
-          <>
-            <MonthCalendar
-              monthDateKey={today}
-              scheduledDates={new Set(scheduledDates)}
-              completedDates={completedDates}
-              today={today}
-              startDate={habitStartDate}
-            />
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.md, marginTop: spacing.xs }}>
-              <CalendarLegend color={colors.primary} label="已完成" filled />
-              <CalendarLegend color={colors.primary} label="今天" />
-              <CalendarLegend color={colors.surfaceMuted} borderColor={colors.lineStrong} label="错过" filled />
-            </View>
-          </>
-        )}
-      </SectionCard>
-
-      {suggestion ? (
-        <Card tone="tint">
-          <AppText variant="caption" tone="primary">
-            AI 调整建议
-          </AppText>
-          <AppText variant="bodyStrong">{suggestion.title}</AppText>
-          <AppText variant="body" tone="soft">
-            {suggestion.body}
-          </AppText>
-          <AppButton title={suggestion.actionLabel} variant="secondary" onPress={applySuggestion} />
-        </Card>
-      ) : (
-        <AppButton title="调整计划" variant="secondary" onPress={() => setManualRequested(true)} />
-      )}
-
-      <SectionCard title="编辑习惯">
-        <TextField label="名称" value={name} onChangeText={setName} placeholder="习惯名称" />
-        <TextField label="描述" value={description} onChangeText={setDescription} placeholder="描述" />
-        <View style={{ gap: spacing.sm }}>
-          <Label>频率</Label>
-          <SegmentedControl<FrequencyType>
-            value={frequencyType}
-            onChange={setFrequencyType}
-            options={[
-              { label: "每天", value: "daily" },
-              { label: "工作日", value: "weekdays" },
-              { label: "每周", value: "weekly" }
-            ]}
-          />
-          {frequencyType === "weekly" ? (
-            <WeekdayPicker value={weeklyDays} onChange={setWeeklyDays} />
-          ) : null}
-        </View>
-        <TextField label="提醒时间" value={reminderTime} onChangeText={setReminderTime} placeholder="21:30" />
-        {timeError ? <HelperText tone="danger">{timeError}</HelperText> : null}
-        <View style={{ gap: spacing.sm }}>
-          <Label>记录方式</Label>
-          <SegmentedControl<HabitTrackType>
-            value={trackType}
-            onChange={setTrackType}
-            options={[
-              { label: "一键完成", value: "check" },
-              { label: "数值记录", value: "numeric" }
-            ]}
-          />
-        </View>
-        {trackType === "numeric" ? (
-          <TextField label="单位" value={numericUnit} onChangeText={setNumericUnit} placeholder="例如：分钟、页、次" />
-        ) : null}
-        {message ? <HelperText tone="success">{message}</HelperText> : null}
-        <AppButton
-          title="保存修改"
-          onPress={save}
-          disabled={!name || (frequencyType === "weekly" && weeklyDays.length === 0)}
-        />
-      </SectionCard>
-
-      <View style={{ gap: spacing.sm }}>
-        <AppButton
-          title={habit.isPaused ? "恢复习惯" : "暂停习惯"}
-          variant="secondary"
-          onPress={togglePaused}
-        />
-        {isConfirmingDelete ? (
-          <Card tone="muted">
-            <AppText variant="bodyStrong" tone="danger">
-              确定删除「{habit.name}」？
-            </AppText>
-            <AppText variant="small" tone="muted">
-              这个习惯和它的全部打卡记录会一并删除，无法恢复。
-            </AppText>
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
-              <AppButton
-                title="取消"
-                variant="ghost"
-                onPress={() => setIsConfirmingDelete(false)}
-                style={{ flex: 1 }}
+      {/* board 06 浏览态止于里程碑；AI/暂停/删除放编辑态 */}
+      {editMode ? (
+        <>
+          {suggestion ? (
+            <Card elevated={false} {...sceneTint("lavender", scheme)} style={{ gap: 8 }}>
+              <AppText variant="caption" style={{ color: colors.partnerInk, textTransform: "none", letterSpacing: 0, fontWeight: "800" }}>
+                AI 调整建议
+              </AppText>
+              <AppText variant="bodyStrong">{suggestion.title}</AppText>
+              <AppText variant="body" tone="muted">
+                {suggestion.body}
+              </AppText>
+              <AppButton title={suggestion.actionLabel} variant="secondary" onPress={applySuggestion} />
+            </Card>
+          ) : (
+            <AppButton title="获取 AI 建议" variant="secondary" onPress={() => setManualRequested(true)} />
+          )}
+          <SectionCard title="编辑习惯">
+            <TextField label="名称" value={name} onChangeText={setName} placeholder="习惯名称" />
+            <TextField label="描述" value={description} onChangeText={setDescription} placeholder="描述" />
+            <View style={{ gap: 8 }}>
+              <Label>频率</Label>
+              <SegmentedControl<FrequencyType>
+                value={frequencyType}
+                onChange={setFrequencyType}
+                options={[
+                  { label: "每天", value: "daily" },
+                  { label: "工作日", value: "weekdays" },
+                  { label: "每周", value: "weekly" }
+                ]}
               />
-              <AppButton title="确认删除" variant="danger" onPress={remove} style={{ flex: 1 }} />
+              {frequencyType === "weekly" ? <WeekdayPicker value={weeklyDays} onChange={setWeeklyDays} /> : null}
             </View>
-          </Card>
-        ) : (
-          <AppButton title="删除习惯" variant="danger" onPress={() => setIsConfirmingDelete(true)} />
-        )}
-      </View>
+            <TextField label="提醒时间" value={reminderTime} onChangeText={setReminderTime} placeholder="21:30" />
+            {timeError ? <HelperText tone="danger">{timeError}</HelperText> : null}
+            <View style={{ gap: 8 }}>
+              <Label>记录方式</Label>
+              <SegmentedControl<HabitTrackType>
+                value={trackType}
+                onChange={setTrackType}
+                options={[
+                  { label: "一键完成", value: "check" },
+                  { label: "数值记录", value: "numeric" }
+                ]}
+              />
+            </View>
+            {trackType === "numeric" ? (
+              <TextField label="单位" value={numericUnit} onChangeText={setNumericUnit} placeholder="例如：分钟、页、次" />
+            ) : null}
+            {message ? <HelperText tone="success">{message}</HelperText> : null}
+            <AppButton
+              title="保存修改"
+              onPress={save}
+              disabled={!name || (frequencyType === "weekly" && weeklyDays.length === 0)}
+            />
+          </SectionCard>
+          <View style={{ gap: 8 }}>
+            <AppButton title={habit.isPaused ? "恢复习惯" : "暂停习惯"} variant="secondary" onPress={togglePaused} />
+            {isConfirmingDelete ? (
+              <Card elevated={false} tone="muted">
+                <AppText variant="bodyStrong" tone="danger">
+                  确定删除「{habit.name}」？
+                </AppText>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <AppButton title="取消" variant="ghost" onPress={() => setIsConfirmingDelete(false)} style={{ flex: 1 }} />
+                  <AppButton title="确认删除" variant="danger" onPress={remove} style={{ flex: 1 }} />
+                </View>
+              </Card>
+            ) : (
+              <AppButton title="删除习惯" variant="danger" onPress={() => setIsConfirmingDelete(true)} />
+            )}
+          </View>
+        </>
+      ) : null}
     </Screen>
   );
 }

@@ -1,6 +1,8 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Image, Pressable, View } from "react-native";
+import { Image, Platform, Pressable, View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import {
   buildBadgeWallItems,
   selectPendingClaims
@@ -9,12 +11,10 @@ import { loadAdventureState } from "../../src/adventure/adventureService";
 import { resolveDefaultIslandSource } from "../../src/adventure/mapAssets";
 import type { AdventureState } from "../../src/adventure/types";
 import { publicUrl } from "../../src/sync/publicUrl";
-import { AppButton, AppText, Badge, Card } from "../../src/ui/Controls";
-import { EmptyState } from "../../src/ui/EmptyState";
+import { AppText, Badge, Card } from "../../src/ui/Controls";
 import { RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { radius, shadow, spacing } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 
 export default function AdventureBadgesScreen() {
@@ -45,15 +45,22 @@ export default function AdventureBadgesScreen() {
 
   return (
     <Screen>
-      <View style={{ gap: spacing.xs, marginBottom: spacing.sm }}>
-        <AppText variant="display">徽章收藏</AppText>
-        <AppText variant="caption" tone="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
+      <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }} hitSlop={8}>
+        <Ionicons name="chevron-back" size={16} color={colors.inkSoft} />
+        <AppText variant="small" tone="soft">返回</AppText>
+      </Pressable>
+      <View style={{ gap: 6, marginBottom: 8 }}>
+        <AppText variant="display">徽章墙</AppText>
+        <AppText variant="body" tone="muted">
+          把共同坚持，变成看得见的纪念
+        </AppText>
+        <AppText variant="small" tone="faint">
           已获 {claimedCount} / {items.length} · 累计 {state.lifetimeEarned} XP
         </AppText>
       </View>
 
       {pending.length > 0 ? (
-        <Card style={{ gap: spacing.sm, marginBottom: spacing.sm }}>
+        <Card elevated={false} style={{ gap: 9, marginBottom: 8 }}>
           <AppText variant="section">待兑现惊喜</AppText>
           {pending.map((claim) => (
             <Pressable
@@ -65,7 +72,7 @@ export default function AdventureBadgesScreen() {
                 flexDirection: "row",
                 alignItems: "center",
                 justifyContent: "space-between",
-                gap: spacing.sm,
+                gap: 9,
                 opacity: pressed ? 0.88 : 1
               })}
             >
@@ -83,19 +90,12 @@ export default function AdventureBadgesScreen() {
         </Card>
       ) : null}
 
-      {claimedCount === 0 ? (
-        <Card>
-          <EmptyState title="还没有徽章" body="去地图点亮第一座岛，读完故事就能领取。" icon="ribbon-outline" />
-          <AppButton title="打开世界地图" onPress={() => router.push("/adventure/map")} />
-        </Card>
-      ) : null}
-
+      {/* board 09：始终 3 列徽章格（含锁定态），不用空态盖住网格 */}
       <View
         style={{
           flexDirection: "row",
           flexWrap: "wrap",
-          gap: spacing.sm,
-          marginTop: claimedCount === 0 ? spacing.sm : 0
+          gap: 9
         }}
       >
         {items.map((item) => {
@@ -114,16 +114,16 @@ export default function AdventureBadgesScreen() {
                 width: "31%",
                 flexGrow: 1,
                 minWidth: 96,
-                borderRadius: radius.lg,
+                borderRadius: 16,
                 borderWidth: 1,
                 borderColor: item.viewStatus === "claimable" ? colors.primary : colors.line,
-                backgroundColor: claimed ? colors.surface : colors.surfaceMuted,
-                paddingVertical: spacing.md,
-                paddingHorizontal: spacing.xs,
-                gap: 6,
+                backgroundColor: claimed ? "#FAFBFE" : colors.surfaceMuted,
+                paddingTop: 10,
+                paddingHorizontal: 6,
+                paddingBottom: 8,
+                gap: 3,
                 alignItems: "center",
-                opacity: pressed ? 0.9 : 1,
-                ...shadow.soft
+                opacity: pressed ? 0.9 : 1
               })}
             >
               {item.badgeImageKey ? (
@@ -135,28 +135,96 @@ export default function AdventureBadgesScreen() {
               ) : chapter ? (
                 <Image
                   source={resolveDefaultIslandSource(chapter.mapThemeKey)}
-                  style={{ width: 58, height: 58, opacity: claimed ? 1 : 0.4 }}
+                  style={{
+                    width: 58,
+                    height: 58,
+                    opacity: claimed || item.viewStatus === "claimable" ? 1 : 0.42,
+                    shadowColor: "#283048",
+                    shadowOpacity: claimed || item.viewStatus === "claimable" ? 0.16 : 0.06,
+                    shadowRadius: 8,
+                    shadowOffset: { width: 0, height: 6 },
+                    ...(Platform.OS === "web" && !(claimed || item.viewStatus === "claimable")
+                      ? ({ filter: "grayscale(0.85) brightness(1.05)" } as object)
+                      : {})
+                  }}
                   resizeMode="contain"
                 />
               ) : (
-                <AppText style={{ fontSize: 32, lineHeight: 40, opacity: claimed ? 1 : 0.5 }}>
-                  {claimed ? item.badgeEmoji?.trim() || "🏅" : item.viewStatus === "claimable" ? "✨" : "🔒"}
+                <AppText style={{ fontSize: 32, lineHeight: 40, opacity: claimed ? 1 : 0.42 }}>
+                  {claimed
+                    ? item.badgeEmoji?.trim() || "🏅"
+                    : item.viewStatus === "claimable"
+                      ? "✨"
+                      : "🔒"}
                 </AppText>
               )}
-              <AppText variant="small" numberOfLines={1} style={{ fontWeight: "700", textAlign: "center" }}>
-                {item.badgeName}
+              <AppText
+                variant="small"
+                numberOfLines={1}
+                style={{
+                  fontWeight: "800",
+                  fontSize: 10.5,
+                  textAlign: "center",
+                  color: claimed || item.viewStatus === "claimable" ? colors.ink : colors.faint
+                }}
+              >
+                {chapter?.title ?? item.badgeName}
               </AppText>
-              {!claimed && item.viewStatus === "claimable" ? (
-                <Badge label="可领取" tone="primary" />
-              ) : !claimed ? (
-                <AppText variant="caption" tone="muted" style={{ textTransform: "none", letterSpacing: 0 }}>
-                  未解锁
-                </AppText>
-              ) : null}
             </Pressable>
           );
         })}
       </View>
+
+      {items.some((item) => item.kind !== "claimed") ? (
+        <Card elevated={false} style={{ marginTop: 8, flexDirection: "row", alignItems: "center", gap: 11 }}>
+          <View
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 13,
+              backgroundColor: colors.candySunSurface,
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <Ionicons name="sparkles" size={18} color={colors.candySunInk} />
+          </View>
+          <View style={{ flex: 1, gap: 4 }}>
+            <AppText variant="bodyStrong">下一枚徽章</AppText>
+            <AppText variant="body" tone="muted">
+              继续累积 XP，点亮下一座岛即可领取
+            </AppText>
+            <View
+              style={{
+                height: 9,
+                borderRadius: 999,
+                backgroundColor: "#EEF1F7",
+                overflow: "hidden",
+                marginTop: 4
+              }}
+            >
+              <View
+                style={{
+                  height: "100%",
+                  width: `${Math.min(100, Math.round((claimedCount / Math.max(items.length, 1)) * 100))}%`,
+                  borderRadius: 999,
+                  overflow: "hidden"
+                }}
+              >
+                <Svg width="200" height="9" viewBox="0 0 100 9" preserveAspectRatio="none" style={{ width: "100%", height: 9 }}>
+                  <Defs>
+                    <LinearGradient id="badgeProg" x1="0" y1="0" x2="1" y2="0">
+                      <Stop offset="0%" stopColor={colors.partner} />
+                      <Stop offset="100%" stopColor={colors.candySky} />
+                    </LinearGradient>
+                  </Defs>
+                  <Rect x="0" y="0" width="100" height="9" fill="url(#badgeProg)" />
+                </Svg>
+              </View>
+            </View>
+          </View>
+        </Card>
+      ) : null}
     </Screen>
   );
 }

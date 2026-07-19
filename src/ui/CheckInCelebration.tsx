@@ -12,7 +12,7 @@ import Animated, {
   withTiming
 } from "react-native-reanimated";
 import { AppText } from "./Controls";
-import { radius, spacing } from "./theme";
+import { radius } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 /**
@@ -377,11 +377,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderWidth: 2.5,
     borderRadius: radius.lg,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
+    shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 8
   },
@@ -424,12 +424,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 3,
-    borderRadius: radius.xl,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    borderRadius: 22,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.28,
+    shadowOpacity: 0.12,
     shadowRadius: 28,
     elevation: 12
   },
@@ -438,10 +438,10 @@ const styles = StyleSheet.create({
   },
   doneText: {
     lineHeight: 46,
-    marginTop: spacing.xs
+    marginTop: 4
   },
   habitName: {
-    marginTop: spacing.sm,
+    marginTop: 8,
     maxWidth: 188,
     textAlign: "center"
   }

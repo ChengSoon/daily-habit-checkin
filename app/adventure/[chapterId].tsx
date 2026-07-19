@@ -1,6 +1,7 @@
-import { useLocalSearchParams } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { AdventureClaimCelebration } from "../../src/adventure/AdventureClaimCelebration";
 import { ChapterIslandHero } from "../../src/adventure/ChapterIslandHero";
 import { fulfillmentLabel, fulfillmentTone } from "../../src/adventure/badgeWall";
@@ -9,11 +10,13 @@ import { publicUrl } from "../../src/sync/publicUrl";
 import type { AdventureChapterView, AdventureState } from "../../src/adventure/types";
 import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Controls";
 import { RewardImage } from "../../src/ui/RewardImage";
+import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
+import { useTheme } from "../../src/ui/ThemeContext";
 
 export default function AdventureChapterScreen() {
+  const { colors } = useTheme();
   const { chapterId } = useLocalSearchParams<{ chapterId: string }>();
   const [state, setState] = useState<AdventureState | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -44,8 +47,8 @@ export default function AdventureChapterScreen() {
   if (!chapter) {
     return (
       <Screen>
-        <AppText variant="title">章节不存在</AppText>
-        <HelperText>可能已被下架，返回地图看看其他节点。</HelperText>
+        <EmptyState title="找不到这座岛" body="可能已被下架，回地图看看其他岛屿吧。" icon="map-outline" />
+        <AppButton title="返回" variant="secondary" icon="chevron-back" onPress={() => router.back()} />
       </Screen>
     );
   }
@@ -79,20 +82,25 @@ export default function AdventureChapterScreen() {
 
   return (
     <Screen scroll>
+      <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }} hitSlop={8}>
+        <Ionicons name="chevron-back" size={16} color={colors.inkSoft} />
+        <AppText variant="small" tone="soft">返回</AppText>
+      </Pressable>
+
       <ChapterIslandHero chapter={chapter} />
 
-      <Card style={{ gap: spacing.sm }}>
-        <AppText variant="caption" tone="muted">
-          第 {chapter.sortOrder} 章 · 门槛 {chapter.thresholdLifetimeXp} XP
+      <Card elevated={false} style={{ gap: 10 }}>
+        <AppText variant="caption" style={{ color: colors.primaryInk, textTransform: "none", letterSpacing: 0, fontWeight: "800" }}>
+          第 {chapter.sortOrder} 章 · 门槛 {chapter.thresholdLifetimeXp.toLocaleString("en-US")} XP
         </AppText>
         <AppText variant="title">{chapter.title}</AppText>
-        {chapter.subtitle ? <AppText variant="body" tone="soft">{chapter.subtitle}</AppText> : null}
-        <AppText variant="body" style={{ marginTop: spacing.sm, lineHeight: 22 }}>
+        {chapter.subtitle ? <AppText variant="body" tone="muted">{chapter.subtitle}</AppText> : null}
+        <AppText variant="body" tone="soft" style={{ marginTop: 4, lineHeight: 22 }}>
           {chapter.storyText}
         </AppText>
       </Card>
 
-      <Card style={{ marginTop: spacing.md, gap: spacing.sm }}>
+      <Card elevated={false} tintColor={colors.candySunSurface} style={{ gap: 10 }}>
         <AppText variant="section">章节徽章</AppText>
         {chapter.badgeImageKey ? (
           <RewardImage
@@ -101,7 +109,7 @@ export default function AdventureChapterScreen() {
             height={160}
           />
         ) : null}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <AppText variant="display">{chapter.badgeEmoji ?? "🏅"}</AppText>
           <View style={{ flex: 1, gap: 2 }}>
             <AppText variant="bodyStrong">{chapter.badgeName}</AppText>
@@ -117,7 +125,7 @@ export default function AdventureChapterScreen() {
       {chapter.viewStatus === "claimed" &&
       chapter.rewardType === "real_pending" &&
       claimInfo ? (
-        <Card style={{ marginTop: spacing.md, gap: spacing.sm }}>
+        <Card elevated={false} style={{ gap: 10 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <AppText variant="section">现实惊喜</AppText>
             <Badge
@@ -151,7 +159,7 @@ export default function AdventureChapterScreen() {
         </Card>
       ) : null}
 
-      <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
+      <View style={{ marginTop: 12, gap: 8 }}>
         {chapter.viewStatus === "claimable" ? (
           <AppButton
             title={
@@ -161,6 +169,8 @@ export default function AdventureChapterScreen() {
                   ? "领取现实惊喜"
                   : "领取徽章"
             }
+            variant="mint"
+            icon="ribbon-outline"
             onPress={() => void onClaim()}
             disabled={claiming}
           />

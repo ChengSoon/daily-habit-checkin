@@ -7,6 +7,7 @@ import { HabitFrequency, HabitTrackType } from "../../src/habits/types";
 import { refreshScheduledReminders } from "../../src/reminders/reminderService";
 import {
   AppButton,
+  AppText,
   HelperText,
   Label,
   SectionCard,
@@ -16,7 +17,6 @@ import {
   WeekdayPicker
 } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
-import { spacing } from "../../src/ui/theme";
 import { TimePickerField } from "../../src/ui/TimeWheelPicker";
 
 type CurrentLevel = "beginner" | "some_experience" | "stable";
@@ -115,6 +115,12 @@ export default function NewHabitScreen() {
 
   return (
     <Screen>
+      <View style={{ gap: 4 }}>
+        <AppText variant="display">新增习惯</AppText>
+        <AppText variant="body" tone="muted">
+          给小岛开辟一个新角落，或让 AI 生成分阶段计划
+        </AppText>
+      </View>
       <SegmentedControl<"ai" | "manual">
         value={mode}
         onChange={setMode}
@@ -143,7 +149,7 @@ export default function NewHabitScreen() {
 
       {mode === "ai" ? (
         <SectionCard title="告诉 AI 更多">
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: 8 }}>
             <Label>当前基础</Label>
             <SegmentedControl<CurrentLevel>
               value={currentLevel}
@@ -155,7 +161,7 @@ export default function NewHabitScreen() {
               ]}
             />
           </View>
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: 8 }}>
             <Label>计划周期</Label>
             <SegmentedControl<7 | 21>
               value={durationDays}
@@ -177,7 +183,7 @@ export default function NewHabitScreen() {
       ) : null}
 
       <SectionCard title="频率与提醒">
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: 8 }}>
           <Label>频率</Label>
           <SegmentedControl<FrequencyType>
             value={frequencyType}
@@ -193,7 +199,7 @@ export default function NewHabitScreen() {
           ) : null}
         </View>
         {mode === "ai" ? (
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: 8 }}>
             <Label>提醒偏好</Label>
             <SegmentedControl<ReminderPreference>
               value={reminderPreference}
@@ -255,12 +261,20 @@ export default function NewHabitScreen() {
 
       {mode === "ai" ? (
         <AppButton
-          title={isLoading ? "生成中..." : "让 AI 制定计划"}
+          title={isLoading ? "生成中…" : "生成计划"}
+          icon="sparkles"
+          fullWidth
           onPress={generatePlan}
           disabled={!goalText || isLoading || frequencyInvalid}
         />
       ) : (
-        <AppButton title="保存习惯" onPress={saveManualHabit} disabled={!goalText || frequencyInvalid} />
+        <AppButton
+          title="保存为岛上新角落"
+          icon="add"
+          fullWidth
+          onPress={saveManualHabit}
+          disabled={!goalText || frequencyInvalid}
+        />
       )}
     </Screen>
   );

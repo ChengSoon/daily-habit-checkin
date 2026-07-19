@@ -3,7 +3,6 @@ import { View } from "react-native";
 import { CoupleAvatars, CouplePerson } from "./Avatar";
 import { AppText } from "./Controls";
 import { IslandHero } from "./IslandHero";
-import { spacing } from "./theme";
 import { WeekStrip } from "./WeekStrip";
 
 function greetingForHour(hour: number): string {
@@ -14,6 +13,8 @@ function greetingForHour(hour: number): string {
   if (hour < 22) return "晚上好";
   return "夜深了";
 }
+
+const WEEKDAY_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
 /**
  * 今日头部：问候行 + 共同岛屿卡（IslandHero）+ 本周周历。
@@ -29,7 +30,7 @@ export function ProgressHeader({
   xpAccessory,
   onPressXp,
   doneDateKeys,
-  showWeekStrip = true,
+  showWeekStrip = false,
   islandKey,
   islandName = "我们的小岛",
   islandLevel
@@ -61,24 +62,32 @@ export function ProgressHeader({
       ? "创建第一个习惯，开始经营你们的小岛"
       : allDone
         ? hasPartner
-          ? "今天你们都点亮了印章 ✨"
-          : "今日印章已点亮 ✨"
-        : hasPartner
-          ? `今天你们一起浇灌了 ${completed} 次`
-          : `今天已浇灌 ${completed} 次`;
+          ? "今天你们都点亮了印章 · 繁荣拉满"
+          : "今日印章已点亮 · 繁荣拉满"
+        : completed === 0
+          ? hasPartner
+            ? "今天还没浇灌，一起开始吧"
+            : "今天还没浇灌，点亮第一项吧"
+          : hasPartner
+            ? `今天你们一起浇灌了 ${completed} 次 · 繁荣 +${completed * 4}`
+            : `今天已浇灌 ${completed} 次 · 繁荣 +${completed * 4}`;
 
   return (
-    <View style={{ gap: spacing.md }}>
+    <View style={{ gap: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
-        <View style={{ gap: 4, flex: 1, paddingRight: spacing.sm }}>
-          <AppText variant="caption" tone="muted" style={{ textTransform: "none", letterSpacing: 0.2 }}>
-            {greeting}
+        <View style={{ gap: 4, flex: 1, paddingRight: 8 }}>
+          <AppText
+            variant="caption"
+            tone="muted"
+            style={{ textTransform: "none", letterSpacing: 0.8, fontWeight: "800" }}
+          >
+            {greeting} · {WEEKDAY_ZH[now.getDay()]}
           </AppText>
-          <AppText variant="title" style={{ fontSize: 28, lineHeight: 34 }}>
+          <AppText variant="title" style={{ fontSize: 20, lineHeight: 24 }}>
             {hasPartner ? "一起打卡 ✨" : "今日打卡 ✨"}
           </AppText>
         </View>
-        {people.length > 0 ? <CoupleAvatars people={people} size={40} showRibbon={false} /> : null}
+        {people.length > 0 ? <CoupleAvatars people={people} size={34} showRibbon={false} /> : null}
       </View>
 
       <IslandHero

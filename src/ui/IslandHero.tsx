@@ -6,14 +6,14 @@ import { resolveDefaultIslandSource } from "../adventure/mapAssets";
 import { CoupleAvatars, type CouplePerson } from "./Avatar";
 import { AppText } from "./Controls";
 import { formatIslandLevel, shouldUseIslandImage } from "./islandHeroLogic";
-import { Palette, radius, shadow, spacing } from "./theme";
+import { Palette, radius, shadow } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 export type IslandHeroVariant = "today" | "profile" | "adventure";
 
 /** 迷你进度环：只显百分比，用于今日岛屿卡角标（ProgressRing 自带 "done" 文案、尺寸偏大，这里另做紧凑版）。 */
 function IslandRing({ ratio, colors }: { ratio: number; colors: Palette }) {
-  const size = 54;
+  const size = 58;
   const stroke = 6;
   const clamped = Math.max(0, Math.min(1, ratio));
   const r = (size - stroke) / 2;
@@ -70,6 +70,7 @@ export function IslandHero({
   people = [],
   streakDays,
   xpBalance,
+  lifetimeEarned,
   xpAccessory,
   onPressXp,
   progressBar
@@ -90,6 +91,8 @@ export function IslandHero({
   people?: CouplePerson[];
   streakDays?: number;
   xpBalance?: number;
+  /** profile 变体：累计 XP 胶囊 */
+  lifetimeEarned?: number;
   xpAccessory?: ReactNode;
   onPressXp?: () => void;
   /** adventure 变体的章节进度条。 */
@@ -100,7 +103,6 @@ export function IslandHero({
   const showIsland = shouldUseIslandImage(islandKey);
   const levelLabel = formatIslandLevel(islandLevel);
   const compact = variant === "profile";
-  const islandSize = compact ? 112 : 148;
   const showRing = variant === "today";
 
   const pill: ViewStyle = {
@@ -121,12 +123,12 @@ export function IslandHero({
   return (
     <View
       style={{
-        borderRadius: radius.xl,
+        borderRadius: 22,
         overflow: "hidden",
         borderWidth: 1,
-        borderColor: isDark ? colors.line : "rgba(255,255,255,0.9)",
+        borderColor: isDark ? colors.line : "#FFFFFF",
         backgroundColor: isDark ? colors.surfaceTint : colors.candySkySurface,
-        ...shadow.card
+        ...shadow.soft
       }}
     >
       {/* 天空渐变层：蓝→薰衣草→珊瑚的斜向天空，随主题自适应 */}
@@ -140,9 +142,36 @@ export function IslandHero({
       >
         <Defs>
           <LinearGradient id={`sky-${variant}`} x1="0" y1="0" x2="0.7" y2="1">
-            <Stop offset="0%" stopColor={isDark ? colors.surfaceMuted : colors.candySkySurface} />
-            <Stop offset="52%" stopColor={isDark ? colors.surfaceTint : colors.partnerSurface} />
-            <Stop offset="100%" stopColor={isDark ? colors.surface : colors.surfaceTint} />
+            <Stop
+              offset="0%"
+              stopColor={
+                isDark
+                  ? colors.surfaceMuted
+                  : variant === "adventure"
+                    ? colors.candyOrangeSurface
+                    : colors.candySkySurface
+              }
+            />
+            <Stop
+              offset="52%"
+              stopColor={
+                isDark
+                  ? colors.surfaceTint
+                  : variant === "adventure"
+                    ? colors.surfaceTint
+                    : colors.partnerSurface
+              }
+            />
+            <Stop
+              offset="100%"
+              stopColor={
+                isDark
+                  ? colors.surface
+                  : variant === "adventure"
+                    ? colors.partnerSurface
+                    : colors.surfaceTint
+              }
+            />
           </LinearGradient>
         </Defs>
         <Rect x="0" y="0" width="100" height="100" fill={`url(#sky-${variant})`} />
@@ -152,23 +181,38 @@ export function IslandHero({
         pointerEvents="none"
         style={{
           position: "absolute",
-          top: -28,
-          right: -12,
-          width: 116,
-          height: 116,
+          top: -14,
+          right: -6,
+          width: 76,
+          height: 76,
           borderRadius: 999,
           backgroundColor: colors.candySun,
-          opacity: isDark ? 0.18 : 0.42
+          opacity: isDark ? 0.22 : 0.55
         }}
       />
 
-      <View style={{ padding: spacing.lg, flexDirection: "row", alignItems: "center", gap: spacing.sm, minHeight: compact ? 116 : 150 }}>
-        {/* 左列文案 */}
-        <View style={{ flex: 1, gap: 5 }}>
-          <AppText variant="caption" tone="primary" style={{ textTransform: "none", letterSpacing: 0.2 }}>
-            {eyebrowText}
-          </AppText>
-          <AppText variant="title" style={{ fontSize: compact ? 20 : 23, lineHeight: compact ? 26 : 29, color: colors.ink }}>
+      <View style={{ paddingVertical: compact ? 13 : 14, paddingHorizontal: compact ? 14 : 15, minHeight: compact ? 116 : 168, position: "relative" }}>
+        {/* 左列文案：board max-width ~66% 给右侧岛图留白 */}
+        <View style={{ gap: 5, maxWidth: "66%", zIndex: 2, paddingRight: 8 }}>
+          {compact && people.length > 0 ? (
+            <View style={{ marginBottom: 2 }}>
+              <CoupleAvatars people={people} size={27} showRibbon={false} />
+            </View>
+          ) : null}
+          {eyebrowText ? (
+            <AppText
+              variant="caption"
+              style={{
+                textTransform: "none",
+                letterSpacing: 0.2,
+                color: variant === "adventure" ? colors.primaryInk : colors.candySkyInk,
+                fontWeight: "800"
+              }}
+            >
+              {eyebrowText}
+            </AppText>
+          ) : null}
+          <AppText variant="title" style={{ fontSize: compact ? 18 : 23, lineHeight: compact ? 24 : 29, color: colors.ink }}>
             {title ?? islandName ?? "我们的小岛"}
           </AppText>
           {detail ? (
@@ -179,8 +223,18 @@ export function IslandHero({
 
           {variant === "adventure" && progressBar ? (
             <View style={{ gap: 5, marginTop: 4 }}>
-              <View style={{ height: 8, borderRadius: 999, backgroundColor: isDark ? colors.surfaceMuted : "rgba(255,255,255,0.55)", overflow: "hidden" }}>
-                <View style={{ height: "100%", width: `${Math.round(Math.max(0, Math.min(1, progressBar.ratio)) * 100)}%`, borderRadius: 999, backgroundColor: colors.primary }} />
+              <View style={{ height: 9, width: "70%", borderRadius: 999, backgroundColor: isDark ? colors.surfaceMuted : "rgba(255,255,255,0.55)", overflow: "hidden" }}>
+                <View style={{ height: "100%", width: `${Math.round(Math.max(0, Math.min(1, progressBar.ratio)) * 100)}%`, borderRadius: 999, overflow: "hidden" }}>
+                  <Svg width="200" height="9" viewBox="0 0 100 9" preserveAspectRatio="none" style={{ width: "100%", height: 9 }}>
+                    <Defs>
+                      <LinearGradient id={`advProg-${variant}`} x1="0" y1="0" x2="1" y2="0">
+                        <Stop offset="0%" stopColor={colors.primary} />
+                        <Stop offset="100%" stopColor={colors.candyOrange} />
+                      </LinearGradient>
+                    </Defs>
+                    <Rect x="0" y="0" width="100" height="9" fill={`url(#advProg-${variant})`} />
+                  </Svg>
+                </View>
               </View>
               {progressBar.label ? (
                 <AppText variant="small" tone="muted">
@@ -190,7 +244,7 @@ export function IslandHero({
             </View>
           ) : null}
 
-          {(typeof streakDays === "number" && streakDays > 0) || typeof xpBalance === "number" ? (
+          {(typeof streakDays === "number" && streakDays > 0) || typeof xpBalance === "number" || typeof lifetimeEarned === "number" ? (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 6, alignItems: "center" }}>
               {typeof streakDays === "number" && streakDays > 0 ? (
                 <View style={pill}>
@@ -202,59 +256,84 @@ export function IslandHero({
               ) : null}
               {typeof xpBalance === "number" ? (
                 <Pressable onPress={onPressXp} style={pill}>
-                  <Ionicons name="diamond" size={12} color={colors.partnerInk} />
-                  <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800" }}>
-                    {xpBalance}
-                  </AppText>
+                  {variant === "profile" ? (
+                    <AppText variant="small" style={{ color: colors.primaryInk, fontWeight: "800" }}>
+                      XP {xpBalance.toLocaleString("en-US")}
+                    </AppText>
+                  ) : (
+                    <>
+                      <Ionicons name="diamond" size={12} color={colors.partnerInk} />
+                      <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800" }}>
+                        {xpBalance.toLocaleString("en-US")}
+                      </AppText>
+                    </>
+                  )}
                   {xpAccessory}
                 </Pressable>
               ) : null}
-            </View>
-          ) : null}
-        </View>
-
-        {/* 右侧：岛图 + 岛上双人 + 今日进度环 */}
-        <View style={{ width: islandSize, height: islandSize, alignItems: "center", justifyContent: "center" }}>
-          {showIsland ? (
-            <>
-              <View
-                style={{
-                  position: "absolute",
-                  bottom: islandSize * 0.14,
-                  width: islandSize * 0.52,
-                  height: islandSize * 0.1,
-                  borderRadius: 999,
-                  backgroundColor: "rgba(40,48,72,0.16)",
-                  transform: [{ scaleX: 1.5 }]
-                }}
-              />
-              <Image source={resolveDefaultIslandSource(islandKey)} style={{ width: islandSize, height: islandSize }} resizeMode="contain" />
-              {people.length > 0 ? (
-                <View style={{ position: "absolute", bottom: islandSize * 0.22 }}>
-                  <CoupleAvatars people={people} size={compact ? 22 : 26} showRibbon={false} />
+              {typeof lifetimeEarned === "number" ? (
+                <View style={[pill, { backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.72)" }]}>
+                  <AppText variant="small" style={{ color: colors.partnerInk, fontWeight: "800" }}>
+                    累计 {lifetimeEarned.toLocaleString("en-US")}
+                  </AppText>
                 </View>
               ) : null}
-            </>
-          ) : people.length > 0 ? (
-            <CoupleAvatars people={people} size={compact ? 32 : 40} showRibbon />
-          ) : null}
-
-          {showRing ? (
-            <View
-              style={{
-                position: "absolute",
-                top: -8,
-                right: -6,
-                backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.92)",
-                borderRadius: 999,
-                padding: 3,
-                ...shadow.soft
-              }}
-            >
-              <IslandRing ratio={ratio} colors={colors} />
             </View>
           ) : null}
         </View>
+
+        {/* 右侧岛图：绝对定位贴右下，对齐 board .island-hero .isle */}
+        {showIsland ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: "absolute",
+              right: compact ? -14 : -18,
+              bottom: compact ? -20 : -26,
+              width: compact ? 132 : 176,
+              height: compact ? 132 : 176,
+              zIndex: 1,
+              // board .isle drop-shadow
+              shadowColor: "#283048",
+              shadowOpacity: 0.2,
+              shadowRadius: 18,
+              shadowOffset: { width: 0, height: 16 },
+              elevation: 6
+            }}
+          >
+            <Image
+              source={resolveDefaultIslandSource(islandKey)}
+              style={{ width: "100%", height: "100%" }}
+              resizeMode="contain"
+            />
+          </View>
+        ) : null}
+        {people.length > 0 && !compact ? (
+          <View style={{ position: "absolute", right: 40, bottom: 20, zIndex: 3 }}>
+            <CoupleAvatars people={people} size={27} showRibbon={false} />
+          </View>
+        ) : null}
+        {showRing ? (
+          <View
+            style={{
+              position: "absolute",
+              top: 12,
+              right: 14,
+              zIndex: 4,
+              backgroundColor: isDark ? colors.surface : "rgba(255,255,255,0.9)",
+              borderRadius: 999,
+              padding: 3,
+              ...shadow.soft
+            }}
+          >
+            <IslandRing ratio={ratio} colors={colors} />
+          </View>
+        ) : null}
+        {!showIsland && people.length > 0 ? (
+          <View style={{ position: "absolute", right: 16, top: "30%", zIndex: 2 }}>
+            <CoupleAvatars people={people} size={compact ? 27 : 34} showRibbon />
+          </View>
+        ) : null}
       </View>
     </View>
   );

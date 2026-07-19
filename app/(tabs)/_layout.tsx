@@ -186,10 +186,10 @@ function AnimatedTabIcon({ active, color, focused, inactive, inactiveColor, moti
         ]}
       />
       <Animated.View style={[styles.tabIconLayer, { opacity: inactiveOpacity }]}>
-        <Ionicons name={inactive} size={size ?? 22} color={inactiveColor} />
+        <Ionicons name={inactive} size={size ?? 16} color={inactiveColor} />
       </Animated.View>
       <Animated.View style={[styles.tabIconLayer, { opacity: activeOpacity }]}>
-        <Ionicons name={active} size={size ?? 22} color={String(color)} />
+        <Ionicons name={active} size={size ?? 16} color={String(color)} />
       </Animated.View>
     </Animated.View>
   );
@@ -238,28 +238,28 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.primaryInk,
         tabBarInactiveTintColor: colors.faint,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          height: 62 + insets.bottom,
-          paddingTop: 10,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10,
+          borderTopWidth: 1,
+          height: 58 + insets.bottom,
+          paddingTop: 8,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
           shadowColor: "#283048",
-          shadowOpacity: 0.08,
-          shadowRadius: 16,
-          shadowOffset: { width: 0, height: -4 },
-          elevation: 8
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -2 },
+          elevation: 6
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "700",
+          fontSize: 10,
+          fontWeight: "800",
           letterSpacing: 0,
-          marginTop: Platform.OS === "ios" ? 2 : 0
+          marginTop: 2
         },
-        tabBarIconStyle: { marginTop: 2 }
+        tabBarIconStyle: { marginTop: 0 }
       }}
     >
       {TAB_ITEMS.map((item) => (
@@ -283,15 +283,15 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   tabIconFrame: {
     alignItems: "center",
-    height: 32,
+    height: 28,
     justifyContent: "center",
-    width: 48
+    width: 40
   },
   tabIconChip: {
     position: "absolute",
-    width: 42,
-    height: 28,
-    borderRadius: 14
+    width: 40,
+    height: 27,
+    borderRadius: 13
   },
   tabIconLayer: {
     alignItems: "center",
@@ -303,10 +303,10 @@ const styles = StyleSheet.create({
     top: 0
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: "700",
-    fontFamily: "Nunito_700Bold",
+    fontSize: 10,
+    fontWeight: "800",
+    fontFamily: "Nunito_800ExtraBold",
     letterSpacing: 0,
-    marginTop: Platform.OS === "ios" ? 2 : 0
+    marginTop: 4
   }
 });

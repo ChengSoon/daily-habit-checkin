@@ -10,7 +10,7 @@ import {
   type ViewToken
 } from "react-native";
 import { AppText } from "../ui/Controls";
-import { radius, spacing } from "../ui/theme";
+import { radius } from "../ui/theme";
 import { useTheme } from "../ui/ThemeContext";
 import { IslandMarker } from "./IslandMarker";
 import { IslandStageBackground } from "./IslandStageBackground";
@@ -67,7 +67,7 @@ export function WorldMapCanvas({
     setFocusIndex(initialIndex);
   }
 
-  const frameW = Math.min(screenWidth - spacing.lg * 2, 420);
+  const frameW = Math.min(screenWidth - 16 * 2, 420);
   const stageH = Math.min(Math.max(screenHeight * 0.58, 420), 560);
   const islandSize = Math.min(frameW * 0.74, 288);
 

@@ -1,7 +1,8 @@
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { Ionicons } from "@expo/vector-icons";
 import { Image, View } from "react-native";
 import { AppText } from "./Controls";
-import { radius, spacing } from "./theme";
+import { radius } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 /**
@@ -23,7 +24,7 @@ function initial(name: string): string {
 export function Avatar({
   name,
   tone,
-  size = 32,
+  size = 34,
   showRing = false,
   imageUri
 }: {
@@ -35,8 +36,19 @@ export function Avatar({
   imageUri?: string | null;
 }) {
   const { colors } = useTheme();
-  const bg = tone === "you" ? colors.primary : colors.partner;
   const fg = tone === "you" ? colors.onPrimary : colors.onPartner;
+  // board .avatar.you 粉渐变；.ring 白描边 + 轻阴影
+  const ringStyle = showRing
+    ? {
+        borderWidth: 2.5,
+        borderColor: "#FFFFFF",
+        shadowColor: "#283048",
+        shadowOpacity: 0.16,
+        shadowRadius: 6,
+        shadowOffset: { width: 0, height: 4 },
+        elevation: 3
+      }
+    : {};
 
   return (
     <View
@@ -45,18 +57,43 @@ export function Avatar({
         width: size,
         height: size,
         borderRadius: radius.pill,
-        backgroundColor: bg,
+        backgroundColor: "transparent",
         alignItems: "center",
         justifyContent: "center",
         overflow: "hidden",
-        borderWidth: showRing ? 2 : 0,
-        borderColor: colors.surface
+        ...ringStyle
       }}
     >
+      {!imageUri ? (
+        <Svg width={size} height={size} style={{ position: "absolute" }}>
+          <Defs>
+            <LinearGradient id={`avGrad-${tone}-${size}`} x1="0" y1="0" x2="1" y2="1">
+              <Stop
+                offset="0%"
+                stopColor={tone === "you" ? "#FF9BA8" : "#B0A3FF"}
+              />
+              <Stop
+                offset="100%"
+                stopColor={tone === "you" ? "#FF6B7A" : "#8B7BFF"}
+              />
+            </LinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width={size} height={size} fill={`url(#avGrad-${tone}-${size})`} />
+        </Svg>
+      ) : null}
       {imageUri ? (
         <Image source={{ uri: imageUri }} style={{ width: size, height: size }} />
       ) : (
-        <AppText style={{ color: fg, fontSize: size * 0.42, fontWeight: "700", lineHeight: size * 0.5 }}>
+        <AppText
+          style={{
+            color: fg,
+            fontSize: size * 0.35,
+            fontWeight: "800",
+            fontFamily: "Outfit_800ExtraBold",
+            lineHeight: size * 0.42,
+            zIndex: 1
+          }}
+        >
           {initial(name)}
         </AppText>
       )}
@@ -77,7 +114,7 @@ export type CouplePerson = {
  */
 export function CoupleAvatars({
   people,
-  size = 32,
+  size = 34,
   showRibbon = true
 }: {
   people: CouplePerson[];
@@ -86,7 +123,7 @@ export function CoupleAvatars({
   showRibbon?: boolean;
 }) {
   const { colors } = useTheme();
-  const overlap = size * 0.3;
+  const overlap = 11; // board .avatar.stack margin-left: -11px
   const hasPartner = people.length >= 2;
 
   if (people.length === 0) {
@@ -178,7 +215,7 @@ export function AvatarWithName({
   imageUri?: string | null;
 }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
       <Avatar name={name} tone={tone} size={size} imageUri={imageUri} />
       <View style={{ flex: 1, gap: 2 }}>
         <AppText variant="bodyStrong">{name}</AppText>

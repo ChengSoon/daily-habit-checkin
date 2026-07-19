@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { Modal, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppButton, AppText, Label } from "./Controls";
-import { radius, spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 const ITEM_HEIGHT = 44;
@@ -126,11 +125,11 @@ function TimeWheelBody({
       <View
         style={{
           backgroundColor: colors.surface,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
-          padding: spacing.lg,
-          paddingBottom: spacing.lg + insets.bottom,
-          gap: spacing.md
+          borderTopLeftRadius: 22,
+          borderTopRightRadius: 22,
+          padding: 16,
+          paddingBottom: 16 + insets.bottom,
+          gap: 12
         }}
       >
         <AppText variant="section">选择时间</AppText>
@@ -140,20 +139,20 @@ function TimeWheelBody({
             pointerEvents="none"
             style={{
               position: "absolute",
-              left: spacing.xl,
-              right: spacing.xl,
+              left: 24,
+              right: 24,
               height: ITEM_HEIGHT,
-              borderRadius: radius.md,
+              borderRadius: 14,
               backgroundColor: colors.surfaceTint
             }}
           />
           <WheelColumn values={HOURS} selectedIndex={hours} onSelect={setHours} />
-          <AppText variant="title" tone="primary" style={{ paddingHorizontal: spacing.sm }}>
+          <AppText variant="title" tone="primary" style={{ paddingHorizontal: 8 }}>
             :
           </AppText>
           <WheelColumn values={MINUTES} selectedIndex={minutes} onSelect={setMinutes} />
         </View>
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        <View style={{ flexDirection: "row", gap: 8 }}>
           <AppButton title="取消" variant="ghost" onPress={onCancel} style={{ flex: 1 }} />
           <AppButton
             title="确定"
@@ -206,7 +205,7 @@ export function TimePickerField({
   const [open, setOpen] = useState(false);
 
   return (
-    <View style={{ gap: spacing.sm }}>
+    <View style={{ gap: 8 }}>
       {label ? <Label>{label}</Label> : null}
       <Pressable
         accessibilityRole="button"
@@ -214,12 +213,12 @@ export function TimePickerField({
         onPress={() => setOpen(true)}
         style={({ pressed }) => [
           {
-            minHeight: 50,
-            borderRadius: radius.md,
+            minHeight: 48,
+            borderRadius: 14,
             borderWidth: 1,
             borderColor: colors.line,
             backgroundColor: colors.inputBackground,
-            paddingHorizontal: spacing.md,
+            paddingHorizontal: 14,
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between"
@@ -227,10 +226,10 @@ export function TimePickerField({
           pressed ? { opacity: 0.85 } : null
         ]}
       >
-        <AppText variant="body" style={{ fontSize: 16 }}>
+        <AppText variant="body" style={{ fontSize: 15, fontFamily: "Nunito_500Medium" }}>
           {value}
         </AppText>
-        <Ionicons name="time-outline" size={20} color={colors.muted} />
+        <Ionicons name="time-outline" size={18} color={colors.muted} />
       </Pressable>
       <TimeWheelModal
         visible={open}
