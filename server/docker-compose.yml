@@ -37,6 +37,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set a strong secret}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       API_KEY: ${API_KEY:-}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-60}
       # Cloudflare R2：图片 presigned 直传 + 公开域名直读所需凭据。

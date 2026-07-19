@@ -1,38 +1,24 @@
-import Constants from "expo-constants";
-import { getAppSettings } from "../settings/settingsRepository";
+import { generateHabitPlanWithLlm } from "./llmClient";
+import { assertLlmReady, resolveAiConfig } from "./llmConfig";
 import { AIPlanPreview, AIPlanRequest } from "./types";
 
-// 兜底：打包时的环境变量仍可作为默认值，但用户在「我的 → AI 服务配置」里填写的值优先。
-const fallbackBaseUrl =
-  process.env.EXPO_PUBLIC_API_BASE_URL ??
-  Constants.expoConfig?.extra?.apiBaseUrl ??
-  "http://localhost:8787";
-
-const fallbackApiKey =
-  process.env.EXPO_PUBLIC_API_KEY ?? Constants.expoConfig?.extra?.apiKey ?? null;
-
-function trimTrailingSlash(url: string): string {
-  return url.replace(/\/+$/, "");
-}
-
+/** 通过用户配置的真实模型（OpenAI 兼容）或习惯后端代理生成计划。 */
 export async function requestAIHabitPlan(input: AIPlanRequest): Promise<AIPlanPreview> {
-  const settings = await getAppSettings();
-  const baseUrl = trimTrailingSlash(settings.aiBaseUrl.trim() || fallbackBaseUrl);
-  const apiKey = settings.aiApiKey.trim() || fallbackApiKey;
-  const model = settings.aiModel.trim();
+  const config = await resolveAiConfig();
+  assertLlmReady(config);
 
-  if (!baseUrl) {
-    throw new Error("尚未配置 AI 服务地址，请到「我的 → AI 服务配置」中填写。");
+  if (config.mode === "openai_compatible") {
+    return generateHabitPlanWithLlm(input);
   }
 
-  const response = await fetch(`${baseUrl}/api/ai/habit-plan`, {
+  // 习惯后端代理：服务端使用 OPENAI_*，客户端可覆盖 model
+  const response = await fetch(`${config.baseUrl}/api/ai/habit-plan`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...(apiKey ? { "x-api-key": apiKey } : {})
+      ...(config.apiKey ? { "x-api-key": config.apiKey } : {})
     },
-    // model 为空时不传，后端使用其默认模型
-    body: JSON.stringify(model ? { ...input, model } : input)
+    body: JSON.stringify(config.model ? { ...input, model: config.model } : input)
   });
 
   if (!response.ok) {

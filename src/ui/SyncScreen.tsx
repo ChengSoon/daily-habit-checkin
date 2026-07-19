@@ -4,10 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Animated, AppState, Easing, StyleSheet, View } from "react-native";
 import { UnauthorizedError } from "../sync/apiClient";
 import { subscribeSyncInvalidations } from "../sync/syncInvalidation";
-import { AppButton } from "./Controls";
+import { AppButton, AppText } from "./Controls";
 import { EmptyState } from "./EmptyState";
 import { Screen } from "./Screen";
-import { spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 import {
   createQueuedAsyncRunner,
@@ -17,8 +16,7 @@ import {
 } from "./syncScreenRefresh";
 
 export type SyncStatus = "loading" | "ready" | "unauthenticated" | "error";
-const LOADING_REVEAL_DELAY_MS = 320;
-const LOADING_FADE_MS = 180;
+const LOADING_FADE_MS = 220;
 
 /**
  * 数据页统一的四态加载：把云端 load 包起来，区分「未登录 / 加载失败 / 加载中 / 就绪」。
@@ -81,29 +79,14 @@ function LoadingFallback() {
   const [loop] = useState(() => new Animated.Value(0));
   const [pulse] = useState(() => new Animated.Value(0));
   const [fade] = useState(() => new Animated.Value(0));
-  const [showAnimation, setShowAnimation] = useState(false);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowAnimation(true);
-      Animated.timing(fade, {
-        toValue: 1,
-        duration: LOADING_FADE_MS,
-        easing: Easing.out(Easing.quad),
-        useNativeDriver: true
-      }).start();
-    }, LOADING_REVEAL_DELAY_MS);
-
-    return () => {
-      clearTimeout(timer);
-      fade.stopAnimation();
-    };
-  }, [fade]);
-
-  useEffect(() => {
-    if (!showAnimation) {
-      return;
-    }
+    Animated.timing(fade, {
+      toValue: 1,
+      duration: LOADING_FADE_MS,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true
+    }).start();
 
     const orbit = Animated.loop(
       Animated.timing(loop, {
@@ -134,10 +117,11 @@ function LoadingFallback() {
     heartbeat.start();
 
     return () => {
+      fade.stopAnimation();
       orbit.stop();
       heartbeat.stop();
     };
-  }, [loop, pulse, showAnimation]);
+  }, [fade, loop, pulse]);
 
   const firstOrbit = loop.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
   const secondOrbit = loop.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "540deg"] });
@@ -148,41 +132,47 @@ function LoadingFallback() {
   return (
     <Screen scroll={false}>
       <View style={styles.loadingScene}>
-        {showAnimation ? (
-          <Animated.View
-            accessible
-            accessibilityRole="progressbar"
-            accessibilityLabel="正在准备今日打卡"
-            style={[styles.loadingMark, { opacity: fade }]}
-          >
-            <View style={styles.orbitStage}>
-              <Animated.View
-                style={[
-                  styles.glow,
-                  {
-                    backgroundColor: colors.surfaceTint,
-                    opacity: glowOpacity,
-                    transform: [{ scale: glowScale }]
-                  }
-                ]}
-              />
-              <Animated.View style={[styles.stamp, { transform: [{ scale: stampScale }] }]}>
-                <View style={[styles.stampPlate, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
-                  <Ionicons name="calendar" size={34} color={colors.onPrimary} />
-                </View>
-                <View style={[styles.stampBadge, { backgroundColor: colors.celebration }]}>
-                  <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                </View>
-              </Animated.View>
-              <Animated.View style={[styles.orbit, { transform: [{ rotate: firstOrbit }] }]}>
-                <View style={[styles.planet, { backgroundColor: colors.primary }]} />
-              </Animated.View>
-              <Animated.View style={[styles.orbit, { transform: [{ rotate: secondOrbit }] }]}>
-                <View style={[styles.planet, styles.partnerPlanet, { backgroundColor: colors.partner }]} />
-              </Animated.View>
-            </View>
-          </Animated.View>
-        ) : null}
+        <Animated.View
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityLabel="正在连接小岛"
+          style={[styles.loadingMark, { opacity: fade }]}
+        >
+          <View style={styles.orbitStage}>
+            <Animated.View
+              style={[
+                styles.glow,
+                {
+                  backgroundColor: colors.surfaceTint,
+                  opacity: glowOpacity,
+                  transform: [{ scale: glowScale }]
+                }
+              ]}
+            />
+            <Animated.View style={[styles.stamp, { transform: [{ scale: stampScale }] }]}>
+              <View style={[styles.stampPlate, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
+                <Ionicons name="leaf" size={36} color={colors.onPrimary} />
+              </View>
+              <View style={[styles.stampBadge, { backgroundColor: colors.celebration }]}>
+                <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+              </View>
+            </Animated.View>
+            <Animated.View style={[styles.orbit, { transform: [{ rotate: firstOrbit }] }]}>
+              <View style={[styles.planet, { backgroundColor: colors.primary }]} />
+            </Animated.View>
+            <Animated.View style={[styles.orbit, { transform: [{ rotate: secondOrbit }] }]}>
+              <View style={[styles.planet, styles.partnerPlanet, { backgroundColor: colors.partner }]} />
+            </Animated.View>
+          </View>
+          <View style={styles.loadingCopy}>
+            <AppText variant="section" style={{ textAlign: "center" }}>
+              正在连接小岛
+            </AppText>
+            <AppText variant="body" tone="muted" style={{ textAlign: "center" }}>
+              同步习惯、积分与奖励中
+            </AppText>
+          </View>
+        </Animated.View>
       </View>
     </Screen>
   );
@@ -206,9 +196,10 @@ export function SyncFallback({
     return (
       <Screen>
         <EmptyState
+          fill
           icon="lock-closed-outline"
-          title="请先登录"
-          body="登录后同步你和另一半的习惯、积分和奖励。"
+          title="先登录小岛"
+          body="登录后，你和另一半的习惯、积分与奖励会实时同步。"
         />
         <AppButton title="登录 / 注册" icon="log-in-outline" onPress={() => router.push("/account")} />
       </Screen>
@@ -218,11 +209,12 @@ export function SyncFallback({
   return (
     <Screen>
       <EmptyState
+        fill
         icon="cloud-offline-outline"
-        title="加载失败"
+        title="小岛暂时失联"
         body={errorMessage ?? "无法连接服务器，请检查网络后重试。"}
       />
-      <AppButton title="重试" onPress={onRetry} />
+      <AppButton title="重新连接" icon="refresh-outline" onPress={onRetry} />
     </Screen>
   );
 }
@@ -232,20 +224,25 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: spacing.xxl
+    paddingVertical: 32
   },
   loadingMark: {
-    width: 176,
-    height: 176,
+    width: "100%",
+    maxWidth: 280,
     alignItems: "center",
-    justifyContent: "center"
+    justifyContent: "center",
+    gap: 18
+  },
+  loadingCopy: {
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16
   },
   orbitStage: {
     width: 150,
     height: 150,
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: spacing.lg
+    justifyContent: "center"
   },
   glow: {
     position: "absolute",

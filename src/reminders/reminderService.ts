@@ -16,6 +16,11 @@ import {
 } from "./reminderPlan";
 import type { QuietHours } from "./reminderPlan";
 
+/** 避免在 vitest/node 中直接 import react-native；web 运行时用 navigator 判断。 */
+function isWebRuntime(): boolean {
+  return typeof navigator !== "undefined" && typeof window !== "undefined";
+}
+
 export { isValidReminderTime, isWithinQuietHours, parseReminderTime };
 export type { QuietHours };
 
@@ -24,6 +29,9 @@ type ReminderKind = "habit" | "eveningSummary";
 type ScheduledRequest = Awaited<ReturnType<typeof Notifications.getAllScheduledNotificationsAsync>>[number];
 
 export function configureNotificationHandler(): void {
+  if (isWebRuntime()) {
+    return;
+  }
   void ensureReminderChannel();
 
   Notifications.setNotificationHandler({
@@ -55,6 +63,9 @@ export function configureNotificationHandler(): void {
 export type ReminderPermissionStatus = "granted" | "denied" | "undetermined";
 
 export async function getReminderPermissionStatus(): Promise<ReminderPermissionStatus> {
+  if (isWebRuntime()) {
+    return "undetermined";
+  }
   const current = await Notifications.getPermissionsAsync();
 
   if (current.granted) {
@@ -69,6 +80,9 @@ export async function getReminderPermissionStatus(): Promise<ReminderPermissionS
 }
 
 export async function requestReminderPermission(): Promise<boolean> {
+  if (isWebRuntime()) {
+    return false;
+  }
   await ensureReminderChannel();
   const current = await Notifications.getPermissionsAsync();
 
@@ -87,6 +101,9 @@ export async function rescheduleHabitReminders(input: {
   now?: Date;
   horizonDays?: number;
 }): Promise<string[]> {
+  if (isWebRuntime()) {
+    return [];
+  }
   await cancelAppReminderRequests({ kind: "habit" });
 
   const hasPermission = await requestReminderPermission();
@@ -103,6 +120,9 @@ export async function scheduleEveningSummary(input: {
   time: string;
   now?: Date;
 }): Promise<string | null> {
+  if (isWebRuntime()) {
+    return null;
+  }
   if (input.incompleteCount === 0) {
     return null;
   }
@@ -184,6 +204,9 @@ export async function refreshScheduledReminders(now = new Date()): Promise<void>
 }
 
 async function ensureReminderChannel(): Promise<void> {
+  if (isWebRuntime()) {
+    return;
+  }
   await Notifications.setNotificationChannelAsync(REMINDER_CHANNEL_ID, {
     name: "打卡提醒",
     importance: Notifications.AndroidImportance.HIGH,
@@ -240,6 +263,10 @@ async function getCompletedHabitIds(habits: Habit[], dateKey: string): Promise<S
 }
 
 async function cancelAppReminderRequests(filter: { kind?: ReminderKind; habitId?: string }): Promise<void> {
+  // web 无本地通知调度能力，避免 getAllScheduledNotificationsAsync 抛错拖垮整页加载
+  if (isWebRuntime()) {
+    return;
+  }
   const requests = await Notifications.getAllScheduledNotificationsAsync();
   const ownedIds = requests
     .filter((request) => shouldCancelRequest(request, filter))

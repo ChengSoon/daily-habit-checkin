@@ -19,7 +19,6 @@ import { OwnerGate } from "../../src/ui/OwnerGate";
 import { ImagePickerField, RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
 
 export default function AdminRewardsScreen() {
   return (
@@ -152,19 +151,19 @@ function AdminRewardsContent() {
 
   return (
     <Screen>
-      <View style={{ gap: spacing.xs }}>
+      <View style={{ gap: 4 }}>
         <AppText variant="display">奖励管理</AppText>
         <AppText variant="body" tone="muted">
-          在这里新增、编辑、上下架商品。普通使用者只能浏览和兑换，看不到这个页面。
+          维护商城奖励目录与价格 · Owner 专属
         </AppText>
       </View>
 
-      <Card>
+      <Card elevated={false}>
         <AppText variant="section">{editing ? "编辑商品" : "新增商品"}</AppText>
         <ImagePickerField type={type} previewUri={previewUri} onChange={onPickImage} />
         <TextField label="名称" value={title} onChangeText={setTitle} placeholder="例如：奶茶一杯" />
         <TextField label="描述" value={description} onChangeText={setDescription} placeholder="例如：周末兑现" />
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: 8 }}>
           <Label>类型</Label>
           <SegmentedControl<RewardType>
             value={type}
@@ -176,7 +175,7 @@ function AdminRewardsContent() {
           />
         </View>
         {type === "virtual" ? (
-          <View style={{ gap: spacing.sm }}>
+          <View style={{ gap: 8 }}>
             <Label>虚拟类型</Label>
             <SegmentedControl<VirtualRewardKind>
               value={virtualKind}
@@ -192,19 +191,21 @@ function AdminRewardsContent() {
         <TextField label="价格（积分）" value={priceXp} onChangeText={setPriceXp} keyboardType="numeric" />
         {message ? <HelperText tone="success">{message}</HelperText> : null}
         {error ? <HelperText tone="danger">{error}</HelperText> : null}
-        <View style={{ flexDirection: "row", gap: spacing.sm }}>
+        <View style={{ flexDirection: "row", gap: 8 }}>
           <AppButton
             title="保存"
+            icon="checkmark"
             onPress={save}
             disabled={busy || !title || Number(priceXp) <= 0}
             style={{ flex: 1 }}
           />
           {editing ? (
-            <AppButton title="取消编辑" variant="ghost" onPress={resetForm} style={{ flex: 1 }} />
+            <AppButton title="取消" variant="ghost" onPress={resetForm} style={{ flex: 1 }} />
           ) : (
             <AppButton
               title="兑现管理"
               variant="secondary"
+              icon="receipt-outline"
               onPress={() => router.push("/admin/redemptions")}
               style={{ flex: 1 }}
             />
@@ -212,26 +213,30 @@ function AdminRewardsContent() {
         </View>
       </Card>
 
-      <View style={{ gap: spacing.sm }}>
+      <View style={{ gap: 8 }}>
         {rewards.map((reward) => (
-          <Card key={reward.id}>
-            <View style={{ flexDirection: "row", gap: spacing.md }}>
-              <RewardThumb uri={publicUrl(reward.imageKey)} type={reward.type} size={56} />
-              <View style={{ flex: 1, gap: spacing.xs }}>
-                <Badge
-                  label={reward.status === "active" ? "上架中" : "已下架"}
-                  tone={reward.status === "active" ? "success" : "muted"}
-                />
-                <AppText variant="bodyStrong">{reward.title}</AppText>
+          <Card key={reward.id} elevated={false} style={{ gap: 10, padding: 13 }}>
+            <View style={{ flexDirection: "row", gap: 12, alignItems: "center" }}>
+              <RewardThumb uri={publicUrl(reward.imageKey)} type={reward.type} size={52} />
+              <View style={{ flex: 1, gap: 4 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <AppText variant="bodyStrong" style={{ fontSize: 14, flex: 1 }} numberOfLines={1}>
+                    {reward.title}
+                  </AppText>
+                  <Badge
+                    label={reward.status === "active" ? "上架" : "下架"}
+                    tone={reward.status === "active" ? "success" : "muted"}
+                  />
+                </View>
                 <AppText variant="small" tone="muted">
-                  {reward.type === "virtual" ? "虚拟奖励" : "现实奖励"} · {reward.priceXp} 积分
+                  {reward.type === "virtual" ? "虚拟奖励" : "现实奖励"} · {reward.priceXp} XP
                 </AppText>
               </View>
             </View>
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <View style={{ flexDirection: "row", gap: 8 }}>
               <AppButton title="编辑" variant="secondary" compact onPress={() => startEdit(reward)} style={{ flex: 1 }} />
               <AppButton
-                title={reward.status === "active" ? "下架" : "重新上架"}
+                title={reward.status === "active" ? "下架" : "上架"}
                 variant="ghost"
                 compact
                 onPress={() => toggleArchived(reward)}

@@ -1,13 +1,13 @@
 import { View } from "react-native";
+import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
 import { AppText } from "./Controls";
-import { radius, spacing } from "./theme";
 import { useTheme } from "./ThemeContext";
 
-const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+// board 06：周一起算
+const WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"];
 
 /**
  * 月历下方的图例项：filled 为实心色块，否则为描边（对应「今天」的样式）。
- * borderColor 可单独指定，用于浅底色块（如「错过」）在白色卡片上仍能辨认。
  */
 export function CalendarLegend({
   color,
@@ -21,12 +21,12 @@ export function CalendarLegend({
   borderColor?: string;
 }) {
   return (
-    <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.xs }}>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
       <View
         style={{
           width: 14,
           height: 14,
-          borderRadius: radius.pill,
+          borderRadius: 9,
           backgroundColor: filled ? color : "transparent",
           borderWidth: 2,
           borderColor: borderColor ?? color
@@ -45,15 +45,11 @@ function pad2(value: number): string {
 
 type DayCell = { key: string; day: number } | null;
 
-/**
- * 把某个月拆成日历网格：前导空格补齐星期偏移，再排 1..月末。
- * monthDateKey 用月内任意日期（通常传今天）确定年月。
- */
+/** 周一为首的月份网格。 */
 function buildMonthGrid(monthDateKey: string): DayCell[] {
   const [year, month] = monthDateKey.split("-").map(Number);
-  const firstWeekday = new Date(year, month - 1, 1).getDay();
+  const firstWeekday = (new Date(year, month - 1, 1).getDay() + 6) % 7;
   const daysInMonth = new Date(year, month, 0).getDate();
-
   const cells: DayCell[] = [];
   for (let i = 0; i < firstWeekday; i += 1) {
     cells.push(null);
@@ -65,35 +61,38 @@ function buildMonthGrid(monthDateKey: string): DayCell[] {
 }
 
 /**
- * 月历视图：呈现当月每一天的打卡状态。
- * - 已完成：品牌绿实心
- * - 今天未完成：品牌色描边
- * - 应执行但错过（今天之前）：浅灰底
- * - 应执行的未来日期：普通数字
- * - 无需执行 / 习惯创建前：淡色数字
+ * 月历视图（对齐 board 06）：
+ * - 你完成：薄荷绿底 + 绿字
+ * - 双人完成：薰衣草紫底（bothDates）
+ * - 今天：珊瑚描边
+ * - 默认：浅灰底
  */
 export function MonthCalendar({
   monthDateKey,
   scheduledDates,
   completedDates,
+  bothDates,
   today,
   startDate
 }: {
   monthDateKey: string;
   scheduledDates: Set<string>;
   completedDates: Set<string>;
+  bothDates?: Set<string>;
   today: string;
   startDate: string;
 }) {
   const { colors } = useTheme();
   const cells = buildMonthGrid(monthDateKey);
+  const bothSet = bothDates ?? new Set<string>();
+  const cellW = `${100 / 7}%` as const;
 
   return (
-    <View style={{ gap: spacing.xs }}>
+    <View style={{ gap: 4 }}>
       <View style={{ flexDirection: "row" }}>
         {WEEKDAY_LABELS.map((label) => (
-          <View key={label} style={{ width: `${100 / 7}%`, alignItems: "center", paddingVertical: 2 }}>
-            <AppText variant="caption" tone="faint">
+          <View key={label} style={{ width: cellW, alignItems: "center", paddingVertical: 2 }}>
+            <AppText variant="caption" tone="faint" style={{ fontSize: 11, letterSpacing: 0, textTransform: "none" }}>
               {label}
             </AppText>
           </View>
@@ -103,56 +102,66 @@ export function MonthCalendar({
       <View style={{ flexDirection: "row", flexWrap: "wrap" }}>
         {cells.map((cell, index) => {
           if (!cell) {
-            return <View key={`blank-${index}`} style={{ width: `${100 / 7}%`, paddingVertical: 3 }} />;
+            return <View key={`blank-${index}`} style={{ width: cellW, padding: 2 }} />;
           }
 
           const inRange = cell.key >= startDate;
           const isScheduled = inRange && scheduledDates.has(cell.key);
           const isDone = completedDates.has(cell.key);
+          const isBoth = bothSet.has(cell.key);
           const isToday = cell.key === today;
           const isPast = cell.key < today;
           const isMissed = isScheduled && !isDone && isPast;
 
-          let backgroundColor = "transparent";
-          let borderColor = "transparent";
-          let textTone: "onPrimary" | "primary" | "default" | "muted" | "faint" = "faint";
+          let backgroundColor = colors.surfaceMuted;
+          let textColor = colors.muted;
 
-          if (isDone) {
-            backgroundColor = colors.primary;
-            borderColor = colors.primary;
-            textTone = "onPrimary";
-          } else if (isToday) {
-            borderColor = colors.primary;
-            textTone = "primary";
+          if (isBoth) {
+            // board .d.both：珊瑚软→薰衣草紫渐变
+            backgroundColor = "transparent";
+            textColor = colors.ink;
+          } else if (isDone) {
+            backgroundColor = colors.successSurface;
+            textColor = colors.candyMintInk;
           } else if (isMissed) {
             backgroundColor = colors.surfaceMuted;
-            textTone = "muted";
+            textColor = colors.muted;
           } else if (isScheduled) {
-            textTone = "default";
+            backgroundColor = colors.surfaceMuted;
+            textColor = colors.inkSoft;
+          } else {
+            backgroundColor = colors.surfaceMuted;
+            textColor = colors.faint;
           }
 
           return (
-            <View
-              key={cell.key}
-              style={{ width: `${100 / 7}%`, alignItems: "center", paddingVertical: 3 }}
-            >
+            <View key={cell.key} style={{ width: cellW, padding: 2, alignItems: "center" }}>
               <View
                 style={{
-                  width: 34,
-                  height: 34,
-                  borderRadius: radius.pill,
+                  width: "100%",
+                  aspectRatio: 1,
+                  maxWidth: 40,
+                  borderRadius: 9,
                   alignItems: "center",
                   justifyContent: "center",
-                  backgroundColor,
-                  borderWidth: 2,
-                  borderColor
+                  backgroundColor: isBoth ? colors.surfaceTint : backgroundColor,
+                  overflow: "hidden",
+                  borderWidth: isToday ? 2 : 0,
+                  borderColor: isToday ? colors.primary : "transparent"
                 }}
               >
-                <AppText
-                  variant="small"
-                  tone={textTone}
-                  style={{ fontWeight: isToday || isDone ? "700" : "400" }}
-                >
+                {isBoth ? (
+                  <Svg width={40} height={40} viewBox="0 0 40 40" style={{ position: "absolute" }}>
+                    <Defs>
+                      <LinearGradient id={`both-${cell.key}`} x1="0" y1="0" x2="1" y2="1">
+                        <Stop offset="0%" stopColor={colors.surfaceTint} />
+                        <Stop offset="100%" stopColor={colors.partnerSurface} />
+                      </LinearGradient>
+                    </Defs>
+                    <Rect x="0" y="0" width="40" height="40" fill={`url(#both-${cell.key})`} />
+                  </Svg>
+                ) : null}
+                <AppText variant="small" style={{ color: textColor, fontWeight: "800", fontSize: 12, lineHeight: 14, zIndex: 1 }}>
                   {cell.day}
                 </AppText>
               </View>

@@ -9,12 +9,11 @@ import Animated, {
   withRepeat,
   withTiming
 } from "react-native-reanimated";
-import { publicUrl } from "../sync/publicUrl";
 import { AppText } from "../ui/Controls";
-import { radius, spacing } from "../ui/theme";
+import { radius } from "../ui/theme";
 import { useTheme } from "../ui/ThemeContext";
 import { IslandStageBackground } from "./IslandStageBackground";
-import { resolveDefaultIslandSource } from "./mapAssets";
+import { resolveChapterIslandSource } from "./mapAssets";
 import type { AdventureChapterView } from "./types";
 
 type Props = {
@@ -34,13 +33,13 @@ function statusLabel(status: AdventureChapterView["viewStatus"]): string {
 export function ChapterIslandHero({ chapter, height = 280 }: Props) {
   const { colors } = useTheme();
   const { width: screenWidth } = useWindowDimensions();
-  const width = Math.max(0, screenWidth - spacing.lg * 2);
+  const width = Math.max(0, screenWidth - 16 * 2);
   const locked = chapter.viewStatus === "locked";
   const claimable = chapter.viewStatus === "claimable";
   const claimed = chapter.viewStatus === "claimed";
 
-  const customUri = chapter.nodeImageKey ? publicUrl(chapter.nodeImageKey) : null;
-  const themeSource = resolveDefaultIslandSource(chapter.mapThemeKey);
+  const islandSource = resolveChapterIslandSource(chapter);
+  const customUri = typeof islandSource === "object" && islandSource && "uri" in islandSource ? String(islandSource.uri) : null;
   const isGif = Boolean(customUri && customUri.toLowerCase().includes(".gif"));
   const islandSize = Math.min(width * 0.72, height * 0.78, 240);
 
@@ -97,7 +96,7 @@ export function ChapterIslandHero({ chapter, height = 280 }: Props) {
             ]}
           />
           <Image
-            source={customUri ? { uri: customUri } : themeSource}
+            source={islandSource}
             style={{
               width: islandSize,
               height: islandSize,
@@ -119,7 +118,15 @@ export function ChapterIslandHero({ chapter, height = 280 }: Props) {
 const styles = StyleSheet.create({
   wrap: {
     overflow: "hidden",
-    alignSelf: "center"
+    alignSelf: "center",
+    borderWidth: 1,
+    borderColor: "#FFFFFF",
+    // board soft shadow
+    shadowColor: "#283048",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 2
   },
   topRow: {
     position: "absolute",

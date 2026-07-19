@@ -11,7 +11,7 @@ import Animated, {
   withTiming
 } from "react-native-reanimated";
 import { AppText } from "../ui/Controls";
-import { radius, spacing } from "../ui/theme";
+import { radius } from "../ui/theme";
 import { useTheme } from "../ui/ThemeContext";
 import { useReducedMotion } from "../ui/useReducedMotion";
 
@@ -97,7 +97,7 @@ export function AdventureClaimCelebration({ visible, emoji, title, subtitle, onD
           <AppText variant="body" tone="muted" style={{ textAlign: "center" }}>
             {subtitle}
           </AppText>
-          <View style={{ height: spacing.xs }} />
+          <View style={{ height: 4 }} />
           <AppText variant="caption" tone="soft" style={{ textAlign: "center", textTransform: "none" }}>
             轻触关闭
           </AppText>
@@ -113,17 +113,17 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(20, 16, 28, 0.45)",
     alignItems: "center",
     justifyContent: "center",
-    padding: spacing.lg
+    padding: 16
   },
   card: {
     width: "100%",
     maxWidth: 320,
     borderRadius: radius.lg,
     borderWidth: 1,
-    paddingVertical: spacing.xl,
-    paddingHorizontal: spacing.lg,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
     alignItems: "center",
-    gap: spacing.sm,
+    gap: 8,
     overflow: "hidden"
   },
   ring: {

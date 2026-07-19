@@ -9,7 +9,6 @@ import { EmptyState } from "../../src/ui/EmptyState";
 import { RewardThumb } from "../../src/ui/RewardImage";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
 
 const STATUS_LABEL = {
   pending_fulfillment: "待核销",
@@ -79,7 +78,7 @@ export default function RedemptionsScreen() {
     }
 
     return (
-      <View style={{ gap: spacing.sm }}>
+      <View style={{ gap: 8 }}>
         <AppText variant="caption" tone="muted">
           {STATUS_LABEL[groupStatus]}
         </AppText>
@@ -88,10 +87,10 @@ export default function RedemptionsScreen() {
           const isPending = item.status === "pending_fulfillment";
           const isBusy = busyId === item.id;
           return (
-            <Card key={item.id} style={{ gap: spacing.md }}>
-              <View style={{ flexDirection: "row", gap: spacing.md }}>
+            <Card key={item.id} elevated={false} style={{ gap: 10, padding: 13 }}>
+              <View style={{ flexDirection: "row", gap: 12 }}>
                 <RewardThumb uri={publicUrl(reward?.imageKey ?? null)} type={reward?.type ?? "real_world"} />
-                <View style={{ flex: 1, gap: spacing.xs }}>
+                <View style={{ flex: 1, gap: 4 }}>
                   <Badge label={STATUS_LABEL[item.status]} tone={item.status === "cancelled" ? "muted" : "primary"} />
                   <AppText variant="bodyStrong">{reward?.title ?? "奖励已不存在"}</AppText>
                   <AppText variant="small" tone="muted">
@@ -103,7 +102,7 @@ export default function RedemptionsScreen() {
                 </AppText>
               </View>
               {isPending ? (
-                <View style={{ flexDirection: "row", gap: spacing.sm }}>
+                <View style={{ flexDirection: "row", gap: 8 }}>
                   <AppButton
                     title="核销"
                     compact
@@ -134,13 +133,18 @@ export default function RedemptionsScreen() {
 
   return (
     <Screen>
-      <AppText variant="display">兑换记录</AppText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="display">兑换记录</AppText>
+        <AppText variant="body" tone="muted">
+          查看你的兑换申请与核销状态
+        </AppText>
+      </View>
       {message ? <HelperText tone="success">{message}</HelperText> : null}
       {error ? <HelperText tone="danger">{error}</HelperText> : null}
       {redemptions.length === 0 ? (
-        <EmptyState title="还没有兑换记录" body="攒够积分后，可以在奖励商城购买喜欢的奖励，再来这里核销。" />
+        <EmptyState title="还没有兑换记录" body="攒够 XP 后去商城兑换小心意，记录会出现在这里。" />
       ) : (
-        <View style={{ gap: spacing.lg }}>
+        <View style={{ gap: 12 }}>
           {renderGroup("pending_fulfillment", groups.pending_fulfillment)}
           {renderGroup("fulfilled", groups.fulfilled)}
           {renderGroup("cancelled", groups.cancelled)}

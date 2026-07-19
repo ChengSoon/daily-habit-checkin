@@ -11,7 +11,6 @@ import { EmptyState } from "../../src/ui/EmptyState";
 import { OwnerGate } from "../../src/ui/OwnerGate";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { spacing } from "../../src/ui/theme";
 
 function statusTone(status: AdventureClaim["fulfillmentStatus"]): "primary" | "success" | "danger" | "muted" {
   if (status === "pending") return "primary";
@@ -86,18 +85,23 @@ function AdminAdventureClaimsContent() {
 
   return (
     <Screen>
-      <AppText variant="display">章节兑现</AppText>
+      <View style={{ gap: 4 }}>
+        <AppText variant="display">章节兑现</AppText>
+        <AppText variant="body" tone="muted">
+          处理徽章现实惊喜的兑现状态
+        </AppText>
+      </View>
       <HelperText>现实惊喜领取后在此确认兑现。取消不会回退章节解锁，仅标记状态。</HelperText>
       {message ? <HelperText tone="success">{message}</HelperText> : null}
       {error ? <HelperText tone="danger">{error}</HelperText> : null}
 
       <AppText variant="section">待兑现（{pending.length}）</AppText>
       {pending.length === 0 ? (
-        <EmptyState title="暂无待兑现" body="把章节奖励类型设为「现实惊喜」后，领取会出现在这里。" />
+        <EmptyState title="暂无待兑现" body="章节设为「现实惊喜」并被领取后，会出现在这里。" />
       ) : (
         pending.map((claim) => (
-          <Card key={claim.id} style={{ gap: spacing.sm }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: spacing.sm }}>
+          <Card key={claim.id} elevated={false} style={{ gap: 10, padding: 13 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
               <View style={{ flex: 1, gap: 4 }}>
                 <AppText variant="bodyStrong">{claim.chapterTitle}</AppText>
                 <AppText variant="caption" tone="muted">
@@ -106,7 +110,7 @@ function AdminAdventureClaimsContent() {
               </View>
               <Badge label={statusLabel(claim.fulfillmentStatus)} tone={statusTone(claim.fulfillmentStatus)} />
             </View>
-            <View style={{ flexDirection: "row", gap: spacing.sm }}>
+            <View style={{ flexDirection: "row", gap: 8 }}>
               <AppButton
                 title={busyId === claim.id ? "处理中…" : "确认兑现"}
                 onPress={() => void fulfill(claim.id)}
@@ -129,7 +133,7 @@ function AdminAdventureClaimsContent() {
         <>
           <AppText variant="section">历史记录</AppText>
           {others.map((claim) => (
-            <Card key={claim.id} style={{ gap: 4 }}>
+            <Card key={claim.id} elevated={false} style={{ gap: 10, padding: 13 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <AppText variant="bodyStrong">{claim.chapterTitle}</AppText>
                 <Badge label={statusLabel(claim.fulfillmentStatus)} tone={statusTone(claim.fulfillmentStatus)} />

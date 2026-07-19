@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../src/ui/ThemeContext";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
-type TabMotion = "adventure" | "drop" | "repeat" | "gift" | "person";
+type TabMotion = "adventure" | "drop" | "repeat" | "person" | "sparkle";
 
 type TabIconProps = {
   active: IoniconName;
@@ -38,8 +38,8 @@ const shouldUseNativeDriver = Platform.OS !== "web";
 const TAB_ITEMS: TabItem[] = [
   { active: "today", inactive: "today-outline", motion: "drop", name: "index", title: "今日" },
   { active: "repeat", inactive: "repeat-outline", motion: "repeat", name: "habits", title: "习惯" },
+  { active: "sparkles", inactive: "sparkles-outline", motion: "sparkle", name: "ai", title: "AI" },
   { active: "map", inactive: "map-outline", motion: "adventure", name: "adventure", title: "闯关" },
-  { active: "gift", inactive: "gift-outline", motion: "gift", name: "shop", title: "商城" },
   { active: "person", inactive: "person-outline", motion: "person", name: "profile", title: "我的" }
 ];
 
@@ -116,14 +116,6 @@ function getIconMotion(kick: Animated.Value, motion: TabMotion) {
     };
   }
 
-  if (motion === "gift") {
-    return {
-      rotate: kick.interpolate({ inputRange: [0, 0.3, 0.58, 1], outputRange: ["0deg", "11deg", "-9deg", "0deg"] }),
-      scale: kick.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [1, 1.2, 0.98, 1] }),
-      translateX: kick.interpolate({ inputRange: [0, 0.28, 0.56, 0.82, 1], outputRange: [0, -3, 3, -1, 0] }),
-      translateY: kick.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0, -7, 2, 0] })
-    };
-  }
 
   if (motion === "adventure") {
     return {
@@ -142,6 +134,7 @@ function getIconMotion(kick: Animated.Value, motion: TabMotion) {
       translateY: kick.interpolate({ inputRange: [0, 0.34, 0.68, 1], outputRange: [0, -6, 1, 0] })
     };
   }
+
 
   return {
     rotate: kick.interpolate({ inputRange: [0, 0.45, 1], outputRange: ["0deg", "0deg", "0deg"] }),
@@ -173,10 +166,10 @@ function AnimatedTabIcon({ active, color, focused, inactive, inactiveColor, moti
       ]}
     >
       <Animated.View style={[styles.tabIconLayer, { opacity: inactiveOpacity }]}>
-        <Ionicons name={inactive} size={size ?? 24} color={inactiveColor} />
+        <Ionicons name={inactive} size={size ?? 16} color={inactiveColor} />
       </Animated.View>
       <Animated.View style={[styles.tabIconLayer, { opacity: activeOpacity }]}>
-        <Ionicons name={active} size={size ?? 24} color={String(color)} />
+        <Ionicons name={active} size={size ?? 16} color={String(color)} />
       </Animated.View>
     </Animated.View>
   );
@@ -225,23 +218,28 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.primaryInk,
         tabBarInactiveTintColor: colors.faint,
         tabBarStyle: {
           backgroundColor: colors.surface,
           borderTopColor: colors.line,
-          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopWidth: 1,
           height: 58 + insets.bottom,
           paddingTop: 8,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 10
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
+          shadowColor: "#283048",
+          shadowOpacity: 0.06,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: -2 },
+          elevation: 6
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: "600",
+          fontSize: 11.5,
+          fontWeight: "800",
           letterSpacing: 0,
-          marginTop: Platform.OS === "ios" ? 2 : 0
+          marginTop: 2
         },
-        tabBarIconStyle: { marginTop: 2 }
+        tabBarIconStyle: { marginTop: 0 }
       }}
     >
       {TAB_ITEMS.map((item) => (
@@ -267,7 +265,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 28,
     justifyContent: "center",
-    width: 42
+    width: 40
   },
   tabIconLayer: {
     alignItems: "center",
@@ -279,9 +277,10 @@ const styles = StyleSheet.create({
     top: 0
   },
   tabLabel: {
-    fontSize: 11,
-    fontWeight: "600",
+    fontSize: 11.5,
+    fontWeight: "800",
+    fontFamily: "Nunito_800ExtraBold",
     letterSpacing: 0,
-    marginTop: Platform.OS === "ios" ? 2 : 0
+    marginTop: 4
   }
 });

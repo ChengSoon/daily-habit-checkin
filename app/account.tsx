@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Animated, Easing, Pressable, TextInput, View, ViewStyle } from "react-native";
 import {
@@ -18,18 +18,19 @@ import {
 import { getAuthToken } from "../src/sync/localSettings";
 import { PickedImage } from "../src/rewards/rewardImage";
 import { uploadImage } from "../src/sync/uploadClient";
-import { AppButton, AppText, Badge, HelperText, Label, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
+import { AppButton, AppText, Badge, Card, Divider, HelperText, ListRow, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
 import { CoupleAvatars } from "../src/ui/Avatar";
 import { AvatarPicker } from "../src/ui/AvatarPicker";
 import { useCouple } from "../src/ui/useCouple";
 import { Screen } from "../src/ui/Screen";
-import { radius, spacing } from "../src/ui/theme";
+import { sceneTint } from "../src/ui/theme";
 import { useTheme } from "../src/ui/ThemeContext";
 
 type Mode = "login" | "register";
 type AccountLoadState = "checking" | "ready";
 
 export default function AccountScreen() {
+  const { colors, scheme } = useTheme();
   const [account, setAccount] = useState<Account | null>(null);
   const [accountLoadState, setAccountLoadState] = useState<AccountLoadState>("checking");
   const [mode, setMode] = useState<Mode>("login");
@@ -43,6 +44,8 @@ export default function AccountScreen() {
 
   // 修改密码卡片：默认收起，点开才显示输入，避免占用主视图。
   const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [showAccountTools, setShowAccountTools] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
@@ -237,66 +240,155 @@ export default function AccountScreen() {
   }
 
   if (account) {
-    const isCoupleLoading = !couple.loaded;
     const paired = couple.loaded && !!couple.partner;
     return (
       <Screen>
-        <AppText variant="display">账号与同步</AppText>
+        <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }} hitSlop={8}>
+          <Ionicons name="chevron-back" size={16} color={colors.inkSoft} />
+          <AppText variant="small" tone="soft">返回</AppText>
+        </Pressable>
+        <View style={{ gap: 6 }}>
+          <AppText variant="display">账号与同步</AppText>
+          <AppText variant="body" tone="muted">
+            同一空间，实时共享习惯与奖励
+          </AppText>
+        </View>
 
-        <SectionCard title="当前账号">
-          <AvatarPicker
-            name={account.displayName}
-            tone={myTone}
-            imageUri={couple.you?.avatarUrl}
-            onChange={handleAvatarChange}
-          />
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: spacing.md }}>
-            <View style={{ gap: spacing.xs, flex: 1 }}>
-              <AppText variant="bodyStrong">{account.displayName}</AppText>
+        <Card elevated={false} style={{ padding: 14 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <AvatarPicker
+              name={account.displayName}
+              tone={myTone}
+              imageUri={couple.you?.avatarUrl}
+              onChange={handleAvatarChange}
+              size={46}
+              compact
+            />
+            <View style={{ flex: 1, gap: 4 }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
+                {account.displayName || account.email}
+              </AppText>
               <AppText variant="small" tone="muted">
-                {account.email}
+                {account.role === "owner" ? "Owner" : "Member"} · {account.email}
               </AppText>
             </View>
-            {couple.people.length > 0 ? (
-              <CoupleAvatars
-                people={couple.people.map((person) => ({
-                  name: person.name,
-                  tone: person.tone,
-                  imageUri: person.avatarUrl
-                }))}
-                size={40}
-              />
-            ) : null}
-          </View>
-          {isCoupleLoading ? (
-            <AppText variant="small" tone="muted">
-              同步关系加载中…
-            </AppText>
-          ) : paired ? (
-            <AppText variant="small" tone="muted">
-              你和 {couple.partner!.name} 正在共享同一个空间 💞
-            </AppText>
-          ) : (
-            <View style={{ gap: spacing.xs }}>
-              <Label>邀请码 · 发给另一半即可同步</Label>
-              <Badge label={account.inviteCode ?? "—"} tone="primary" />
+            <View
+              style={{
+                borderRadius: 999,
+                backgroundColor: colors.successSurface,
+                paddingHorizontal: 9,
+                paddingVertical: 4,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 5
+              }}
+            >
+              <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: colors.success }} />
+              <AppText variant="small" style={{ color: colors.candyMintInk, fontWeight: "800" }}>
+                在线
+              </AppText>
             </View>
-          )}
-        </SectionCard>
+          </View>
+        </Card>
 
-        {!isCoupleLoading && !paired ? (
-          <SectionCard title="加入对方的空间">
-            <AppText variant="small" tone="muted">
-              填入对方的邀请码共享数据，当前空间数据会被替换。
+        <Card elevated={false} style={{ paddingVertical: 2, gap: 0 }}>
+          <ListRow
+            icon="link-outline"
+            iconBg={colors.candySkySurface}
+            iconColor={colors.candySkyInk}
+            onPress={paired ? undefined : () => setShowInviteForm((v) => !v)}
+          >
+            <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
+              邀请 TA 加入
             </AppText>
-            <TextField label="邀请码" value={inviteCode} onChangeText={setInviteCode} placeholder="输入 8 位邀请码" />
-            <AppButton title="加入空间" onPress={doJoinSpace} disabled={busy || inviteCode.trim().length < 4} />
-          </SectionCard>
-        ) : null}
+            <AppText variant="small" tone="muted">
+              {paired ? "已与另一半连接" : `分享邀请码即可同步 · ${account.inviteCode ?? "—"}`}
+            </AppText>
+          </ListRow>
+          <Divider />
+          <ListRow
+            icon="flash-outline"
+            iconBg={colors.successSurface}
+            iconColor={colors.candyMintInk}
+            right={<View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: colors.success }} />}
+          >
+            <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
+              实时同步
+            </AppText>
+            <AppText variant="small" tone="muted">
+              WebSocket 已连接
+            </AppText>
+          </ListRow>
+          <Divider />
+          <ListRow icon="shield-outline" iconBg={colors.partnerSurface} iconColor={colors.partnerInk}>
+            <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
+              权限
+            </AppText>
+            <AppText variant="small" tone="muted">
+              {account.role === "owner" ? "Owner 可管理奖励与兑现" : "成员可打卡与兑换"}
+            </AppText>
+          </ListRow>
+        </Card>
+
+        {paired ? (
+          <Card {...sceneTint("lavender", scheme)} elevated={false} style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <CoupleAvatars
+              people={couple.people.map((person) => ({
+                name: person.name,
+                tone: person.tone,
+                imageUri: person.avatarUrl
+              }))}
+              size={28}
+              showRibbon={false}
+            />
+            <View style={{ flex: 1, gap: 2 }}>
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
+                你和 {couple.partner!.name} 已连接
+              </AppText>
+              <AppText variant="body" tone="muted">
+                共同经营 · 数据实时同步
+              </AppText>
+            </View>
+            <Ionicons name="heart" size={18} color={colors.primary} />
+          </Card>
+        ) : (
+          <>
+            {/* board 10：主 CTA；表单仅在展开时出现 */}
+            <AppButton
+              title={showInviteForm ? "收起邀请" : "邀请另一半"}
+              icon="link-outline"
+              fullWidth
+              onPress={() => setShowInviteForm((v) => !v)}
+            />
+            {showInviteForm ? (
+              <Card elevated={false} style={{ gap: 10, padding: 13 }}>
+                <AppText variant="small" tone="muted">
+                  把邀请码发给 TA，或输入对方邀请码加入同一空间。
+                </AppText>
+                <Badge label={account.inviteCode ?? "—"} tone="primary" />
+                <TextField label="对方邀请码" value={inviteCode} onChangeText={setInviteCode} placeholder="输入 8 位邀请码" />
+                <AppButton
+                  title="加入对方空间"
+                  variant="secondary"
+                  onPress={doJoinSpace}
+                  disabled={busy || inviteCode.trim().length < 4}
+                />
+              </Card>
+            ) : null}
+          </>
+        )}
 
         {message ? <HelperText tone="success">{message}</HelperText> : null}
         {error ? <HelperText tone="danger">{error}</HelperText> : null}
 
+        <AppButton
+          title={showAccountTools ? "收起账号管理" : "账号管理"}
+          variant="ghost"
+          onPress={() => setShowAccountTools((v) => !v)}
+        />
+
+        {showAccountTools ? (
+        <>
         <SectionCard title="账号">
           {showPasswordForm ? (
             <>
@@ -314,7 +406,7 @@ export default function AccountScreen() {
                 placeholder="至少 6 位"
                 secureTextEntry
               />
-              <View style={{ flexDirection: "row", gap: spacing.md }}>
+              <View style={{ flexDirection: "row", gap: 12 }}>
                 <View style={{ flex: 1 }}>
                   <AppButton
                     title="取消"
@@ -370,6 +462,8 @@ export default function AccountScreen() {
             )}
           </SectionCard>
         ) : null}
+        </>
+        ) : null}
       </Screen>
     );
   }
@@ -380,20 +474,20 @@ export default function AccountScreen() {
   return (
     <Screen>
       {/* 头部：可点击的心跳连心头像作品牌标识，点一下会心跳并飘出爱心。 */}
-      <View style={{ alignItems: "center", gap: spacing.md, paddingTop: spacing.xl, paddingBottom: spacing.lg }}>
+      <View style={{ alignItems: "center", gap: 12, paddingTop: 24, paddingBottom: 16 }}>
         <HeartBeatBrand />
         <ModeCrossfade mode={mode}>
           <AppText variant="title" style={{ textAlign: "center" }}>
-            {isRegister ? "创建你们的空间" : "欢迎回来"}
+            {isRegister ? "创建你们的小岛" : "欢迎回小岛"}
           </AppText>
-          <AppText variant="small" tone="muted" style={{ textAlign: "center" }}>
-            {isRegister ? "注册账号，和另一半一起打卡" : "登录以继续你们的打卡"}
+          <AppText variant="body" tone="muted" style={{ textAlign: "center" }}>
+            {isRegister ? "注册后，和另一半一起经营共同小岛" : "登录后同步习惯、积分与奖励"}
           </AppText>
         </ModeCrossfade>
       </View>
 
       {/* 登录/注册表单——本页主角，设计感集中在这里 */}
-      <View style={{ gap: spacing.lg }}>
+      <View style={{ gap: 16 }}>
         <SegmentedControl<Mode>
           value={mode}
           onChange={setMode}
@@ -403,7 +497,7 @@ export default function AccountScreen() {
           ]}
         />
 
-        <ModeCrossfade mode={mode} style={{ gap: spacing.md }}>
+        <ModeCrossfade mode={mode} style={{ gap: 12 }}>
           <AuthField
             icon="mail-outline"
             value={email}
@@ -472,13 +566,13 @@ function AuthField({
       style={{
         flexDirection: "row",
         alignItems: "center",
-        gap: spacing.sm,
-        minHeight: 54,
-        borderRadius: radius.md,
-        borderWidth: 1.5,
+        gap: 8,
+        minHeight: 48,
+        borderRadius: 14,
+        borderWidth: 1,
         borderColor: focused ? colors.primary : colors.line,
         backgroundColor: colors.inputBackground,
-        paddingHorizontal: spacing.md
+        paddingHorizontal: 14
       }}
     >
       <Ionicons name={icon} size={20} color={focused ? colors.primaryInk : colors.faint} />
@@ -494,9 +588,9 @@ function AuthField({
         secureTextEntry={hidden}
         style={{
           flex: 1,
-          fontSize: 16,
+          fontSize: 15,
           color: colors.ink,
-          paddingVertical: spacing.md
+          paddingVertical: 12
         }}
       />
       {secureToggle ? (

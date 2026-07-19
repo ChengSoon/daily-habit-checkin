@@ -9,6 +9,7 @@ import { createDataRouter, createWalletRouter } from "./data/dataRoutes.js";
 import { createSettingsRouter } from "./data/settingsRoutes.js";
 import { runSchema } from "./db/schema.js";
 import { createRateLimiter, requireApiKey } from "./middleware.js";
+import { chatWithModel, streamChatWithModel } from "./openaiChat.js";
 import { generateHabitPlan } from "./openaiHabitPlanner.js";
 import { syncChangeHub } from "./sync/changeHub.js";
 import { attachSyncWebSocketServer } from "./sync/syncWebSocketServer.js";
@@ -38,6 +39,24 @@ app.post("/api/ai/habit-plan", requireApiKey, rateLimit, async (request, respons
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
     response.status(400).json({ error: message });
+  }
+});
+
+app.post("/api/ai/chat", requireApiKey, rateLimit, async (request, response) => {
+  try {
+    if (request.body?.stream) {
+      await streamChatWithModel(request.body, response);
+      return;
+    }
+    const result = await chatWithModel(request.body);
+    response.json(result);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    if (!response.headersSent) {
+      response.status(400).json({ error: message });
+      return;
+    }
+    response.end();
   }
 });
 

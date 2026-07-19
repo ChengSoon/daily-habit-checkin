@@ -1,12 +1,12 @@
 import { router } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
-import { requestAIHabitPlan } from "../../src/ai/aiClient";
 import { createHabit } from "../../src/habits/habitRepository";
 import { HabitFrequency, HabitTrackType } from "../../src/habits/types";
 import { refreshScheduledReminders } from "../../src/reminders/reminderService";
 import {
   AppButton,
+  AppText,
   HelperText,
   Label,
   SectionCard,
@@ -16,11 +16,8 @@ import {
   WeekdayPicker
 } from "../../src/ui/Controls";
 import { Screen } from "../../src/ui/Screen";
-import { spacing } from "../../src/ui/theme";
 import { TimePickerField } from "../../src/ui/TimeWheelPicker";
 
-type CurrentLevel = "beginner" | "some_experience" | "stable";
-type ReminderPreference = "morning" | "noon" | "evening" | "custom";
 type FrequencyType = "daily" | "weekdays" | "weekly";
 
 function toFrequency(type: FrequencyType, weeklyDays: number[]): HabitFrequency {
@@ -34,78 +31,30 @@ function toFrequency(type: FrequencyType, weeklyDays: number[]): HabitFrequency 
 }
 
 export default function NewHabitScreen() {
-  const [mode, setMode] = useState<"ai" | "manual">("ai");
-  const [goalText, setGoalText] = useState("");
+  const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [currentLevel, setCurrentLevel] = useState<CurrentLevel>("beginner");
-  const [durationDays, setDurationDays] = useState<7 | 21>(7);
-  const [dailyMinutes, setDailyMinutes] = useState("10");
   const [frequencyType, setFrequencyType] = useState<FrequencyType>("daily");
   const [weeklyDays, setWeeklyDays] = useState<number[]>([1, 3, 5]);
-  const [reminderPreference, setReminderPreference] = useState<ReminderPreference>("evening");
-  const [customReminderTime, setCustomReminderTime] = useState("21:30");
-  // 手动模式：是否开启提醒（关闭则不设提醒时间）。
-  const [isManualReminderEnabled, setIsManualReminderEnabled] = useState(true);
+  const [isReminderEnabled, setIsReminderEnabled] = useState(true);
+  const [reminderTime, setReminderTime] = useState("21:30");
   const [trackType, setTrackType] = useState<HabitTrackType>("check");
   const [numericUnit, setNumericUnit] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 选了“每周”却没勾任何一天时，频率无效，禁用提交
   const frequencyInvalid = frequencyType === "weekly" && weeklyDays.length === 0;
-
-  async function generatePlan() {
-    setIsLoading(true);
-    setError(null);
-
-    // 选择器产出的时间恒为合法 "HH:MM"，无需再校验。
-    const customReminder = reminderPreference === "custom" ? customReminderTime : null;
-
-    try {
-      const plan = await requestAIHabitPlan({
-        goalText,
-        currentLevel,
-        durationDays,
-        dailyAvailableMinutes: Number(dailyMinutes),
-        expectedFrequency: toFrequency(frequencyType, weeklyDays),
-        reminderPreference,
-        customReminderTime: customReminder,
-        preferredTrackType: trackType
-      });
-
-      router.push({
-        pathname: "/plan-preview",
-        params: {
-          plan: JSON.stringify(plan),
-          goalText,
-          frequencyType,
-          weeklyDays: weeklyDays.join(",")
-        }
-      });
-    } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : "生成失败");
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   async function saveManualHabit() {
     setError(null);
-
-    // 开关关闭表示不提醒；开启则用选择器选定的时间（恒为合法 "HH:MM"）。
-    const reminderTime = isManualReminderEnabled ? customReminderTime : null;
-
     try {
       await createHabit({
-        name: goalText,
+        name,
         description: description || null,
         frequency: toFrequency(frequencyType, weeklyDays),
-        reminderTime,
-        isReminderEnabled: isManualReminderEnabled,
+        reminderTime: isReminderEnabled ? reminderTime : null,
+        isReminderEnabled,
         trackType,
         numericUnit: trackType === "numeric" ? numericUnit || "次" : null
       });
-
       await refreshScheduledReminders();
       router.replace("/(tabs)/habits");
     } catch (caughtError) {
@@ -115,69 +64,25 @@ export default function NewHabitScreen() {
 
   return (
     <Screen>
-      <SegmentedControl<"ai" | "manual">
-        value={mode}
-        onChange={setMode}
-        options={[
-          { label: "AI 制定", value: "ai" },
-          { label: "手动创建", value: "manual" }
-        ]}
-      />
+      <View style={{ gap: 4 }}>
+        <AppText variant="display">新增习惯</AppText>
+        <AppText variant="body" tone="muted">
+          手动创建一个岛上角落。想用 AI 规划，可从今日或习惯页右上角进入对话。
+        </AppText>
+      </View>
 
-      <SectionCard title={mode === "ai" ? "想培养什么习惯" : "习惯信息"}>
+      <SectionCard title="习惯信息">
+        <TextField label="名称" value={name} onChangeText={setName} placeholder="例如：睡前拉伸" />
         <TextField
-          label="目标"
-          value={goalText}
-          onChangeText={setGoalText}
-          placeholder="例如：我想每天运动"
+          label="描述"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="例如：睡前 10 分钟"
         />
-        {mode === "manual" ? (
-          <TextField
-            label="描述"
-            value={description}
-            onChangeText={setDescription}
-            placeholder="例如：睡前阅读 10 分钟"
-          />
-        ) : null}
       </SectionCard>
 
-      {mode === "ai" ? (
-        <SectionCard title="告诉 AI 更多">
-          <View style={{ gap: spacing.sm }}>
-            <Label>当前基础</Label>
-            <SegmentedControl<CurrentLevel>
-              value={currentLevel}
-              onChange={setCurrentLevel}
-              options={[
-                { label: "新手", value: "beginner" },
-                { label: "有基础", value: "some_experience" },
-                { label: "稳定做过", value: "stable" }
-              ]}
-            />
-          </View>
-          <View style={{ gap: spacing.sm }}>
-            <Label>计划周期</Label>
-            <SegmentedControl<7 | 21>
-              value={durationDays}
-              onChange={setDurationDays}
-              options={[
-                { label: "7 天", value: 7 },
-                { label: "21 天", value: 21 }
-              ]}
-            />
-          </View>
-          <TextField
-            label="每天可投入（分钟）"
-            value={dailyMinutes}
-            onChangeText={setDailyMinutes}
-            keyboardType="numeric"
-            placeholder="10"
-          />
-        </SectionCard>
-      ) : null}
-
       <SectionCard title="频率与提醒">
-        <View style={{ gap: spacing.sm }}>
+        <View style={{ gap: 8 }}>
           <Label>频率</Label>
           <SegmentedControl<FrequencyType>
             value={frequencyType}
@@ -188,47 +93,16 @@ export default function NewHabitScreen() {
               { label: "每周", value: "weekly" }
             ]}
           />
-          {frequencyType === "weekly" ? (
-            <WeekdayPicker value={weeklyDays} onChange={setWeeklyDays} />
-          ) : null}
+          {frequencyType === "weekly" ? <WeekdayPicker value={weeklyDays} onChange={setWeeklyDays} /> : null}
         </View>
-        {mode === "ai" ? (
-          <View style={{ gap: spacing.sm }}>
-            <Label>提醒偏好</Label>
-            <SegmentedControl<ReminderPreference>
-              value={reminderPreference}
-              onChange={setReminderPreference}
-              options={[
-                { label: "早上", value: "morning" },
-                { label: "中午", value: "noon" },
-                { label: "晚上", value: "evening" },
-                { label: "自定义", value: "custom" }
-              ]}
-            />
-          </View>
-        ) : null}
-        {mode === "manual" ? (
-          <>
-            <SwitchRow
-              label="开启提醒"
-              description="到点提醒你完成这个习惯"
-              value={isManualReminderEnabled}
-              onValueChange={setIsManualReminderEnabled}
-            />
-            {isManualReminderEnabled ? (
-              <TimePickerField
-                label="提醒时间"
-                value={customReminderTime}
-                onChange={setCustomReminderTime}
-              />
-            ) : null}
-          </>
-        ) : reminderPreference === "custom" ? (
-          <TimePickerField
-            label="提醒时间"
-            value={customReminderTime}
-            onChange={setCustomReminderTime}
-          />
+        <SwitchRow
+          label="开启提醒"
+          description="到点提醒你完成这个习惯"
+          value={isReminderEnabled}
+          onValueChange={setIsReminderEnabled}
+        />
+        {isReminderEnabled ? (
+          <TimePickerField label="提醒时间" value={reminderTime} onChange={setReminderTime} />
         ) : null}
       </SectionCard>
 
@@ -253,15 +127,13 @@ export default function NewHabitScreen() {
 
       {error ? <HelperText tone="danger">{error}</HelperText> : null}
 
-      {mode === "ai" ? (
-        <AppButton
-          title={isLoading ? "生成中..." : "让 AI 制定计划"}
-          onPress={generatePlan}
-          disabled={!goalText || isLoading || frequencyInvalid}
-        />
-      ) : (
-        <AppButton title="保存习惯" onPress={saveManualHabit} disabled={!goalText || frequencyInvalid} />
-      )}
+      <AppButton
+        title="保存为岛上新角落"
+        icon="add"
+        fullWidth
+        onPress={saveManualHabit}
+        disabled={!name || frequencyInvalid}
+      />
     </Screen>
   );
 }

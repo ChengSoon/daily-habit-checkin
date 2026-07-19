@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>情侣打卡 · UI 原型（推倒重来版）</title>
+<style>
+  :root {
+    /* 参考图风格：彩色、鲜亮、圆润、糖果色 */
+    --coral: #FF6B8A;
+    --coral-soft: #FFE3EA;
+    --lav: #8B7BD8;
+    --lav-soft: #ECE7FB;
+    --mint: #38D9A9;
+    --mint-soft: #D7F7EC;
+    --sun: #FFC94C;
+    --sun-soft: #FFF1D0;
+    --sky: #4DABF7;
+    --sky-soft: #DCF0FF;
+    --peach: #FF9F68;
+    --peach-soft: #FFE8D8;
+    --ink: #241A2E;
+    --ink-soft: #6B5E76;
+    --faint: #A99FB3;
+    --line: #F0EAF4;
+    --card: #FFFFFF;
+    --shadow: 0 18px 40px -18px rgba(90, 60, 120, 0.35);
+    --shadow-sm: 0 8px 20px -12px rgba(90, 60, 120, 0.4);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(160deg, #F7F2FB 0%, #FDF4F7 45%, #F1FBFA 100%);
+    color: var(--ink);
+    padding: 48px 24px 80px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page-head {
+    max-width: 1200px;
+    margin: 0 auto 44px;
+    text-align: center;
+  }
+  .page-head h1 {
+    font-size: 34px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(100deg, var(--coral), var(--lav) 60%, var(--sky));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .page-head p { margin-top: 12px; color: var(--ink-soft); font-size: 15px; }
+  .legend {
+    display: flex; gap: 10px; flex-wrap: wrap; justify-content: center;
+    margin-top: 20px;
+  }
+  .legend span {
+    font-size: 12px; font-weight: 700; padding: 6px 14px; border-radius: 999px;
+    background: #fff; box-shadow: var(--shadow-sm); color: var(--ink-soft);
+  }
+
+  .gallery {
+    max-width: 1240px; margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(288px, 1fr));
+    gap: 40px 28px;
+    align-items: start;
+    justify-items: center;
+  }
+
+  /* 手机外框 */
+  .phone {
+    width: 300px;
+    background: #fff;
+    border-radius: 42px;
+    padding: 12px;
+    box-shadow: var(--shadow);
+    position: relative;
+  }
+  .screen-label {
+    position: absolute; top: -26px; left: 50%; transform: translateX(-50%);
+    font-size: 12px; font-weight: 800; color: var(--lav);
+    background: #fff; padding: 4px 14px; border-radius: 999px;
+    box-shadow: var(--shadow-sm); white-space: nowrap;
+  }
+  .screen {
+    border-radius: 32px;
+    overflow: hidden;
+    height: 640px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: #fff;
+  }
+  .statusbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 14px 22px 6px; font-size: 12px; font-weight: 700;
+    color: var(--ink);
+  }
+  .statusbar .dots { display: flex; gap: 4px; align-items: center; }
+  .statusbar .dots i {
+    width: 15px; height: 9px; border-radius: 2px; background: var(--ink);
+    display: inline-block; opacity: 0.85;
+  }
+  .body {
+    flex: 1; overflow: hidden; padding: 6px 18px 12px;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .body.scroll { overflow: hidden; }
+
+  /* 底部 tab bar */
+  .tabbar {
+    display: flex; justify-content: space-around; align-items: center;
+    padding: 10px 8px 16px; border-top: 1px solid var(--line);
+    background: #fff;
+  }
+  .tabbar .tab {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    font-size: 10px; font-weight: 700; color: var(--faint);
+  }
+  .tabbar .tab .ic {
+    width: 26px; height: 26px; display: grid; place-items: center; font-size: 18px;
+  }
+  .tabbar .tab.on { color: var(--coral); }
+  .tabbar .tab.on .ic {
+    background: var(--coral-soft); border-radius: 12px; color: var(--coral);
+  }
+
+  /* 通用零件 */
+  .h-title { font-size: 26px; font-weight: 800; letter-spacing: -0.4px; }
+  .h-sub { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+  .card {
+    background: var(--card); border-radius: 22px; padding: 16px;
+    box-shadow: var(--shadow-sm);
+  }
+  .cap { font-size: 11px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: var(--faint); }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .between { justify-content: space-between; }
+  .pill {
+    font-size: 11px; font-weight: 800; padding: 5px 11px; border-radius: 999px;
+  }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center;
+    color: #fff; font-weight: 800; font-size: 14px; border: 2px solid #fff;
+  }
+  .a-you { background: linear-gradient(135deg, #FF8FA8, var(--coral)); }
+  .a-ta { background: linear-gradient(135deg, #A99BE6, var(--lav)); }
+  .avatars { display: flex; }
+  .avatars .avatar:not(:first-child) { margin-left: -12px; }
+
+  .btn {
+    border: none; border-radius: 16px; padding: 14px; font-size: 15px; font-weight: 800;
+    color: #fff; width: 100%; cursor: default; text-align: center;
+    box-shadow: 0 10px 22px -12px rgba(255,107,138,0.9);
+  }
+  .btn-coral { background: linear-gradient(120deg, #FF7E9B, var(--coral)); }
+  .btn-lav { background: linear-gradient(120deg, #9C8DE6, var(--lav)); box-shadow: 0 10px 22px -12px rgba(139,123,216,0.9); }
+  .btn-sun { background: linear-gradient(120deg, #FFD36B, var(--sun)); color: #7A5A12; box-shadow: 0 10px 22px -12px rgba(255,201,76,0.9); }
+  .btn-ghost { background: #F5F0F9; color: var(--ink-soft); box-shadow: none; }
+
+  .progressbar { height: 10px; border-radius: 999px; background: rgba(255,255,255,0.35); overflow: hidden; }
+  .progressbar > i { display: block; height: 100%; border-radius: 999px; background: #fff; }
+  .bar { height: 8px; border-radius: 999px; background: #F0EAF4; overflow: hidden; }
+  .bar > i { display: block; height: 100%; border-radius: 999px; }
+
+  /* 顶部大色块 hero */
+  .hero {
+    border-radius: 26px; padding: 20px; color: #fff; position: relative; overflow: hidden;
+  }
+  .hero.coral { background: linear-gradient(140deg, #FF8FA8, #FF6B8A 55%, #FF9F68); }
+  .hero.lav { background: linear-gradient(140deg, #9C8DE6, #7B6AD0 60%, #4DABF7); }
+  .hero .blob { position: absolute; border-radius: 50%; opacity: 0.25; background: #fff; }
+
+  .habit {
+    display: flex; align-items: center; gap: 12px; padding: 13px 14px;
+    border-radius: 18px; background: #fff; box-shadow: var(--shadow-sm);
+  }
+  .habit .emoji { width: 40px; height: 40px; border-radius: 13px; display: grid; place-items: center; font-size: 20px; }
+  .habit .check { width: 30px; height: 30px; border-radius: 50%; border: 2.5px solid var(--line); }
+  .habit .check.done { border: none; background: linear-gradient(135deg, var(--mint), #2FBE93); display: grid; place-items: center; color: #fff; font-weight: 900; }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stat {
+    border-radius: 18px; padding: 13px; box-shadow: var(--shadow-sm); background: #fff;
+  }
+  .stat .k { font-size: 11px; font-weight: 700; color: var(--ink-soft); display: flex; align-items: center; gap: 6px; }
+  .stat .v { font-size: 19px; font-weight: 800; margin-top: 6px; }
+
+  .reward-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .reward { border-radius: 20px; overflow: hidden; background: #fff; box-shadow: var(--shadow-sm); }
+  .reward .img { height: 78px; display: grid; place-items: center; font-size: 34px; }
+  .reward .meta { padding: 10px; }
+  .reward .price { font-size: 12px; font-weight: 800; color: var(--coral); }
+
+  .chip { font-size: 11px; font-weight: 800; padding: 5px 10px; border-radius: 10px; background: #F5F0F9; color: var(--ink-soft); }
+  .seg { display: flex; background: #F3EEF8; border-radius: 14px; padding: 4px; }
+  .seg > div { flex: 1; text-align: center; font-size: 12px; font-weight: 800; padding: 9px; border-radius: 11px; color: var(--ink-soft); }
+  .seg > div.on { background: #fff; color: var(--coral); box-shadow: var(--shadow-sm); }
+
+  .field { border: 1.5px solid var(--line); border-radius: 15px; padding: 13px 14px; display: flex; align-items: center; gap: 10px; color: var(--faint); font-size: 14px; }
+  .field.on { border-color: var(--coral); color: var(--ink); }
+
+  .switch { width: 42px; height: 25px; border-radius: 999px; background: #E6DEEE; position: relative; }
+  .switch.on { background: var(--mint); }
+  .switch i { position: absolute; top: 3px; width: 19px; height: 19px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); left: 3px; }
+  .switch.on i { left: 20px; }
+
+  .island-map { position: relative; border-radius: 24px; height: 100%; background: linear-gradient(160deg, #DCF0FF, #D7F7EC 70%); overflow: hidden; }
+  .node { position: absolute; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; box-shadow: var(--shadow-sm); border: 3px solid #fff; }
+  .path-line { position: absolute; border-top: 3px dashed rgba(139,123,216,0.5); }
+
+  .note { font-size: 11px; color: var(--faint); }
+  .divider { height: 1px; background: var(--line); margin: 4px 0; }
+  .list-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+  .list-row .ic { width: 38px; height: 38px; border-radius: 12px; display: grid; place-items: center; font-size: 17px; }
+
+  .section-title { grid-column: 1/-1; text-align: center; margin: 24px 0 -8px; }
+  .section-title h2 { font-size: 20px; font-weight: 800; color: var(--lav); }
+  .section-title p { font-size: 13px; color: var(--ink-soft); margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div class="page-head">
+  <h1>情侣打卡 · UI 原型（推倒重来版）</h1>
+  <p>严格沿用参考图风格：糖果色渐变、圆润大卡片、可爱 emoji 插画、双人存在感。功能保持不变。</p>
+  <div class="legend">
+    <span>🏠 今日</span><span>🔁 习惯</span><span>🗺️ 闯关</span><span>🎁 商城</span><span>👤 我的</span>
+    <span>✳️ 新增习惯</span><span>🔐 账号空间</span><span>🧾 兑换记录</span><span>🏝️ 世界地图</span>
+  </div>
+</div>
+
+<div class="gallery">
+
+  <!-- ============ 今日 ============ -->
+  <div class="phone">
+    <div class="screen-label">🏠 今日打卡</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div class="hero coral">
+          <div class="blob" style="width:120px;height:120px;top:-40px;right:-30px"></div>
+          <div class="row between">
+            <div>
+              <div style="font-size:12px;opacity:.9;font-weight:700">7月18日 · 星期五</div>
+              <div style="font-size:22px;font-weight:800;margin-top:4px">今天完成 2/4 💞</div>
+            </div>
+            <div class="avatars">
+              <div class="avatar a-you">你</div><div class="avatar a-ta">TA</div>
+            </div>
+          </div>
+          <div class="progressbar" style="margin-top:14px"><i style="width:50%"></i></div>
+          <div style="font-size:12px;opacity:.9;margin-top:8px">再完成 2 个，你们今天就都满勤啦</div>
+        </div>
+
+        <div class="card row between" style="padding:14px 16px">
+          <div class="row"><span style="font-size:18px">✨</span><b style="font-size:16px">1,850 积分</b></div>
+          <span style="color:var(--faint)">›</span>
+        </div>
+
+        <div class="cap">待完成 2</div>
+        <div class="habit">
+          <div class="emoji" style="background:var(--sky-soft)">🏃</div>
+          <div style="flex:1"><b style="font-size:15px">晨跑 20 分钟</b><div class="note">🔥 连续 12 天</div></div>
+          <div class="check"></div>
+        </div>
+        <div class="habit">
+          <div class="emoji" style="background:var(--sun-soft)">📖</div>
+          <div style="flex:1"><b style="font-size:15px">睡前阅读</b><div class="note">🔥 连续 5 天</div></div>
+          <div class="check"></div>
+        </div>
+
+        <div class="cap">已完成 2</div>
+        <div class="habit" style="opacity:.7">
+          <div class="emoji" style="background:var(--mint-soft)">💧</div>
+          <div style="flex:1"><b style="font-size:15px">喝水 8 杯</b><div class="note">TA 完成 · 可撤销</div></div>
+          <div class="avatar a-ta" style="width:26px;height:26px;font-size:11px">TA</div>
+          <div class="check done">✓</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab on"><div class="ic">🏠</div>今日</div>
+        <div class="tab"><div class="ic">🔁</div>习惯</div>
+        <div class="tab"><div class="ic">🗺️</div>闯关</div>
+        <div class="tab"><div class="ic">🎁</div>商城</div>
+        <div class="tab"><div class="ic">👤</div>我的</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 习惯 ============ -->
+  <div class="phone">
+    <div class="screen-label">🔁 习惯管理</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div><div class="h-title">习惯</div><div class="h-sub">管理你们共享的所有习惯</div></div>
+        <button class="btn btn-coral">＋ 新增习惯</button>
+
+        <div class="habit">
+          <div class="emoji" style="background:var(--sky-soft)">🏃</div>
+          <div style="flex:1"><b style="font-size:15px">晨跑 20 分钟</b><div class="note">每天 · 提醒 07:00</div></div>
+          <div style="color:var(--faint);font-size:18px">⌃⌄</div>
+        </div>
+        <div class="habit">
+          <div class="emoji" style="background:var(--sun-soft)">📖</div>
+          <div style="flex:1"><b style="font-size:15px">睡前阅读</b><div class="note">每天 · 提醒 21:30</div></div>
+          <div style="color:var(--faint);font-size:18px">⌃⌄</div>
+        </div>
+        <div class="habit">
+          <div class="emoji" style="background:var(--mint-soft)">💧</div>
+          <div style="flex:1"><b style="font-size:15px">喝水 8 杯</b><div class="note">每天 · 数值记录</div></div>
+          <div style="color:var(--faint);font-size:18px">⌃⌄</div>
+        </div>
+        <div class="habit" style="background:var(--line)">
+          <div class="emoji" style="background:#fff">🧘</div>
+          <div style="flex:1"><div class="row" style="gap:6px"><b style="font-size:15px;color:var(--ink-soft)">冥想</b><span class="pill" style="background:#E6DEEE;color:var(--ink-soft)">已暂停</span></div><div class="note">工作日 · 无提醒</div></div>
+          <div style="color:var(--faint);font-size:18px">⌃⌄</div>
+        </div>
+
+        <div class="card" style="background:var(--sun-soft);box-shadow:none">
+          <div class="note" style="color:#8A6A1E">你有 4 个进行中的习惯。建议专注 3–7 个，太多反而顾不过来。</div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><div class="ic">🏠</div>今日</div>
+        <div class="tab on"><div class="ic">🔁</div>习惯</div>
+        <div class="tab"><div class="ic">🗺️</div>闯关</div>
+        <div class="tab"><div class="ic">🎁</div>商城</div>
+        <div class="tab"><div class="ic">👤</div>我的</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 新增习惯 ============ -->
+  <div class="phone">
+    <div class="screen-label">✳️ 新增习惯 · AI 制定</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div class="row between"><div class="h-title" style="font-size:22px">创建习惯</div><span style="color:var(--faint)">✕</span></div>
+        <div class="seg"><div class="on">🤖 AI 制定</div><div>✍️ 手动创建</div></div>
+
+        <div class="card">
+          <div class="cap" style="margin-bottom:10px">想培养什么习惯</div>
+          <div class="field on">🎯 我想每天运动</div>
+        </div>
+
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div class="cap">告诉 AI 更多</div>
+          <div><div class="note" style="margin-bottom:6px">当前基础</div>
+            <div class="seg"><div class="on">新手</div><div>有基础</div><div>稳定做过</div></div></div>
+          <div><div class="note" style="margin-bottom:6px">计划周期</div>
+            <div class="seg"><div class="on">7 天</div><div>21 天</div></div></div>
+          <div class="field">⏱️ 每天可投入 10 分钟</div>
+        </div>
+
+        <div class="card">
+          <div class="cap" style="margin-bottom:10px">频率与提醒</div>
+          <div class="seg"><div class="on">每天</div><div>工作日</div><div>每周</div></div>
+          <div class="seg" style="margin-top:10px"><div>早上</div><div>中午</div><div class="on">晚上</div><div>自定义</div></div>
+        </div>
+
+        <button class="btn btn-lav">✨ 让 AI 制定计划</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AI 计划预览 ============ -->
+  <div class="phone">
+    <div class="screen-label">✨ AI 计划确认</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div class="hero lav">
+          <div class="blob" style="width:110px;height:110px;bottom:-40px;left:-20px"></div>
+          <div style="font-size:12px;opacity:.9;font-weight:700">AI 为你定制</div>
+          <div style="font-size:20px;font-weight:800;margin-top:4px">7 天运动入门计划 🏃</div>
+          <div style="font-size:12px;opacity:.9;margin-top:8px">循序渐进，从轻松到规律，帮你稳稳起步</div>
+        </div>
+
+        <div class="cap">建议的习惯</div>
+        <div class="habit">
+          <div class="emoji" style="background:var(--mint-soft)">🚶</div>
+          <div style="flex:1"><b style="font-size:14px">快走 10 分钟</b><div class="note">每天 · 提醒 21:30</div></div>
+        </div>
+        <div class="habit">
+          <div class="emoji" style="background:var(--sky-soft)">🤸</div>
+          <div style="flex:1"><b style="font-size:14px">拉伸 5 分钟</b><div class="note">每天 · 提醒 21:30</div></div>
+        </div>
+        <div class="habit">
+          <div class="emoji" style="background:var(--peach-soft)">🏃</div>
+          <div style="flex:1"><b style="font-size:14px">慢跑 15 分钟</b><div class="note">工作日 · 提醒 07:00</div></div>
+        </div>
+
+        <div class="card" style="background:var(--sun-soft);box-shadow:none">
+          <div class="note" style="color:#8A6A1E">💡 AI 提示：前 3 天以适应为主，别追求强度，坚持比强度更重要。</div>
+        </div>
+
+        <div class="row" style="gap:10px">
+          <button class="btn btn-ghost" style="flex:1">再改改</button>
+          <button class="btn btn-coral" style="flex:1.5">采用计划</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 闯关首页 ============ -->
+  <div class="phone">
+    <div class="screen-label">🗺️ 闯关旅程</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div class="hero lav">
+          <div class="blob" style="width:120px;height:120px;top:-30px;right:-20px"></div>
+          <div style="font-size:12px;opacity:.9;font-weight:700">双人旅程</div>
+          <div style="font-size:22px;font-weight:800;margin-top:4px">🏝️ 珊瑚湾</div>
+          <div style="font-size:12px;opacity:.9;margin-top:6px">累计 1,850 XP · 已解锁 3/8 章 · 徽章 2</div>
+          <div class="progressbar" style="margin-top:14px"><i style="width:37%"></i></div>
+        </div>
+
+        <div class="card">
+          <div class="cap" style="margin-bottom:8px">当前进度舱</div>
+          <b style="font-size:15px">下一章 · 迷雾森林 🌲</b>
+          <div class="note" style="margin:6px 0 10px">再获得 400 XP 可推进解锁</div>
+          <div class="bar"><i style="width:65%;background:linear-gradient(90deg,var(--lav),var(--coral))"></i></div>
+        </div>
+
+        <div class="card" style="border:2px solid var(--sun);background:var(--sun-soft);box-shadow:none">
+          <b style="font-size:14px">🎉 有 1 个章节徽章可领取</b>
+          <div class="note" style="color:#8A6A1E;margin-top:4px">打开地图点亮岛屿，读完叙事后领取</div>
+        </div>
+
+        <div class="cap">徽章预览</div>
+        <div class="row" style="gap:10px">
+          <div class="node" style="position:static;background:var(--coral-soft)">🐚</div>
+          <div class="node" style="position:static;background:var(--mint-soft)">🌊</div>
+          <div class="node" style="position:static;background:#F0EAF4;font-size:20px;color:var(--faint)">🔒</div>
+          <div class="node" style="position:static;background:#F0EAF4;font-size:20px;color:var(--faint)">🔒</div>
+        </div>
+
+        <button class="btn btn-sun">🎁 去领取奖励</button>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><div class="ic">🏠</div>今日</div>
+        <div class="tab"><div class="ic">🔁</div>习惯</div>
+        <div class="tab on"><div class="ic">🗺️</div>闯关</div>
+        <div class="tab"><div class="ic">🎁</div>商城</div>
+        <div class="tab"><div class="ic">👤</div>我的</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 世界地图 ============ -->
+  <div class="phone">
+    <div class="screen-label">🏝️ 世界地图</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body" style="padding-bottom:18px">
+        <div class="row between"><div class="h-title" style="font-size:20px">世界地图</div><span class="chip">3/8 已解锁</span></div>
+        <div class="island-map">
+          <div class="path-line" style="width:90px;top:110px;left:70px;transform:rotate(28deg)"></div>
+          <div class="path-line" style="width:90px;top:200px;left:150px;transform:rotate(-24deg)"></div>
+          <div class="path-line" style="width:90px;top:300px;left:70px;transform:rotate(30deg)"></div>
+          <div class="path-line" style="width:80px;top:390px;left:150px;transform:rotate(-20deg)"></div>
+
+          <div class="node" style="top:80px;left:36px;background:linear-gradient(135deg,#FF8FA8,var(--coral))">🐚</div>
+          <div class="node" style="top:150px;left:150px;background:linear-gradient(135deg,var(--mint),#2FBE93)">🌊</div>
+          <div class="node" style="top:255px;left:44px;background:linear-gradient(135deg,var(--sun),#F0A93C)">🏖️</div>
+          <div class="node" style="top:345px;left:150px;background:#EDE7F5;color:var(--faint)">🔒</div>
+          <div class="node" style="top:445px;left:60px;background:#EDE7F5;color:var(--faint)">🔒</div>
+
+          <div style="position:absolute;top:16px;left:16px;right:16px;background:rgba(255,255,255,0.85);border-radius:16px;padding:12px">
+            <b style="font-size:13px">🏖️ 阳光沙滩 · 可领取</b>
+            <div class="note" style="margin-top:3px">点亮岛屿，读完你们的旅程故事</div>
+          </div>
+          <div style="position:absolute;bottom:14px;left:16px;right:16px">
+            <button class="btn btn-coral">领取「阳光沙滩」徽章</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 徽章墙 ============ -->
+  <div class="phone">
+    <div class="screen-label">🏅 徽章收藏 & 兑现</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div><div class="h-title" style="font-size:22px">徽章墙</div><div class="h-sub">你们一起点亮的每一站</div></div>
+
+        <div class="card" style="border:2px solid var(--coral);background:var(--coral-soft);box-shadow:none">
+          <b style="font-size:14px">🎁 有 1 个现实惊喜待兑现</b>
+          <div class="note" style="color:#B5486A;margin-top:4px">「珊瑚湾」奖励：一起看一场日落 🌅</div>
+          <button class="btn btn-coral" style="margin-top:10px;padding:10px">标记已兑现</button>
+        </div>
+
+        <div class="cap">已收集 2 枚</div>
+        <div class="reward-grid">
+          <div class="card" style="text-align:center;box-shadow:var(--shadow-sm)">
+            <div style="font-size:38px">🐚</div>
+            <b style="font-size:13px">珊瑚湾</b>
+            <div class="note">7月10日点亮</div>
+          </div>
+          <div class="card" style="text-align:center;box-shadow:var(--shadow-sm)">
+            <div style="font-size:38px">🌊</div>
+            <b style="font-size:13px">碧波礁</b>
+            <div class="note">7月15日点亮</div>
+          </div>
+          <div class="card" style="text-align:center;opacity:.55">
+            <div style="font-size:38px">🔒</div>
+            <b style="font-size:13px">迷雾森林</b>
+            <div class="note">未解锁</div>
+          </div>
+          <div class="card" style="text-align:center;opacity:.55">
+            <div style="font-size:38px">🔒</div>
+            <b style="font-size:13px">星空营地</b>
+            <div class="note">未解锁</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 商城 ============ -->
+  <div class="phone">
+    <div class="screen-label">🎁 奖励商城</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div class="h-title" style="font-size:22px">奖励商城</div>
+        <div class="hero coral" style="padding:16px">
+          <div style="font-size:11px;opacity:.9;font-weight:700">我的积分</div>
+          <div style="font-size:30px;font-weight:800;margin-top:2px">1,850</div>
+          <div style="font-size:11px;opacity:.9">完成打卡累积积分，兑换喜欢的奖励</div>
+        </div>
+
+        <div class="reward-grid">
+          <div class="reward">
+            <div class="img" style="background:var(--lav-soft)">🎬</div>
+            <div class="meta">
+              <span class="pill" style="background:var(--lav-soft);color:var(--lav)">虚拟奖励</span>
+              <b style="font-size:13px;display:block;margin:6px 0">看电影之夜</b>
+              <div class="price">500 积分</div>
+              <button class="btn btn-coral" style="padding:9px;margin-top:8px;font-size:13px">购买</button>
+            </div>
+          </div>
+          <div class="reward">
+            <div class="img" style="background:var(--peach-soft)">🍰</div>
+            <div class="meta">
+              <span class="pill" style="background:var(--mint-soft);color:#1E9E77">现实奖励</span>
+              <b style="font-size:13px;display:block;margin:6px 0">甜品自由</b>
+              <div class="price">800 积分</div>
+              <button class="btn btn-coral" style="padding:9px;margin-top:8px;font-size:13px">购买</button>
+            </div>
+          </div>
+          <div class="reward">
+            <div class="img" style="background:var(--sun-soft)">🎡</div>
+            <div class="meta">
+              <span class="pill" style="background:var(--mint-soft);color:#1E9E77">现实奖励</span>
+              <b style="font-size:13px;display:block;margin:6px 0">周末游乐园</b>
+              <div class="bar" style="margin:8px 0 4px"><i style="width:62%;background:var(--coral)"></i></div>
+              <div class="row between"><span class="price">还差 1,150</span><span class="note">1850/3000</span></div>
+            </div>
+          </div>
+          <div class="reward">
+            <div class="img" style="background:var(--sky-soft)">🎮</div>
+            <div class="meta">
+              <span class="pill" style="background:var(--lav-soft);color:var(--lav)">虚拟奖励</span>
+              <b style="font-size:13px;display:block;margin:6px 0">游戏一小时</b>
+              <div class="price">300 积分</div>
+              <button class="btn btn-coral" style="padding:9px;margin-top:8px;font-size:13px">购买</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><div class="ic">🏠</div>今日</div>
+        <div class="tab"><div class="ic">🔁</div>习惯</div>
+        <div class="tab"><div class="ic">🗺️</div>闯关</div>
+        <div class="tab on"><div class="ic">🎁</div>商城</div>
+        <div class="tab"><div class="ic">👤</div>我的</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 兑换记录 ============ -->
+  <div class="phone">
+    <div class="screen-label">🧾 兑换记录</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div><div class="h-title" style="font-size:22px">兑换记录</div><div class="h-sub">购买后来这里核销使用</div></div>
+
+        <div class="cap">待核销</div>
+        <div class="card row between">
+          <div class="row"><div class="emoji" style="background:var(--lav-soft)">🎬</div>
+            <div><b style="font-size:14px">看电影之夜</b><div class="note">7月17日兑换 · 500 积分</div></div></div>
+          <button class="btn btn-coral" style="width:auto;padding:9px 14px;font-size:12px">核销</button>
+        </div>
+        <div class="card row between">
+          <div class="row"><div class="emoji" style="background:var(--peach-soft)">🍰</div>
+            <div><b style="font-size:14px">甜品自由</b><div class="note">7月16日兑换 · 800 积分</div></div></div>
+          <button class="btn btn-coral" style="width:auto;padding:9px 14px;font-size:12px">核销</button>
+        </div>
+
+        <div class="cap" style="margin-top:8px">已完成</div>
+        <div class="card row between" style="opacity:.65">
+          <div class="row"><div class="emoji" style="background:var(--sky-soft)">🎮</div>
+            <div><b style="font-size:14px">游戏一小时</b><div class="note">7月12日已核销</div></div></div>
+          <span class="pill" style="background:var(--mint-soft);color:#1E9E77">已使用 ✓</span>
+        </div>
+        <div class="card row between" style="opacity:.65">
+          <div class="row"><div class="emoji" style="background:var(--sun-soft)">☕</div>
+            <div><b style="font-size:14px">早餐咖啡</b><div class="note">7月8日已核销</div></div></div>
+          <span class="pill" style="background:var(--mint-soft);color:#1E9E77">已使用 ✓</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 我的 ============ -->
+  <div class="phone">
+    <div class="screen-label">👤 我的</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div><div class="h-title" style="font-size:22px">我的</div><div class="h-sub">账号、奖励与个性化设置</div></div>
+
+        <div class="hero coral" style="padding:16px">
+          <div class="row between">
+            <div><div style="font-size:11px;opacity:.9;font-weight:700">我们的空间</div>
+              <div style="font-size:17px;font-weight:800;margin-top:3px">小鹿 & 兔子 💞</div>
+              <div style="font-size:11px;opacity:.9;margin-top:2px">正在共享同一个空间</div></div>
+            <div class="avatars"><div class="avatar a-you">你</div><div class="avatar a-ta">TA</div></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="row between"><div><div class="cap">当前积分</div><b style="font-size:22px;color:var(--coral)">1,850</b>
+            <div class="note">累计获得 5,240 积分</div></div><span style="font-size:30px">🎁</span></div>
+          <div class="divider"></div>
+          <div class="list-row"><div class="ic" style="background:var(--coral-soft)">🎁</div><b style="flex:1;font-size:14px">奖励商城</b><span style="color:var(--faint)">›</span></div>
+          <div class="list-row"><div class="ic" style="background:var(--lav-soft)">🧾</div><b style="flex:1;font-size:14px">兑换记录</b><span style="color:var(--faint)">›</span></div>
+          <div class="list-row"><div class="ic" style="background:var(--sun-soft)">🗺️</div><b style="flex:1;font-size:14px">章节管理 · 兑现 · 奖励管理</b><span class="pill" style="background:var(--sun-soft);color:#8A6A1E">管理员</span></div>
+        </div>
+
+        <div class="card">
+          <div class="list-row" style="padding-top:0"><div class="ic" style="background:var(--sky-soft)">🎨</div><b style="flex:1;font-size:14px">主题外观</b><div class="row" style="gap:-6px"><span class="avatar" style="width:20px;height:20px;background:var(--coral)"></span><span class="avatar" style="width:20px;height:20px;background:var(--lav);margin-left:-6px"></span></div></div>
+          <div class="list-row"><div class="ic" style="background:var(--mint-soft)">🔔</div><b style="flex:1;font-size:14px">提醒与免打扰</b><span style="color:var(--faint)">›</span></div>
+          <div class="list-row"><div class="ic" style="background:var(--peach-soft)">🤖</div><b style="flex:1;font-size:14px">AI 服务配置</b><span style="color:var(--faint)">›</span></div>
+          <div class="list-row" style="padding-bottom:0"><div class="ic" style="background:var(--lav-soft)">📤</div><b style="flex:1;font-size:14px">数据导出</b><span style="color:var(--faint)">›</span></div>
+        </div>
+      </div>
+      <div class="tabbar">
+        <div class="tab"><div class="ic">🏠</div>今日</div>
+        <div class="tab"><div class="ic">🔁</div>习惯</div>
+        <div class="tab"><div class="ic">🗺️</div>闯关</div>
+        <div class="tab"><div class="ic">🎁</div>商城</div>
+        <div class="tab on"><div class="ic">👤</div>我的</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 外观设置 ============ -->
+  <div class="phone">
+    <div class="screen-label">🎨 外观 & 提醒</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div class="h-title" style="font-size:20px">外观</div>
+        <div class="card" style="display:flex;flex-direction:column;gap:10px">
+          <div class="cap">主题配色</div>
+          <div class="row between" style="border:2px solid var(--coral);border-radius:14px;padding:12px">
+            <div class="row"><span class="avatar" style="background:var(--coral);width:24px;height:24px"></span><span class="avatar" style="background:var(--lav);width:24px;height:24px;margin-left:-8px"></span>
+              <div><b style="font-size:13px">恋恋粉紫</b><div class="note">珊瑚粉 × 薰衣草紫</div></div></div>
+            <span style="color:var(--coral);font-size:18px">✓</span>
+          </div>
+          <div class="row between" style="border:1px solid var(--line);border-radius:14px;padding:12px">
+            <div class="row"><span class="avatar" style="background:var(--mint);width:24px;height:24px"></span><span class="avatar" style="background:var(--sky);width:24px;height:24px;margin-left:-8px"></span>
+              <div><b style="font-size:13px">海盐薄荷</b><div class="note">清新青绿 × 天空蓝</div></div></div>
+          </div>
+          <div class="row between" style="border:1px solid var(--line);border-radius:14px;padding:12px">
+            <div class="row"><span class="avatar" style="background:var(--peach);width:24px;height:24px"></span><span class="avatar" style="background:var(--coral);width:24px;height:24px;margin-left:-8px"></span>
+              <div><b style="font-size:13px">暮光暖阳</b><div class="note">落日橙 × 温柔珊瑚</div></div></div>
+          </div>
+          <div class="divider"></div>
+          <div class="cap">明暗模式</div>
+          <div class="seg"><div class="on">跟随系统</div><div>浅色</div><div>深色</div></div>
+        </div>
+
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div class="cap">提醒设置</div>
+          <div class="row between"><div><b style="font-size:14px">晚间未完成汇总</b><div class="note">每天固定时间提醒未完成习惯</div></div><div class="switch on"><i></i></div></div>
+          <div class="divider"></div>
+          <div class="row between"><div><b style="font-size:14px">免打扰时间段</b><div class="note">22:00 – 次日 08:00</div></div><div class="switch on"><i></i></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AI 配置 ============ -->
+  <div class="phone">
+    <div class="screen-label">🤖 AI 服务配置</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div class="h-title" style="font-size:20px">AI 服务配置</div>
+        <div class="card" style="background:var(--lav-soft);box-shadow:none">
+          <div class="note" style="color:var(--lav)">填写你自己的 AI 服务地址、密钥和模型名。留空则使用默认配置。修改后离开输入框自动保存。</div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;gap:12px">
+          <div><div class="note" style="margin-bottom:6px">服务地址</div><div class="field on">🔗 https://your-server.com</div></div>
+          <div><div class="note" style="margin-bottom:6px">访问密钥</div><div class="field">🔑 ••••••••••••</div></div>
+          <div><div class="note" style="margin-bottom:6px">模型名</div><div class="field on">🧠 your-model-name</div></div>
+        </div>
+
+        <div class="h-title" style="font-size:20px;margin-top:6px">数据导出</div>
+        <div class="card">
+          <div class="note">导出全部习惯、打卡记录和计划为 JSON，可保存或分享到其他应用。</div>
+          <button class="btn btn-ghost" style="margin-top:12px">📤 导出数据</button>
+        </div>
+
+        <div class="card">
+          <div class="row between"><div><b style="font-size:14px">应用更新</b><div class="note">当前 v1.0.7 · 已是最新</div></div>
+            <button class="btn btn-ghost" style="width:auto;padding:9px 14px;font-size:12px">检查</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 登录/注册 ============ -->
+  <div class="phone">
+    <div class="screen-label">🔐 登录 / 注册</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body" style="justify-content:center">
+        <div style="text-align:center;margin-bottom:8px">
+          <div class="avatars" style="justify-content:center;margin-bottom:14px">
+            <div class="avatar a-you" style="width:56px;height:56px;font-size:22px">你</div>
+            <div class="avatar a-ta" style="width:56px;height:56px;font-size:22px;margin-left:-16px">TA</div>
+          </div>
+          <div class="h-title" style="font-size:24px">欢迎回来 💞</div>
+          <div class="h-sub">登录以继续你们的打卡</div>
+        </div>
+
+        <div class="seg" style="margin-top:10px"><div class="on">登录</div><div>注册</div></div>
+
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px">
+          <div class="field on">✉️ hello@example.com</div>
+          <div class="field">🔒 ••••••••　👁️</div>
+        </div>
+
+        <button class="btn btn-coral" style="margin-top:18px">登录</button>
+        <div class="note" style="text-align:center;margin-top:14px">还没有账号？注册后会自动创建你们的空间</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ 账号与同步 ============ -->
+  <div class="phone">
+    <div class="screen-label">🔗 账号与同步</div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><div class="dots"><i></i><i style="width:12px"></i><i style="width:20px"></i></div></div>
+      <div class="body">
+        <div class="h-title" style="font-size:20px">账号与同步</div>
+
+        <div class="card" style="text-align:center">
+          <div class="cap" style="margin-bottom:10px">当前账号</div>
+          <div class="avatar a-you" style="width:64px;height:64px;font-size:26px;margin:0 auto">你</div>
+          <b style="font-size:16px;display:block;margin-top:10px">小鹿</b>
+          <div class="note">hello@example.com</div>
+        </div>
+
+        <div class="card" style="background:var(--coral-soft);box-shadow:none">
+          <div class="cap" style="color:var(--coral);margin-bottom:6px">邀请码 · 发给另一半即可同步</div>
+          <div class="row between">
+            <b style="font-size:22px;letter-spacing:3px;color:var(--coral)">7X9K2A4M</b>
+            <span style="font-size:18px">📋</span>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="cap" style="margin-bottom:10px">加入对方的空间</div>
+          <div class="field">🔑 输入 8 位邀请码</div>
+          <button class="btn btn-lav" style="margin-top:10px">加入空间</button>
+        </div>
+
+        <div class="card" style="display:flex;flex-direction:column;gap:6px">
+          <div class="list-row" style="padding:8px 0"><div class="ic" style="background:var(--sky-soft)">🔑</div><b style="flex:1;font-size:14px">修改密码</b><span style="color:var(--faint)">›</span></div>
+          <div class="list-row" style="padding:8px 0"><div class="ic" style="background:#F0EAF4">🚪</div><b style="flex:1;font-size:14px">退出登录</b><span style="color:var(--faint)">›</span></div>
+          <div class="list-row" style="padding:8px 0"><div class="ic" style="background:var(--coral-soft)">🗑️</div><b style="flex:1;font-size:14px;color:var(--coral)">危险区域 · 退出空间 / 删除账号</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div style="max-width:900px;margin:56px auto 0;text-align:center;color:var(--ink-soft);font-size:13px;line-height:1.8">
+  共 14 屏，覆盖全部现有功能。风格要点：糖果渐变 hero 大色块、22px 圆角卡片、emoji 作插画、双人分色头像（你=珊瑚粉 / TA=薰衣草紫）、糖果色投影。<br>
+  下一步：确认这版方向后，我再逐屏细化标注（间距/字号/组件规格），或直接进入代码实现。
+</div>
+
+</body>
+</html>

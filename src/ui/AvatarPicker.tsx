@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { pickAvatarFromLibrary, PickedImage } from "../rewards/rewardImage";
 import { AppText } from "./Controls";
 import { AvatarTone } from "./Avatar";
-import { radius, spacing } from "./theme";
+import { radius } from "./theme";
 import { useTheme } from "./ThemeContext";
 
 /**
@@ -17,7 +17,8 @@ export function AvatarPicker({
   tone,
   imageUri,
   onChange,
-  size = 84
+  size = 84,
+  compact = false
 }: {
   name: string;
   tone: AvatarTone;
@@ -26,6 +27,8 @@ export function AvatarPicker({
   /** 传 PickedImage 上传新头像，传 null 移除头像。 */
   onChange: (image: PickedImage | null) => Promise<void> | void;
   size?: number;
+  /** board 账号卡：只显示可点圆形头像，不带「我的头像」说明文案。 */
+  compact?: boolean;
 }) {
   const { colors } = useTheme();
   const [busy, setBusy] = useState(false);
@@ -86,55 +89,72 @@ export function AvatarPicker({
     }
   }
 
-  return (
-    <View style={{ gap: spacing.sm }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
-        <Pressable
-          onPress={pick}
-          disabled={busy}
-          accessibilityLabel="更换头像"
-          style={({ pressed }) => [{ opacity: pressed || busy ? 0.7 : 1 }]}
+  const avatarCircle = (
+    <Pressable
+      onPress={pick}
+      disabled={busy}
+      accessibilityLabel="更换头像"
+      style={({ pressed }) => [{ opacity: pressed || busy ? 0.7 : 1 }]}
+    >
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius.pill,
+          backgroundColor: bg,
+          alignItems: "center",
+          justifyContent: "center",
+          overflow: "hidden"
+        }}
+      >
+        {currentUri ? (
+          <Image source={{ uri: currentUri }} style={{ width: size, height: size }} />
+        ) : (
+          <AppText style={{ color: fg, fontSize: size * 0.4, fontWeight: "700", lineHeight: size * 0.48 }}>
+            {first}
+          </AppText>
+        )}
+      </View>
+      {!compact ? (
+        <View
+          style={{
+            position: "absolute",
+            right: -2,
+            bottom: -2,
+            width: 28,
+            height: 28,
+            borderRadius: radius.pill,
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.line,
+            alignItems: "center",
+            justifyContent: "center"
+          }}
         >
-          <View
-            style={{
-              width: size,
-              height: size,
-              borderRadius: radius.pill,
-              backgroundColor: bg,
-              alignItems: "center",
-              justifyContent: "center",
-              overflow: "hidden"
-            }}
-          >
-            {currentUri ? (
-              <Image source={{ uri: currentUri }} style={{ width: size, height: size }} />
-            ) : (
-              <AppText style={{ color: fg, fontSize: size * 0.4, fontWeight: "700", lineHeight: size * 0.48 }}>
-                {first}
-              </AppText>
-            )}
-          </View>
-          {/* 相机角标，提示可点按更换 */}
-          <View
-            style={{
-              position: "absolute",
-              right: -2,
-              bottom: -2,
-              width: 28,
-              height: 28,
-              borderRadius: radius.pill,
-              backgroundColor: colors.surface,
-              borderWidth: 1,
-              borderColor: colors.line,
-              alignItems: "center",
-              justifyContent: "center"
-            }}
-          >
-            <Ionicons name="camera" size={15} color={colors.primaryInk} />
-          </View>
-        </Pressable>
+          <Ionicons name="camera" size={15} color={colors.primaryInk} />
+        </View>
+      ) : null}
+    </Pressable>
+  );
 
-        <View style={{ flex: 1, gap: spacing.xs }}>
+  if (compact) {
+    return (
+      <View>
+        {avatarCircle}
+        {error ? (
+          <AppText variant="small" style={{ color: colors.danger, marginTop: 4 }}>
+            {error}
+          </AppText>
+        ) : null}
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        {avatarCircle}
+        <View style={{ flex: 1, gap: 4 }}>
           <AppText variant="bodyStrong">我的头像</AppText>
           <AppText variant="small" tone="muted">
             {busy ? "处理中…" : currentUri ? "点按头像更换" : "点按头像，从相册选一张"}
