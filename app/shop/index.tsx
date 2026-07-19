@@ -97,6 +97,10 @@ export default function ShopScreen() {
 
   return (
     <Screen>
+      <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 4, alignSelf: "flex-start" }} hitSlop={8}>
+        <Ionicons name="chevron-back" size={16} color={colors.inkSoft} />
+        <AppText variant="small" tone="soft">返回</AppText>
+      </Pressable>
       <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
         <View style={{ flex: 1, gap: 4 }}>
           <AppText variant="display">商城</AppText>

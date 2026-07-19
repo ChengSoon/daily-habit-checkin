@@ -6,7 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "../../src/ui/ThemeContext";
 
 type IoniconName = keyof typeof Ionicons.glyphMap;
-type TabMotion = "adventure" | "drop" | "repeat" | "gift" | "person";
+type TabMotion = "adventure" | "drop" | "repeat" | "person" | "sparkle";
 
 type TabIconProps = {
   active: IoniconName;
@@ -38,8 +38,8 @@ const shouldUseNativeDriver = Platform.OS !== "web";
 const TAB_ITEMS: TabItem[] = [
   { active: "today", inactive: "today-outline", motion: "drop", name: "index", title: "今日" },
   { active: "repeat", inactive: "repeat-outline", motion: "repeat", name: "habits", title: "习惯" },
+  { active: "sparkles", inactive: "sparkles-outline", motion: "sparkle", name: "ai", title: "AI" },
   { active: "map", inactive: "map-outline", motion: "adventure", name: "adventure", title: "闯关" },
-  { active: "gift", inactive: "gift-outline", motion: "gift", name: "shop", title: "商城" },
   { active: "person", inactive: "person-outline", motion: "person", name: "profile", title: "我的" }
 ];
 
@@ -116,14 +116,6 @@ function getIconMotion(kick: Animated.Value, motion: TabMotion) {
     };
   }
 
-  if (motion === "gift") {
-    return {
-      rotate: kick.interpolate({ inputRange: [0, 0.3, 0.58, 1], outputRange: ["0deg", "11deg", "-9deg", "0deg"] }),
-      scale: kick.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [1, 1.2, 0.98, 1] }),
-      translateX: kick.interpolate({ inputRange: [0, 0.28, 0.56, 0.82, 1], outputRange: [0, -3, 3, -1, 0] }),
-      translateY: kick.interpolate({ inputRange: [0, 0.3, 0.7, 1], outputRange: [0, -7, 2, 0] })
-    };
-  }
 
   if (motion === "adventure") {
     return {
@@ -143,6 +135,7 @@ function getIconMotion(kick: Animated.Value, motion: TabMotion) {
     };
   }
 
+
   return {
     rotate: kick.interpolate({ inputRange: [0, 0.45, 1], outputRange: ["0deg", "0deg", "0deg"] }),
     scale: kick.interpolate({ inputRange: [0, 0.28, 0.68, 1], outputRange: [1, 1.18, 0.94, 1] }),
@@ -152,13 +145,10 @@ function getIconMotion(kick: Animated.Value, motion: TabMotion) {
 }
 
 function AnimatedTabIcon({ active, color, focused, inactive, inactiveColor, motion, routeName, size }: TabIconProps) {
-  const { colors } = useTheme();
   const progress = useTabFocusProgress(focused);
   const kick = useTabIconKick(routeName);
   const activeOpacity = progress;
   const inactiveOpacity = progress.interpolate({ inputRange: [0, 1], outputRange: [1, 0] });
-  const chipOpacity = progress;
-  const chipScale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] });
   const motionStyle = getIconMotion(kick, motion);
 
   return (
@@ -175,16 +165,6 @@ function AnimatedTabIcon({ active, color, focused, inactive, inactiveColor, moti
         }
       ]}
     >
-      <Animated.View
-        style={[
-          styles.tabIconChip,
-          {
-            backgroundColor: colors.surfaceTint,
-            opacity: chipOpacity,
-            transform: [{ scale: chipScale }]
-          }
-        ]}
-      />
       <Animated.View style={[styles.tabIconLayer, { opacity: inactiveOpacity }]}>
         <Ionicons name={inactive} size={size ?? 16} color={inactiveColor} />
       </Animated.View>
@@ -286,12 +266,6 @@ const styles = StyleSheet.create({
     height: 28,
     justifyContent: "center",
     width: 40
-  },
-  tabIconChip: {
-    position: "absolute",
-    width: 40,
-    height: 27,
-    borderRadius: 13
   },
   tabIconLayer: {
     alignItems: "center",

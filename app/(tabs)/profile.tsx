@@ -444,20 +444,23 @@ export default function ProfileScreen() {
                 ) : null}
               </SectionCard>
               <SectionCard title="AI 服务配置">
+                <HelperText tone="muted">
+                  填写 OpenAI 兼容接口（含中转）。对话与生成计划都会走这里的真实模型。
+                </HelperText>
                 <TextField
                   label="服务地址"
                   value={settings.aiBaseUrl}
                   onChangeText={(value) => setSettings({ ...settings, aiBaseUrl: value })}
                   onBlur={() => save(settings)}
-                  placeholder="https://your-server.com"
+                  placeholder="https://api.openai.com/v1"
                   keyboardType="url"
                 />
                 <TextField
-                  label="访问密钥"
+                  label="API Key"
                   value={settings.aiApiKey}
                   onChangeText={(value) => setSettings({ ...settings, aiApiKey: value })}
                   onBlur={() => save(settings)}
-                  placeholder="x-api-key"
+                  placeholder="sk-..."
                   secureTextEntry
                 />
                 <TextField
@@ -465,7 +468,7 @@ export default function ProfileScreen() {
                   value={settings.aiModel}
                   onChangeText={(value) => setSettings({ ...settings, aiModel: value })}
                   onBlur={() => save(settings)}
-                  placeholder="model"
+                  placeholder="gpt-4o-mini / deepseek-chat"
                 />
               </SectionCard>
             </>

@@ -320,6 +320,7 @@ export default function TodayScreen() {
           streakDays={Math.max(0, ...Object.values(streaks), 0)}
           xpBalance={xpBalance}
           onPressXp={() => router.push("/shop")}
+          onPressAi={() => router.push("/(tabs)/ai")}
           doneDateKeys={weekDoneKeys}
           xpAccessory={
             xpGain ? (
@@ -344,11 +345,10 @@ export default function TodayScreen() {
                 岛上还没有角落
               </AppText>
               <AppText variant="body" tone="muted" style={{ textAlign: "center", marginTop: 4 }}>
-                先新增一个习惯，或让 AI 生成可执行的分阶段计划
+                先新增一个习惯，或点右上角 ✨ 用 AI 对话生成计划
               </AppText>
               <View style={{ width: "100%", gap: 8, marginTop: 12 }}>
                 <AppButton title="新增习惯" icon="add" onPress={() => router.push("/habit/new")} />
-                <AppButton title="AI 规划" icon="sparkles" variant="secondary" onPress={() => router.push("/habit/new")} />
               </View>
             </Card>
             <Card {...sceneTint("sun", scheme)} elevated={false} style={{ flexDirection: "row", alignItems: "center", gap: 11 }}>

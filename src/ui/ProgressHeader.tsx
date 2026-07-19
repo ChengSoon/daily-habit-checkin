@@ -1,7 +1,9 @@
+import { Ionicons } from "@expo/vector-icons";
 import { ReactNode } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 import { CoupleAvatars, CouplePerson } from "./Avatar";
 import { AppText } from "./Controls";
+import { useTheme } from "./ThemeContext";
 import { IslandHero } from "./IslandHero";
 import { WeekStrip } from "./WeekStrip";
 
@@ -29,6 +31,7 @@ export function ProgressHeader({
   xpBalance,
   xpAccessory,
   onPressXp,
+  onPressAi,
   doneDateKeys,
   showWeekStrip = false,
   islandKey,
@@ -45,6 +48,8 @@ export function ProgressHeader({
   /** 积分旁附加动画（如 +N） */
   xpAccessory?: ReactNode;
   onPressXp?: () => void;
+  /** 打开 AI 对话 */
+  onPressAi?: () => void;
   /** 本周已有完成打卡的日期，用于周历点亮 */
   doneDateKeys?: Set<string> | string[];
   showWeekStrip?: boolean;
@@ -54,6 +59,7 @@ export function ProgressHeader({
   islandName?: string;
   islandLevel?: number;
 }) {
+  const { colors } = useTheme();
   const now = new Date();
   const greeting = greetingForHour(now.getHours());
   const ratio = total === 0 ? 0 : completed / total;
@@ -89,7 +95,26 @@ export function ProgressHeader({
             {hasPartner ? "一起打卡 ✨" : "今日打卡 ✨"}
           </AppText>
         </View>
-        {people.length > 0 ? <CoupleAvatars people={people} size={34} showRibbon={false} /> : null}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          {onPressAi ? (
+            <Pressable
+              onPress={onPressAi}
+              hitSlop={6}
+              accessibilityLabel="AI 助手"
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 13,
+                backgroundColor: colors.partnerSurface,
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              <Ionicons name="sparkles" size={17} color={colors.partnerInk} />
+            </Pressable>
+          ) : null}
+          {people.length > 0 ? <CoupleAvatars people={people} size={34} showRibbon={false} /> : null}
+        </View>
       </View>
 
       <IslandHero

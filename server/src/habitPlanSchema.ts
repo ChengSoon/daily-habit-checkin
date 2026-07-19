@@ -41,5 +41,5 @@ export const HabitPlanRequestSchema = z.object({
   customReminderTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).nullable(),
   preferredTrackType: z.union([z.literal("check"), z.literal("numeric")]),
   // 可选：客户端在「AI 服务配置」中指定的模型名，用于覆盖服务端默认模型。
-  model: z.string().min(1).max(64).optional()
+  model: z.string().min(1).max(128).optional()
 });

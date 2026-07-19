@@ -2,11 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, View } from "react-native";
-import { getAdjustmentSuggestion } from "../../src/ai/adjustmentRules";
-import { getPlanForHabit } from "../../src/ai/habitPlanRepository";
-import { HabitPlan } from "../../src/ai/types";
 import { listCheckInsForHabit } from "../../src/checkins/checkinRepository";
-import { calculateCurrentStreak, calculateMonthlyCompletionRate } from "../../src/checkins/stats";
+import { calculateCurrentStreak } from "../../src/checkins/stats";
 import { CheckIn } from "../../src/checkins/types";
 import { deleteHabit, getHabitById, setHabitPaused, updateHabit } from "../../src/habits/habitRepository";
 import { shouldRunOnDate } from "../../src/habits/habitRules";
@@ -50,7 +47,6 @@ export default function HabitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [habit, setHabit] = useState<Habit | null>(null);
   const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
-  const [plan, setPlan] = useState<HabitPlan | null>(null);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [frequencyType, setFrequencyType] = useState<FrequencyType>("daily");
@@ -61,7 +57,6 @@ export default function HabitDetailScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const [timeError, setTimeError] = useState<string | null>(null);
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
-  const [manualRequested, setManualRequested] = useState(false);
   const [editMode, setEditMode] = useState(false);
 
   const load = useCallback(async () => {
@@ -71,12 +66,8 @@ export default function HabitDetailScreen() {
 
     const loadedHabit = await getHabitById(id);
     const loadedCheckIns = await listCheckInsForHabit(id);
-    const loadedPlan = await getPlanForHabit(id);
-
     setHabit(loadedHabit);
     setCheckIns(loadedCheckIns);
-    setPlan(loadedPlan);
-
     if (loadedHabit) {
       setName(loadedHabit.name);
       setDescription(loadedHabit.description ?? "");
@@ -159,37 +150,6 @@ export default function HabitDetailScreen() {
     router.replace("/(tabs)/habits");
   }
 
-  async function applySuggestion() {
-    if (!habit || !suggestion) {
-      return;
-    }
-
-    if (suggestion.actionLabel === "调整计划") {
-      const nextDescription = habit.description
-        ? `${habit.description}（已根据完成情况调轻：先缩短任务，降低启动压力）`
-        : "已根据完成情况调轻：先缩短任务，降低启动压力";
-
-      await updateHabit(habit.id, {
-        name: habit.name,
-        description: nextDescription,
-        frequency: habit.frequency,
-        reminderTime: habit.reminderTime,
-        isReminderEnabled: habit.isReminderEnabled,
-        trackType: habit.trackType,
-        numericUnit: habit.numericUnit
-      });
-      setMessage("已应用调整建议");
-      await reload();
-      return;
-    }
-
-    if (suggestion.actionLabel === "生成下一阶段") {
-      router.push("/habit/new");
-      return;
-    }
-
-    setMessage("已确认保持当前节奏");
-  }
 
   const today = todayKey();
   const habitStartDate = habit.createdAt.slice(0, 10);
@@ -205,19 +165,8 @@ export default function HabitDetailScreen() {
     habitStartDate > monthStartDate ? habitStartDate : monthStartDate,
     today
   ).filter(isScheduled);
-  // AI 建议依据最近 7 个应执行日的完成率
-  const recent7ScheduledDates = allScheduledDates.slice(-7);
-  const completionRate7Days = calculateMonthlyCompletionRate({ scheduledDates: recent7ScheduledDates, checkIns });
-
   const scheduledDates = monthScheduledDates;
   const completedDates = new Set(checkIns.filter((checkIn) => checkIn.status === "completed").map((checkIn) => checkIn.date));
-  const planEnded = plan ? today > plan.endDate : false;
-  const suggestion = getAdjustmentSuggestion({
-    completionRate7Days,
-    currentStreak,
-    planEnded,
-    manualRequested
-  });
   const nextMilestone = [7, 14, 30, 60, 100, 200].find((m) => m > currentStreak) ?? currentStreak + 50;
 
   function timePeriodLabel(time: string): string {
@@ -343,23 +292,8 @@ export default function HabitDetailScreen() {
         </View>
       </Card>
 
-      {/* board 06 浏览态止于里程碑；AI/暂停/删除放编辑态 */}
       {editMode ? (
         <>
-          {suggestion ? (
-            <Card elevated={false} {...sceneTint("lavender", scheme)} style={{ gap: 8 }}>
-              <AppText variant="caption" style={{ color: colors.partnerInk, textTransform: "none", letterSpacing: 0, fontWeight: "800" }}>
-                AI 调整建议
-              </AppText>
-              <AppText variant="bodyStrong">{suggestion.title}</AppText>
-              <AppText variant="body" tone="muted">
-                {suggestion.body}
-              </AppText>
-              <AppButton title={suggestion.actionLabel} variant="secondary" onPress={applySuggestion} />
-            </Card>
-          ) : (
-            <AppButton title="获取 AI 建议" variant="secondary" onPress={() => setManualRequested(true)} />
-          )}
           <SectionCard title="编辑习惯">
             <TextField label="名称" value={name} onChangeText={setName} placeholder="习惯名称" />
             <TextField label="描述" value={description} onChangeText={setDescription} placeholder="描述" />

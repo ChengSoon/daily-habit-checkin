@@ -37,6 +37,7 @@ function ThemedStack() {
         <Stack.Screen name="adventure/map" options={{ headerShown: false }} />
         <Stack.Screen name="adventure/badges" options={{ headerShown: false }} />
         <Stack.Screen name="adventure/[chapterId]" options={{ title: "章节" }} />
+        <Stack.Screen name="shop/index" options={{ headerShown: false }} />
         <Stack.Screen name="shop/redemptions" options={{ title: "兑换记录" }} />
         <Stack.Screen name="admin/adventure" options={{ title: "章节管理" }} />
         <Stack.Screen name="admin/adventure-claims" options={{ title: "章节兑现" }} />

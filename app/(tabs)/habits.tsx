@@ -8,11 +8,11 @@ import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { buildCurrentWeekDays } from "../../src/utils/week";
 import { todayKey } from "../../src/utils/date";
 import { Habit } from "../../src/habits/types";
-import { AppButton, AppText, Badge, Card, HelperText } from "../../src/ui/Controls";
+import { AppButton, AppText, Badge, HelperText } from "../../src/ui/Controls";
 import { EmptyState } from "../../src/ui/EmptyState";
 import { Screen } from "../../src/ui/Screen";
 import { SyncFallback, useSyncScreen } from "../../src/ui/SyncScreen";
-import { numberLetterSpacing, sceneTint, shadow, type Palette } from "../../src/ui/theme";
+import { numberLetterSpacing, shadow, type Palette } from "../../src/ui/theme";
 import { useTheme } from "../../src/ui/ThemeContext";
 
 const WEEKDAY_SHORT = ["日", "一", "二", "三", "四", "五", "六"];
@@ -106,7 +106,24 @@ export default function HabitsScreen() {
             岛上的日常角落
           </AppText>
         </View>
-        <AppButton title="新增" icon="add" compact onPress={() => router.push("/habit/new")} />
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Pressable
+            onPress={() => router.push("/(tabs)/ai")}
+            hitSlop={6}
+            accessibilityLabel="AI 助手"
+            style={{
+              width: 38,
+              height: 38,
+              borderRadius: 13,
+              backgroundColor: colors.partnerSurface,
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <Ionicons name="sparkles" size={18} color={colors.partnerInk} />
+          </Pressable>
+          <AppButton title="新增" icon="add" compact onPress={() => router.push("/habit/new")} />
+        </View>
       </View>
 
       {/* Bento 双数据卡 */}
@@ -136,7 +153,7 @@ export default function HabitsScreen() {
       ) : null}
 
       {habits.length === 0 ? (
-        <EmptyState fill title="岛上还没有角落" body="先新增一个习惯，或让 AI 帮你规划可执行的分阶段计划。" />
+        <EmptyState fill title="岛上还没有角落" body="先新增一个习惯，或点右上角 ✨ 用 AI 对话生成分阶段计划。" />
       ) : (
         <View style={{ gap: 8 }}>
           {habits.map((habit, index) => {
@@ -213,24 +230,6 @@ export default function HabitsScreen() {
           })}
         </View>
       )}
-
-      {/* AI 规划入口（board 02 底部 tint-lav 渐变卡） */}
-      <Card {...sceneTint("lavender", scheme)} elevated={false} style={{ gap: 10 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 11 }}>
-          <View style={{ width: 44, height: 44, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: colors.surface }}>
-            <Ionicons name="sparkles" size={18} color={colors.partnerInk} />
-          </View>
-          <View style={{ flex: 1, gap: 4 }}>
-            <AppText variant="bodyStrong" style={{ fontFamily: "Outfit_700Bold", fontSize: 16 }}>
-              让 AI 规划新角落
-            </AppText>
-            <AppText variant="body" tone="muted">
-              说出目标，生成可执行的分阶段计划
-            </AppText>
-          </View>
-        </View>
-        <AppButton title="生成计划" icon="sparkles" variant="secondary" compact fullWidth onPress={() => router.push("/habit/new")} />
-      </Card>
     </Screen>
   );
 }
