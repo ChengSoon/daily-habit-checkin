@@ -9,6 +9,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { initializeDatabase } from "../src/db/database";
 import { configureNotificationHandler, refreshScheduledReminders } from "../src/reminders/reminderService";
+import { GlobalPet, PetProvider } from "../src/pet";
 import { AppSplash } from "../src/ui/AppSplash";
 import { ThemeProvider, useTheme } from "../src/ui/ThemeContext";
 
@@ -93,10 +94,13 @@ export default function RootLayout() {
     <GestureHandlerRootView style={styles.flex}>
       <SafeAreaProvider>
         <ThemeProvider>
-          <View style={styles.flex}>
-            <ThemedStack />
-            <AppSplash visible={splashVisible} onFinish={handleSplashFinish} />
-          </View>
+          <PetProvider>
+            <View style={styles.flex}>
+              <ThemedStack />
+              <GlobalPet />
+              <AppSplash visible={splashVisible} onFinish={handleSplashFinish} />
+            </View>
+          </PetProvider>
         </ThemeProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>

@@ -29,6 +29,7 @@ import { buildCurrentWeekDays } from "../../src/utils/week";
 import { getWallet } from "../../src/xp/xpRepository";
 import { awardXpForCheckIn, revokeXpForCheckIn } from "../../src/xp/xpService";
 import { XpGainLabel } from "../../src/ui/XpGainLabel";
+import { usePetOptional } from "../../src/pet";
 
 /** board 数值习惯：从名称推断目标（如「喝水 8 杯」→ 8），缺省 8。 */
 function parseNumericTarget(habit: Habit): number {
@@ -182,6 +183,7 @@ export default function TodayScreen() {
 
   const { status, errorMessage, reload } = useSyncScreen(load);
   const couple = useCouple();
+  const pet = usePetOptional();
 
   const completedIds = new Set(
     checkIns.filter((checkIn) => checkIn.status === "completed").map((checkIn) => checkIn.habitId)
@@ -235,6 +237,13 @@ export default function TodayScreen() {
     } else if (wasLastRemaining) {
       setFullCelebration({ kind: "allDone" });
     }
+
+    pet?.notifyCheckIn({
+      habitName: habit.name,
+      streak: newStreak,
+      allDone: wasLastRemaining,
+      milestoneDays: milestone
+    });
   }
 
   function startComplete(habit: Habit) {
