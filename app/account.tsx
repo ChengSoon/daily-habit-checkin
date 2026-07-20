@@ -18,6 +18,7 @@ import {
 import { getAuthToken } from "../src/sync/localSettings";
 import { PickedImage } from "../src/rewards/rewardImage";
 import { uploadImage } from "../src/sync/uploadClient";
+import { AnimatedReveal } from "../src/ui/AnimatedReveal";
 import { AppButton, AppText, Badge, Card, Divider, HelperText, ListRow, SectionCard, SegmentedControl, TextField } from "../src/ui/Controls";
 import { CoupleAvatars } from "../src/ui/Avatar";
 import { AvatarPicker } from "../src/ui/AvatarPicker";
@@ -361,6 +362,7 @@ export default function AccountScreen() {
               onPress={() => setShowInviteForm((v) => !v)}
             />
             {showInviteForm ? (
+              <AnimatedReveal>
               <Card elevated={false} style={{ gap: 10, padding: 13 }}>
                 <AppText variant="small" tone="muted">
                   把邀请码发给 TA，或输入对方邀请码加入同一空间。
@@ -374,6 +376,7 @@ export default function AccountScreen() {
                   disabled={busy || inviteCode.trim().length < 4}
                 />
               </Card>
+              </AnimatedReveal>
             ) : null}
           </>
         )}
@@ -388,10 +391,10 @@ export default function AccountScreen() {
         />
 
         {showAccountTools ? (
-        <>
+        <AnimatedReveal style={{ gap: 12 }}>
         <SectionCard title="账号">
           {showPasswordForm ? (
-            <>
+            <AnimatedReveal variant="inline" style={{ gap: 12 }}>
               <TextField
                 label="当前密码"
                 value={currentPassword}
@@ -427,7 +430,7 @@ export default function AccountScreen() {
                   />
                 </View>
               </View>
-            </>
+            </AnimatedReveal>
           ) : (
             <>
               <AppButton
@@ -442,6 +445,7 @@ export default function AccountScreen() {
         </SectionCard>
 
         {!showPasswordForm ? (
+          <AnimatedReveal variant="inline">
           <SectionCard title="危险区域">
             {paired ? (
               <AppButton
@@ -461,8 +465,9 @@ export default function AccountScreen() {
               />
             )}
           </SectionCard>
+          </AnimatedReveal>
         ) : null}
-        </>
+        </AnimatedReveal>
         ) : null}
       </Screen>
     );
@@ -507,12 +512,14 @@ export default function AccountScreen() {
             autoCapitalize="none"
           />
           {isRegister ? (
-            <AuthField
-              icon="person-outline"
-              value={displayName}
-              onChangeText={setDisplayName}
-              placeholder="昵称（想让对方怎么称呼你）"
-            />
+            <AnimatedReveal variant="inline">
+              <AuthField
+                icon="person-outline"
+                value={displayName}
+                onChangeText={setDisplayName}
+                placeholder="昵称（想让对方怎么称呼你）"
+              />
+            </AnimatedReveal>
           ) : null}
           <AuthField
             icon="lock-closed-outline"

@@ -16,9 +16,18 @@ import {
 } from "./reminderPlan";
 import type { QuietHours } from "./reminderPlan";
 
-/** 避免在 vitest/node 中直接 import react-native；web 运行时用 navigator 判断。 */
+/**
+ * 判断是否浏览器/Web 运行时。
+ * 不能用 window/navigator：RN/Expo 原生也会 polyfill 二者，误判会导致权限请求直接 return false。
+ * 也不 import react-native.Platform：vitest node 环境加载 RN 会失败。
+ * document.createElement 是可靠浏览器信号；vitest/node 与原生均无完整 document。
+ */
 function isWebRuntime(): boolean {
-  return typeof navigator !== "undefined" && typeof window !== "undefined";
+  return (
+    typeof window !== "undefined" &&
+    typeof document !== "undefined" &&
+    typeof document.createElement === "function"
+  );
 }
 
 export { isValidReminderTime, isWithinQuietHours, parseReminderTime };

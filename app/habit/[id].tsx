@@ -1,3 +1,4 @@
+import { AnimatedReveal } from "../../src/ui/AnimatedReveal";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
@@ -324,7 +325,9 @@ export default function HabitDetailScreen() {
               />
             </View>
             {trackType === "numeric" ? (
-              <TextField label="单位" value={numericUnit} onChangeText={setNumericUnit} placeholder="例如：分钟、页、次" />
+              <AnimatedReveal variant="inline">
+                <TextField label="单位" value={numericUnit} onChangeText={setNumericUnit} placeholder="例如：分钟、页、次" />
+              </AnimatedReveal>
             ) : null}
             {message ? <HelperText tone="success">{message}</HelperText> : null}
             <AppButton

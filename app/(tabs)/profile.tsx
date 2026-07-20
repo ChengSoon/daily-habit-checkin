@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { Linking, Pressable, Share, View } from "react-native";
+import { Linking, Platform, Pressable, Share, View } from "react-native";
 import { loadAdventureState } from "../../src/adventure/adventureService";
 import { listCheckInsForHabit } from "../../src/checkins/checkinRepository";
 import { calculateCurrentStreak } from "../../src/checkins/stats";
@@ -21,6 +21,7 @@ import { getCurrentAccount } from "../../src/sync/authService";
 import type { Account } from "../../src/sync/authService";
 import { getCurrentAppVersion } from "../../src/updates/appVersion";
 import { AppUpdateCheckResult, checkForAppUpdate } from "../../src/updates/updateClient";
+import { AnimatedReveal } from "../../src/ui/AnimatedReveal";
 import { AppButton, AppText, Badge, Card, Divider, HelperText, ListRow, SectionCard, SegmentedControl, StatTile, SwitchRow, TextField } from "../../src/ui/Controls";
 import { IslandHero } from "../../src/ui/IslandHero";
 import { Screen } from "../../src/ui/Screen";
@@ -142,8 +143,15 @@ export default function ProfileScreen() {
   }
 
   async function enablePermission() {
-    const granted = await requestReminderPermission();
-    setPermission(granted ? "granted" : (await getReminderPermissionStatus()));
+    try {
+      const granted = await requestReminderPermission();
+      setPermission(granted ? "granted" : (await getReminderPermissionStatus()));
+      if (granted) {
+        await refreshScheduledReminders();
+      }
+    } catch {
+      setPermission(await getReminderPermissionStatus().catch((): ReminderPermissionStatus => "undetermined"));
+    }
   }
 
   const [exportError, setExportError] = useState<string | null>(null);
@@ -304,6 +312,7 @@ export default function ProfileScreen() {
           </Card>
 
           {settingsPanel === "theme" ? (
+            <AnimatedReveal>
             <SectionCard title="主题外观">
               <View style={{ gap: 8 }}>
                 {themeOptions.map((option) => {
@@ -352,19 +361,23 @@ export default function ProfileScreen() {
                 ]}
               />
             </SectionCard>
+            </AnimatedReveal>
           ) : null}
 
           {settingsPanel === "reminders" ? (
+            <AnimatedReveal>
             <SectionCard title="提醒与免打扰">
               {permission === "granted" ? (
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
                   <AppText variant="bodyStrong">通知权限</AppText>
                   <Badge label="已开启" tone="success" />
                 </View>
+              ) : Platform.OS === "web" ? (
+                <HelperText>本地提醒仅支持手机 App，请在安装版中开启通知权限。</HelperText>
               ) : (
                 <AppButton
                   title={permission === "denied" ? "前往系统设置" : "开启提醒权限"}
-                  onPress={() => (permission === "denied" ? Linking.openSettings() : enablePermission())}
+                  onPress={() => (permission === "denied" ? void Linking.openSettings() : void enablePermission())}
                 />
               )}
               <Divider />
@@ -375,11 +388,13 @@ export default function ProfileScreen() {
                 onValueChange={(value) => save({ ...settings, isEveningSummaryEnabled: value }, true)}
               />
               {settings.isEveningSummaryEnabled ? (
+                <AnimatedReveal variant="inline">
                 <TimePickerField
                   label="汇总时间"
                   value={settings.eveningSummaryTime}
                   onChange={(value) => save({ ...settings, eveningSummaryTime: value }, true)}
                 />
+                </AnimatedReveal>
               ) : null}
               <Divider />
               <SwitchRow
@@ -389,6 +404,7 @@ export default function ProfileScreen() {
                 onValueChange={(value) => save({ ...settings, isQuietHoursEnabled: value }, true)}
               />
               {settings.isQuietHoursEnabled ? (
+                <AnimatedReveal variant="inline">
                 <View style={{ flexDirection: "row", gap: 12 }}>
                   <View style={{ flex: 1 }}>
                     <TimePickerField label="开始" value={settings.quietHoursStart} onChange={(value) => save({ ...settings, quietHoursStart: value }, true)} />
@@ -397,8 +413,10 @@ export default function ProfileScreen() {
                     <TimePickerField label="结束" value={settings.quietHoursEnd} onChange={(value) => save({ ...settings, quietHoursEnd: value }, true)} />
                   </View>
                 </View>
+                </AnimatedReveal>
               ) : null}
             </SectionCard>
+            </AnimatedReveal>
           ) : null}
 
           {/* board 主列表之外的能力：用同风格 ListRow 卡展开，避免 ghost 按钮跳戏 */}
@@ -418,7 +436,7 @@ export default function ProfileScreen() {
             </ListRow>
           </Card>
           {settingsPanel === "more" ? (
-            <>
+            <AnimatedReveal style={{ gap: 12 }}>
               <SectionCard title="应用更新">
                 <AppText variant="small" tone="muted">
                   当前 {currentVersionText}
@@ -485,7 +503,7 @@ export default function ProfileScreen() {
                   placeholder="gpt-4o-mini / deepseek-chat"
                 />
               </SectionCard>
-            </>
+            </AnimatedReveal>
           ) : null}
         </>
       ) : (

@@ -13,7 +13,9 @@ import {
   isWithinQuietHours,
   parseReminderTime,
   rescheduleHabitReminders,
-  scheduleEveningSummary
+  scheduleEveningSummary,
+  requestReminderPermission,
+  getReminderPermissionStatus
 } from "./reminderService";
 
 function buildHabit(overrides: Partial<Habit> = {}): Habit {
@@ -178,5 +180,14 @@ describe("scheduleEveningSummary", () => {
         time: "21:3"
       })
     ).resolves.toBeNull();
+  });
+});
+
+
+describe("requestReminderPermission", () => {
+  it("requests permission in non-browser runtimes (vitest/node)", async () => {
+    // node 无 document，不应被误判为 web 而直接返回 false
+    await expect(requestReminderPermission()).resolves.toBe(true);
+    await expect(getReminderPermissionStatus()).resolves.toBe("granted");
   });
 });

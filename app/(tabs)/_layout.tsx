@@ -218,6 +218,13 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
+        animation: "fade",
+        transitionSpec: {
+          animation: "timing",
+          config: {
+            duration: 180
+          }
+        },
         tabBarActiveTintColor: colors.primaryInk,
         tabBarInactiveTintColor: colors.faint,
         tabBarStyle: {

@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { createHabit } from "../../src/habits/habitRepository";
 import { HabitFrequency, HabitTrackType } from "../../src/habits/types";
 import { refreshScheduledReminders } from "../../src/reminders/reminderService";
+import { AnimatedReveal } from "../../src/ui/AnimatedReveal";
 import {
   AppButton,
   AppText,
@@ -93,7 +94,11 @@ export default function NewHabitScreen() {
               { label: "每周", value: "weekly" }
             ]}
           />
-          {frequencyType === "weekly" ? <WeekdayPicker value={weeklyDays} onChange={setWeeklyDays} /> : null}
+          {frequencyType === "weekly" ? (
+            <AnimatedReveal variant="inline">
+              <WeekdayPicker value={weeklyDays} onChange={setWeeklyDays} />
+            </AnimatedReveal>
+          ) : null}
         </View>
         <SwitchRow
           label="开启提醒"
@@ -102,7 +107,9 @@ export default function NewHabitScreen() {
           onValueChange={setIsReminderEnabled}
         />
         {isReminderEnabled ? (
-          <TimePickerField label="提醒时间" value={reminderTime} onChange={setReminderTime} />
+          <AnimatedReveal variant="inline">
+            <TimePickerField label="提醒时间" value={reminderTime} onChange={setReminderTime} />
+          </AnimatedReveal>
         ) : null}
       </SectionCard>
 
@@ -116,12 +123,14 @@ export default function NewHabitScreen() {
           ]}
         />
         {trackType === "numeric" ? (
-          <TextField
-            label="单位"
-            value={numericUnit}
-            onChangeText={setNumericUnit}
-            placeholder="例如：分钟、页、次"
-          />
+          <AnimatedReveal variant="inline">
+            <TextField
+              label="单位"
+              value={numericUnit}
+              onChangeText={setNumericUnit}
+              placeholder="例如：分钟、页、次"
+            />
+          </AnimatedReveal>
         ) : null}
       </SectionCard>
 

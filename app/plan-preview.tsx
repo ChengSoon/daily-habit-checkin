@@ -7,6 +7,7 @@ import { AIPlanDay, AIPlanPreview } from "../src/ai/types";
 import { createHabit } from "../src/habits/habitRepository";
 import { HabitFrequency, HabitTrackType } from "../src/habits/types";
 import { refreshScheduledReminders } from "../src/reminders/reminderService";
+import { AnimatedReveal } from "../src/ui/AnimatedReveal";
 import {
   AppButton,
   AppText,
@@ -226,7 +227,7 @@ export default function PlanPreviewScreen() {
                 </AppText>
               </Pressable>
               {expandedPhase === phase.n ? (
-                <View style={{ gap: 8, marginTop: 2 }}>
+                <AnimatedReveal variant="inline" style={{ gap: 8, marginTop: 2 }}>
                   {phase.days.map((item) => (
                     <TextField
                       key={item.day}
@@ -236,7 +237,7 @@ export default function PlanPreviewScreen() {
                       placeholder={`第 ${item.day} 天的小行动`}
                     />
                   ))}
-                </View>
+                </AnimatedReveal>
               ) : null}
             </Card>
           );
@@ -249,6 +250,7 @@ export default function PlanPreviewScreen() {
         onPress={() => setShowImportSettings((v) => !v)}
       />
       {showImportSettings ? (
+        <AnimatedReveal>
         <SectionCard title="习惯信息">
           <TextField label="名称" value={habitName} onChangeText={setHabitName} placeholder="习惯名称" />
           <TextField label="描述" value={description} onChangeText={setDescription} placeholder="描述" />
@@ -265,7 +267,9 @@ export default function PlanPreviewScreen() {
             />
           </View>
           {trackType === "numeric" ? (
+            <AnimatedReveal variant="inline">
             <TextField label="单位" value={numericUnit} onChangeText={setNumericUnit} placeholder="例如：分钟、页、次" />
+            </AnimatedReveal>
           ) : null}
           <TextField
             label="降低难度建议"
@@ -275,6 +279,7 @@ export default function PlanPreviewScreen() {
             multiline
           />
         </SectionCard>
+        </AnimatedReveal>
       ) : null}
 
       {error ? <HelperText tone="danger">{error}</HelperText> : null}
