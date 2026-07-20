@@ -1,72 +1,98 @@
 import { usePathname } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import { FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createId } from "../utils/id";
-import { askPet } from "./petAi";
+import type { CompanionMessage } from "./companionTypes";
+import { createCompanionEvent } from "./companionTypes";
 import { FloatingPet } from "./FloatingPet";
+import { MoodCheckInSheet } from "./MoodCheckInSheet";
 import { PetChatPanel } from "./PetChatPanel";
 import { usePet } from "./PetContext";
-import type { PetChatMessage } from "./types";
+import {
+  animationForQuickAction,
+  initialPetInteractionState,
+  petInteractionReducer,
+  type PetQuickAction
+} from "./petInteractionState";
+import type { PetAnimationState } from "./types";
+import { useCompanionEngine } from "./useCompanionEngine";
 
 /** 全局浮层：右下角宠物 + 气泡 + 对话面板。 */
 export function GlobalPet() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const pet = usePet();
-  const greetIfNeeded = pet.greetIfNeeded;
-  const [messages, setMessages] = useState<PetChatMessage[]>([]);
-  const [input, setInput] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [streamText, setStreamText] = useState("");
-  const listRef = useRef<FlatList<PetChatMessage>>(null);
+  const [interaction, interactionDispatch] = useReducer(
+    petInteractionReducer,
+    initialPetInteractionState
+  );
+  const [actionAnimation, setActionAnimation] = useState<PetAnimationState | null>(null);
+  const [moodBusy, setMoodBusy] = useState(false);
+  const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const engine = useCompanionEngine({
+    panelOpen: pet.panelOpen,
+    bubbleDismissedAt: pet.bubbleDismissedAt,
+    say: pet.say,
+    notifyThinking: pet.notifyThinking,
+    setVisible: pet.setVisible
+  });
+  const emitCompanionEvent = engine.emit;
+  const subscribeCompanionEvents = pet.subscribeCompanionEvents;
+  const listRef = useRef<FlatList<CompanionMessage>>(null);
 
-  useEffect(() => {
-    greetIfNeeded();
-  }, [greetIfNeeded]);
+  useEffect(
+    () => () => {
+      if (actionTimer.current) clearTimeout(actionTimer.current);
+    },
+    []
+  );
 
   useEffect(() => {
     if (!pet.panelOpen) return;
     requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
-  }, [messages.length, streamText, pet.panelOpen]);
+  }, [engine.messages.length, engine.streamText, pet.panelOpen]);
 
-  async function send() {
-    const text = input.trim();
-    if (!text || busy) return;
-    setInput("");
-    const userMsg: PetChatMessage = {
-      id: createId("pet-u"),
-      role: "user",
-      text,
-      createdAt: Date.now()
-    };
-    const history = [...messages, userMsg];
-    setMessages(history);
-    setBusy(true);
-    setStreamText("");
-    pet.notifyThinking(true);
+  useEffect(() => {
+    if (pet.panelOpen) interactionDispatch({ type: "dismissed" });
+  }, [pet.panelOpen]);
+
+  useEffect(
+    () => subscribeCompanionEvents((event) => void emitCompanionEvent(event)),
+    [emitCompanionEvent, subscribeCompanionEvents]
+  );
+
+  function pulse(action: Extract<PetQuickAction, "encouragement" | "reflection">) {
+    if (actionTimer.current) clearTimeout(actionTimer.current);
+    setActionAnimation(animationForQuickAction(action));
+    actionTimer.current = setTimeout(() => setActionAnimation(null), 1800);
+  }
+
+  function selectQuickAction(action: PetQuickAction) {
+    if (action === "chat") {
+      interactionDispatch({ type: "chat_selected" });
+      pet.openPanel();
+      return;
+    }
+    if (action === "mood") {
+      interactionDispatch({ type: "mood_selected" });
+      return;
+    }
+    interactionDispatch({ type: "request_selected" });
+    pulse(action);
+    const type = action === "reflection" ? "daily_reflection" : "quick_encouragement";
+    void engine.emit(createCompanionEvent(createId(`pet-${type}`), type, {}));
+  }
+
+  async function submitMood(score: 1 | 2 | 3 | 4 | 5, note: string) {
+    setMoodBusy(true);
     try {
-      const reply = await askPet(history, text, (chunk) => {
-        setStreamText((prev) => `${prev}${chunk}`);
-      });
-      const clean = reply.trim() || "我在这儿陪你～";
-      setMessages((prev) => [
-        ...prev,
-        { id: createId("pet-a"), role: "assistant", text: clean, createdAt: Date.now() }
-      ]);
-      pet.notifyThinking(false);
-      pet.say(clean.slice(0, 40) + (clean.length > 40 ? "…" : ""), "happy", 3600);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "聊不拢，稍后再试";
-      pet.notifyThinking(false);
-      pet.notifyError(message);
-      setMessages((prev) => [
-        ...prev,
-        { id: createId("pet-e"), role: "assistant", text: `呜…${message}`, createdAt: Date.now() }
-      ]);
+      await engine.emit(
+        createCompanionEvent(createId("pet-mood"), "mood_checkin", { score, note })
+      );
+      interactionDispatch({ type: "dismissed" });
     } finally {
-      setStreamText("");
-      setBusy(false);
+      setMoodBusy(false);
     }
   }
 
@@ -87,21 +113,36 @@ export function GlobalPet() {
           bottomInset={bottom}
           topInset={insets.top}
           onClearBubble={pet.clearBubble}
-          onPress={pet.openPanel}
+          onPress={() => interactionDispatch({ type: "pet_tapped" })}
+          quickActionsOpen={interaction.quickActionsOpen}
+          actionAnimation={actionAnimation}
+          onQuickAction={selectQuickAction}
+          onDragStart={() => interactionDispatch({ type: "drag_started" })}
         />
       ) : null}
 
       <PetChatPanel
         visible={pet.panelOpen}
         onClose={pet.closePanel}
-        messages={messages}
+        messages={engine.messages}
         listRef={listRef}
-        input={input}
-        onChangeInput={setInput}
-        onSend={() => void send()}
-        busy={busy}
-        streamText={streamText}
+        input={engine.input}
+        onChangeInput={engine.setInput}
+        onSend={() => void engine.sendChat()}
+        busy={engine.busy}
+        loading={engine.loading}
+        streamText={engine.streamText}
+        savingMemoryId={engine.savingMemoryId}
+        onConfirmMemory={(message) => void engine.confirmMemory(message)}
       />
+      {interaction.moodSheetOpen ? (
+        <MoodCheckInSheet
+          visible
+          busy={moodBusy}
+          onClose={() => interactionDispatch({ type: "dismissed" })}
+          onSubmit={(score, note) => void submitMood(score, note)}
+        />
+      ) : null}
     </>
   );
 }

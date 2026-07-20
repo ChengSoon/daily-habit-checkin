@@ -269,6 +269,20 @@ export default function ProfileScreen() {
             </ListRow>
             <Divider />
             <ListRow
+              icon="paw-outline"
+              iconBg={colors.successSurface}
+              iconColor={colors.candyMintInk}
+              onPress={() => router.push("/companion-settings")}
+            >
+              <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
+                卡卡陪伴
+              </AppText>
+              <AppText variant="small" tone="muted">
+                主动关心 · 共同记忆
+              </AppText>
+            </ListRow>
+            <Divider />
+            <ListRow
               icon="download-outline"
               iconBg={colors.candyOrangeSurface}
               iconColor={colors.candyOrangeInk}

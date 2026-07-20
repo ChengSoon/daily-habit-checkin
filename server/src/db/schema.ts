@@ -1,4 +1,5 @@
 import { pool } from "./pool.js";
+import { runCompanionSchema } from "../companion/companionSchema.js";
 
 /**
  * PostgreSQL 建表脚本。所有业务数据都挂在 space_id 下，实现按空间隔离。
@@ -225,4 +226,5 @@ ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS note TEXT;
 
 export async function runSchema(): Promise<void> {
   await pool.query(SCHEMA_SQL);
+  await runCompanionSchema();
 }

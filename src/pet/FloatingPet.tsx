@@ -11,9 +11,11 @@ import {
 import { AppText } from "../ui/Controls";
 import { useTheme } from "../ui/ThemeContext";
 import { clampPetOffset, motionStateForDelta, PET_ATLAS } from "./petAnimation";
-import { PET_NAME } from "./petPersona";
+import { PET_NAME } from "./petIdentity";
 import { PetSprite } from "./PetSprite";
-import type { PetMood, PetTravelState } from "./types";
+import { PetQuickActions } from "./PetQuickActions";
+import type { PetQuickAction } from "./petInteractionState";
+import type { PetAnimationState, PetMood, PetTravelState } from "./types";
 
 const PET_SIZE = 92;
 const PET_HEIGHT = (PET_SIZE * PET_ATLAS.cellHeight) / PET_ATLAS.cellWidth;
@@ -31,6 +33,10 @@ type FloatingPetProps = {
   topInset: number;
   onClearBubble: () => void;
   onPress: () => void;
+  quickActionsOpen: boolean;
+  actionAnimation: PetAnimationState | null;
+  onQuickAction: (action: PetQuickAction) => void;
+  onDragStart: () => void;
 };
 
 type PetBubbleProps = {
@@ -63,6 +69,7 @@ function createPetPanResponder(args: {
   setResting: (value: PetOffset) => void;
   setTravel: (value: PetTravelState | null) => void;
   setBubbleOnLeft: (value: boolean) => void;
+  onDragStart: () => void;
 }): PanResponderInstance {
   function settle(gesture: PanResponderGestureState) {
     const next = offsetForGesture(args.resting, gesture, args.bounds);
@@ -75,6 +82,7 @@ function createPetPanResponder(args: {
     onStartShouldSetPanResponder: () => false,
     onMoveShouldSetPanResponder: (_, gesture) =>
       Math.abs(gesture.dx) > DRAG_THRESHOLD || Math.abs(gesture.dy) > DRAG_THRESHOLD,
+    onPanResponderGrant: args.onDragStart,
     onPanResponderMove: (_, gesture) => {
       const next = offsetForGesture(args.resting, gesture, args.bounds);
       const direction =
@@ -89,7 +97,7 @@ function createPetPanResponder(args: {
   });
 }
 
-function usePetDrag(bounds: PetBounds) {
+function usePetDrag(bounds: PetBounds, onDragStart: () => void) {
   const [position] = useState(() => new Animated.ValueXY());
   const [resting, setResting] = useState<PetOffset>({ x: 0, y: 0 });
   const [travel, setTravel] = useState<PetTravelState | null>(null);
@@ -113,9 +121,10 @@ function usePetDrag(bounds: PetBounds) {
         bounds,
         setResting,
         setTravel,
-        setBubbleOnLeft
+        setBubbleOnLeft,
+        onDragStart
       }),
-    [bounds, position, resting]
+    [bounds, onDragStart, position, resting]
   );
   return { panHandlers: responder.panHandlers, position, travel, bubbleOnLeft };
 }
@@ -167,7 +176,7 @@ export function FloatingPet(props: FloatingPetProps) {
     }),
     [props.bottomInset, props.topInset, window.height, window.width]
   );
-  const drag = usePetDrag(bounds);
+  const drag = usePetDrag(bounds, props.onDragStart);
 
   return (
     <Animated.View
@@ -182,7 +191,7 @@ export function FloatingPet(props: FloatingPetProps) {
         transform: drag.position.getTranslateTransform()
       }}
     >
-      {props.bubble ? (
+      {props.bubble && !props.quickActionsOpen ? (
         <PetBubble
           text={props.bubble}
           onLeft={drag.bubbleOnLeft}
@@ -190,6 +199,16 @@ export function FloatingPet(props: FloatingPetProps) {
           onClose={props.onClearBubble}
         />
       ) : null}
+      <View
+        pointerEvents={props.quickActionsOpen ? "auto" : "none"}
+        style={{
+          position: "absolute",
+          bottom: PET_HEIGHT + 8,
+          ...(drag.bubbleOnLeft ? { left: 0 } : { right: 0 })
+        }}
+      >
+        <PetQuickActions visible={props.quickActionsOpen} onAction={props.onQuickAction} />
+      </View>
       <Pressable
         onPress={props.onPress}
         accessibilityRole="button"
@@ -201,7 +220,11 @@ export function FloatingPet(props: FloatingPetProps) {
         })}
       >
         <View pointerEvents="none">
-          <PetSprite mood={props.mood} stateOverride={drag.travel} size={PET_SIZE} />
+          <PetSprite
+            mood={props.mood}
+            stateOverride={drag.travel ?? props.actionAnimation ?? (props.quickActionsOpen ? "jumping" : null)}
+            size={PET_SIZE}
+          />
         </View>
       </Pressable>
     </Animated.View>

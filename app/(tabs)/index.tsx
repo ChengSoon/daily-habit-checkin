@@ -30,6 +30,7 @@ import { getWallet } from "../../src/xp/xpRepository";
 import { awardXpForCheckIn, revokeXpForCheckIn } from "../../src/xp/xpService";
 import { XpGainLabel } from "../../src/ui/XpGainLabel";
 import { usePetOptional } from "../../src/pet";
+import { createCheckInCompletedEvent } from "../../src/pet/companionEventBridge";
 
 /** board 数值习惯：从名称推断目标（如「喝水 8 杯」→ 8），缺省 8。 */
 function parseNumericTarget(habit: Habit): number {
@@ -244,6 +245,16 @@ export default function TodayScreen() {
       allDone: wasLastRemaining,
       milestoneDays: milestone
     });
+    pet?.emitCompanionEvent(
+      createCheckInCompletedEvent({
+        checkInId: checkIn.id,
+        habitId: habit.id,
+        streak: newStreak,
+        allDone: wasLastRemaining,
+        milestoneDays: milestone,
+        occurredAt: new Date()
+      })
+    );
   }
 
   function startComplete(habit: Habit) {

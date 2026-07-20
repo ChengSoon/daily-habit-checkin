@@ -13,20 +13,24 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "../ui/Controls";
 import { ThinkingDots } from "../ui/ThinkingDots";
 import { useTheme } from "../ui/ThemeContext";
-import { PET_NAME } from "./petPersona";
+import type { CompanionMessage } from "./companionTypes";
+import { memoryActionForMessage } from "./companionMemoryView";
+import { PET_NAME } from "./petIdentity";
 import { PetSprite } from "./PetSprite";
-import type { PetChatMessage } from "./types";
 
 type PetChatPanelProps = {
   visible: boolean;
   onClose: () => void;
-  messages: PetChatMessage[];
-  listRef: RefObject<FlatList<PetChatMessage> | null>;
+  messages: CompanionMessage[];
+  listRef: RefObject<FlatList<CompanionMessage> | null>;
   input: string;
   onChangeInput: (text: string) => void;
   onSend: () => void;
   busy: boolean;
+  loading: boolean;
   streamText: string;
+  savingMemoryId: string | null;
+  onConfirmMemory: (message: CompanionMessage) => void;
 };
 
 export function PetChatPanel({
@@ -38,7 +42,10 @@ export function PetChatPanel({
   onChangeInput,
   onSend,
   busy,
-  streamText
+  loading,
+  streamText,
+  savingMemoryId,
+  onConfirmMemory
 }: PetChatPanelProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -75,7 +82,7 @@ export function PetChatPanel({
             <View style={{ flex: 1 }}>
               <AppText style={{ fontWeight: "800", color: colors.ink }}>{PET_NAME}</AppText>
               <AppText variant="small" style={{ color: colors.muted, fontWeight: "600" }}>
-                今天也在你身边
+                共同对话 · 双方可见
               </AppText>
             </View>
             <Pressable
@@ -96,11 +103,12 @@ export function PetChatPanel({
             style={{ minHeight: 180, maxHeight: 320 }}
             ListEmptyComponent={
               <AppText variant="small" style={{ color: colors.muted, paddingVertical: 12 }}>
-                今天过得怎么样？
+                {loading ? "正在加载共同对话…" : "这里还没有共同对话"}
               </AppText>
             }
             renderItem={({ item }) => {
               const mine = item.role === "user";
+              const memoryAction = memoryActionForMessage(item);
               return (
                 <View
                   style={{
@@ -112,6 +120,14 @@ export function PetChatPanel({
                     maxWidth: "88%"
                   }}
                 >
+                  {mine && item.senderName ? (
+                    <AppText
+                      variant="caption"
+                      style={{ color: colors.onPrimary, opacity: 0.78, marginBottom: 2 }}
+                    >
+                      {item.senderName}
+                    </AppText>
+                  ) : null}
                   <AppText
                     style={{
                       color: mine ? colors.onPrimary : colors.ink,
@@ -119,8 +135,52 @@ export function PetChatPanel({
                       lineHeight: 20
                     }}
                   >
-                    {item.text}
+                    {item.content}
                   </AppText>
+                  {memoryAction ? (
+                    <View
+                      style={{
+                        borderTopWidth: 1,
+                        borderTopColor: mine ? colors.onPrimary : colors.line,
+                        marginTop: 7,
+                        paddingTop: 7,
+                        flexDirection: "row",
+                        alignItems: "center",
+                        gap: 6
+                      }}
+                    >
+                      <Ionicons
+                        name={memoryAction === "confirmed" ? "checkmark-circle" : "heart-outline"}
+                        size={15}
+                        color={mine ? colors.onPrimary : colors.primary}
+                      />
+                      {memoryAction === "confirmed" ? (
+                        <AppText
+                          variant="caption"
+                          style={{ color: mine ? colors.onPrimary : colors.muted, flex: 1 }}
+                        >
+                          已保存到共同记忆
+                        </AppText>
+                      ) : (
+                        <Pressable
+                          onPress={() => onConfirmMemory(item)}
+                          disabled={savingMemoryId === item.id}
+                          accessibilityRole="button"
+                          accessibilityLabel="保存到共同记忆，双方可见"
+                          style={{ flex: 1 }}
+                        >
+                          <AppText
+                            variant="caption"
+                            style={{ color: mine ? colors.onPrimary : colors.primary }}
+                          >
+                            {savingMemoryId === item.id
+                              ? "正在保存…"
+                              : "保存到共同记忆 · 双方可见"}
+                          </AppText>
+                        </Pressable>
+                      )}
+                    </View>
+                  ) : null}
                 </View>
               );
             }}

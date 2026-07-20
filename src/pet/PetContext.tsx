@@ -9,11 +9,28 @@ import {
   type ReactNode
 } from "react";
 import { greetingBubble, reactionForCheckIn, reactionForError } from "./petMood";
+import type { CompanionEvent } from "./companionTypes";
 import type { PetCheckInEvent, PetMood } from "./types";
+
+type CompanionEventHandler = (event: CompanionEvent) => void;
+
+export function createCompanionEventBus() {
+  const handlers = new Set<CompanionEventHandler>();
+  return {
+    emit(event: CompanionEvent) {
+      for (const handler of handlers) handler(event);
+    },
+    subscribe(handler: CompanionEventHandler) {
+      handlers.add(handler);
+      return () => handlers.delete(handler);
+    }
+  };
+}
 
 type PetContextValue = {
   mood: PetMood;
   bubble: string | null;
+  bubbleDismissedAt: number | null;
   panelOpen: boolean;
   visible: boolean;
   setVisible: (v: boolean) => void;
@@ -21,6 +38,8 @@ type PetContextValue = {
   closePanel: () => void;
   clearBubble: () => void;
   say: (text: string, mood?: PetMood, holdMs?: number) => void;
+  emitCompanionEvent: (event: CompanionEvent) => void;
+  subscribeCompanionEvents: (handler: CompanionEventHandler) => () => void;
   notifyCheckIn: (event: PetCheckInEvent) => void;
   notifyThinking: (active: boolean) => void;
   notifyError: (message: string) => void;
@@ -34,11 +53,13 @@ const DEFAULT_HOLD_MS = 4200;
 export function PetProvider({ children }: { children: ReactNode }) {
   const [mood, setMood] = useState<PetMood>("idle");
   const [bubble, setBubble] = useState<string | null>(null);
+  const [bubbleDismissedAt, setBubbleDismissedAt] = useState<number | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
   const [visible, setVisible] = useState(true);
   const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thinkingDepth = useRef(0);
   const greeted = useRef(false);
+  const [companionEventBus] = useState(createCompanionEventBus);
 
   const clearBubbleTimer = useCallback(() => {
     if (clearTimer.current) {
@@ -82,6 +103,7 @@ export function PetProvider({ children }: { children: ReactNode }) {
   const clearBubble = useCallback(() => {
     clearBubbleTimer();
     setBubble(null);
+    setBubbleDismissedAt(Date.now());
   }, [clearBubbleTimer]);
 
   const notifyCheckIn = useCallback(
@@ -131,6 +153,7 @@ export function PetProvider({ children }: { children: ReactNode }) {
     () => ({
       mood,
       bubble,
+      bubbleDismissedAt,
       panelOpen,
       visible,
       setVisible,
@@ -138,6 +161,8 @@ export function PetProvider({ children }: { children: ReactNode }) {
       closePanel,
       clearBubble,
       say,
+      emitCompanionEvent: companionEventBus.emit,
+      subscribeCompanionEvents: companionEventBus.subscribe,
       notifyCheckIn,
       notifyThinking,
       notifyError,
@@ -146,6 +171,7 @@ export function PetProvider({ children }: { children: ReactNode }) {
     [
       mood,
       bubble,
+      bubbleDismissedAt,
       panelOpen,
       visible,
       openPanel,
@@ -155,7 +181,8 @@ export function PetProvider({ children }: { children: ReactNode }) {
       notifyCheckIn,
       notifyThinking,
       notifyError,
-      greetIfNeeded
+      greetIfNeeded,
+      companionEventBus
     ]
   );
 
