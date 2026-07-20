@@ -10,6 +10,19 @@ describe("companion prompt", () => {
     expect(COMPANION_SYSTEM_PROMPT).toContain("JSON");
   });
 
+  it("lists the exact reply enums and optional object shapes", () => {
+    expect(COMPANION_SYSTEM_PROMPT).toContain(
+      "mood 必须是 idle|happy|thinking|waiting|sad|wave"
+    );
+    expect(COMPANION_SYSTEM_PROMPT).toContain(
+      "intent 必须是 celebrate|comfort|encourage|listen|reflect"
+    );
+    expect(COMPANION_SYSTEM_PROMPT).toContain("riskLevel 必须是 normal|distress|crisis");
+    expect(COMPANION_SYSTEM_PROMPT).toContain(
+      "memoryProposal 必须是包含 category 和 content 的对象"
+    );
+  });
+
   it("places event and context in user data without accepting a client system prompt", () => {
     const messages = buildCompanionPrompt({
       event: {

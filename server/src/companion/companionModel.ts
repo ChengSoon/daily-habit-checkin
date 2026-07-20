@@ -25,16 +25,19 @@ export interface CompanionModel {
   streamChat(input: ModelChatInput, onDelta: (text: string) => void): Promise<string>;
 }
 
-type ModelOptions = {
+export type CompanionModelOptions = {
   client?: CompanionOpenAiClient;
+  apiKey?: string;
+  baseUrl?: string;
   model?: string;
   timeoutMs?: number;
+  createClient?: (apiKey: string, baseUrl?: string) => CompanionOpenAiClient;
 };
 
-function createSdkClient(apiKey: string): CompanionOpenAiClient {
+function createSdkClient(apiKey: string, baseUrl?: string): CompanionOpenAiClient {
   const sdk = new OpenAI({
     apiKey,
-    baseURL: process.env.OPENAI_BASE_URL || undefined
+    baseURL: baseUrl || undefined
   });
   return sdk as unknown as CompanionOpenAiClient;
 }
@@ -89,16 +92,20 @@ function streamFrom(raw: unknown): AsyncIterable<unknown> {
   return raw as AsyncIterable<unknown>;
 }
 
-export function createCompanionModel(options: ModelOptions = {}): CompanionModel {
+export function createCompanionModel(options: CompanionModelOptions = {}): CompanionModel {
   let client = options.client;
   const model = options.model ?? process.env.OPENAI_MODEL;
   const timeoutMs = options.timeoutMs ?? Number(process.env.COMPANION_TIMEOUT_MS ?? 15_000);
+  const createClient = options.createClient ?? createSdkClient;
 
   function configuredClient(): CompanionOpenAiClient {
     if (client) return client;
-    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    const apiKey =
+      options.apiKey === undefined ? process.env.OPENAI_API_KEY?.trim() : options.apiKey.trim();
     if (!apiKey) throw new Error("OPENAI_API_KEY is required");
-    client = createSdkClient(apiKey);
+    const baseUrl =
+      options.baseUrl === undefined ? process.env.OPENAI_BASE_URL?.trim() : options.baseUrl.trim();
+    client = createClient(apiKey, baseUrl || undefined);
     return client;
   }
 

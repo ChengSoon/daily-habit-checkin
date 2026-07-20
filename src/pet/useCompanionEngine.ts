@@ -57,6 +57,7 @@ export function useCompanionEngine(options: EngineOptions) {
   const [input, setInput] = useState("");
   const [account, setAccount] = useState<Account | null>(null);
   const [savingMemoryId, setSavingMemoryId] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
   const stateRef = useRef(state);
   const accountRef = useRef(account);
   const inputRef = useRef(input);
@@ -66,6 +67,8 @@ export function useCompanionEngine(options: EngineOptions) {
   >(undefined);
   const chatController = useRef<AbortController | null>(null);
   const eventController = useRef<AbortController | null>(null);
+  const clearingRef = useRef(false);
+  const messageLoadVersion = useRef(0);
   const checkInEventTracker = useRef(createCheckInEventTracker());
   useEffect(() => {
     stateRef.current = state;
@@ -78,11 +81,14 @@ export function useCompanionEngine(options: EngineOptions) {
   }, [panelOpen]);
 
   const reloadMessages = useCallback(async (spaceId: string) => {
+    const version = ++messageLoadVersion.current;
     dispatch({ type: "load_started", spaceId });
     try {
       const page = await companionClient.listMessages();
+      if (messageLoadVersion.current !== version) return;
       dispatch({ type: "load_succeeded", spaceId, messages: page.items });
     } catch {
+      if (messageLoadVersion.current !== version) return;
       dispatch({ type: "load_failed", spaceId });
     }
   }, []);
@@ -135,6 +141,7 @@ export function useCompanionEngine(options: EngineOptions) {
     const nextAccount = await getCurrentAccount();
     chatController.current?.abort();
     eventController.current?.abort();
+    messageLoadVersion.current += 1;
     checkInEventTracker.current.reset();
     accountRef.current = nextAccount;
     setAccount(nextAccount);
@@ -286,14 +293,41 @@ export function useCompanionEngine(options: EngineOptions) {
     [reloadMessages, savingMemoryId, say]
   );
 
+  const startNewConversation = useCallback(async (): Promise<boolean> => {
+    const currentAccount = accountRef.current;
+    if (!currentAccount || stateRef.current.busy || clearingRef.current) return false;
+    const spaceId = currentAccount.spaceId;
+    clearingRef.current = true;
+    setClearing(true);
+    chatController.current?.abort();
+    eventController.current?.abort();
+    messageLoadVersion.current += 1;
+    notifyThinking(false);
+    setInput("");
+    dispatch({ type: "conversation_cleared", spaceId });
+    try {
+      await companionClient.clearMessages();
+      if (accountRef.current?.spaceId === spaceId) await reloadMessages(spaceId);
+      return true;
+    } catch {
+      if (accountRef.current?.spaceId === spaceId) await reloadMessages(spaceId);
+      return false;
+    } finally {
+      clearingRef.current = false;
+      setClearing(false);
+    }
+  }, [notifyThinking, reloadMessages]);
+
   return {
     ...state,
     account,
     input,
     setInput,
     savingMemoryId,
+    clearing,
     sendChat,
     confirmMemory,
+    startNewConversation,
     emit,
     reloadMessages
   };

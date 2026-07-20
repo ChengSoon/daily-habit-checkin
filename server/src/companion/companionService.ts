@@ -4,7 +4,15 @@ import {
   createSqlCompanionContextSource,
   type CompanionContext
 } from "./companionContext.js";
-import { createCompanionModel, type CompanionModel } from "./companionModel.js";
+import type { CompanionModel } from "./companionModel.js";
+import {
+  createCompanionModelLookup,
+  type ResolveCompanionModel
+} from "./companionModelResolver.js";
+import {
+  logCompanionModelFailure,
+  type CompanionModelSource
+} from "./companionModelDiagnostics.js";
 import { memoryProposalFromExplicitRequest } from "./companionMemory.js";
 import { deliveryDateKey, type DeliveryCategory } from "./companionPolicy.js";
 import {
@@ -20,14 +28,13 @@ import {
   type CompanionEvent,
   type CompanionReply,
   type CompanionRiskLevel,
-  type MemberPreferences,
-  type MemoryConfirmation,
   type MemoryProposal
 } from "./companionSchemas.js";
 import {
   createCompanionStateRepository,
   type CompanionStateRepository
 } from "./companionStateRepository.js";
+import { createCompanionStateOperations } from "./companionServiceState.js";
 
 type ContextInput = {
   spaceId: string;
@@ -47,6 +54,7 @@ type ServiceOptions = {
   repository?: CompanionRepository;
   stateRepository?: CompanionStateRepository;
   model?: CompanionModel;
+  resolveModel?: ResolveCompanionModel;
   buildContext?: (input: ContextInput) => Promise<CompanionContext>;
   createId?: () => string;
   now?: () => Date;
@@ -152,7 +160,7 @@ function applyRisk(reply: CompanionReply, deterministic: CompanionRiskLevel): Co
 export function createCompanionService(options: ServiceOptions = {}) {
   const repository = options.repository ?? createCompanionRepository();
   const stateRepository = options.stateRepository ?? createCompanionStateRepository();
-  const model = options.model ?? createCompanionModel();
+  const resolveModel = options.resolveModel ?? createCompanionModelLookup(options.model);
   const createId = options.createId ?? randomUUID;
   const now = options.now ?? (() => new Date());
   const source = createSqlCompanionContextSource({ repository, stateRepository });
@@ -200,6 +208,7 @@ export function createCompanionService(options: ServiceOptions = {}) {
       if (deterministicRisk === "crisis") {
         reply = crisisReply(event.id);
       } else {
+        let modelSource: CompanionModelSource = "unresolved";
         try {
           const context = await buildContext({
             spaceId: input.spaceId,
@@ -207,9 +216,12 @@ export function createCompanionService(options: ServiceOptions = {}) {
             now: now(),
             timezoneOffsetMinutes: event.timezoneOffsetMinutes
           });
-          reply = applyRisk(await model.respond({ event, context }), deterministicRisk);
+          const resolved = await resolveModel(input.spaceId);
+          modelSource = resolved.source;
+          reply = applyRisk(await resolved.model.respond({ event, context }), deterministicRisk);
           modelSucceeded = true;
-        } catch {
+        } catch (error) {
+          logCompanionModelFailure(error, "respond", modelSource);
           reply = fallbackReply(event);
         }
       }
@@ -238,12 +250,16 @@ export function createCompanionService(options: ServiceOptions = {}) {
           timezoneOffsetMinutes: input.timezoneOffsetMinutes
         });
         let emitted = false;
+        let modelSource: CompanionModelSource = "unresolved";
         try {
-          assistantText = await model.streamChat({ context, userText: input.message }, (chunk) => {
+          const resolved = await resolveModel(request.spaceId);
+          modelSource = resolved.source;
+          assistantText = await resolved.model.streamChat({ context, userText: input.message }, (chunk) => {
             emitted = true;
             onDelta(chunk);
           });
-        } catch {
+        } catch (error) {
+          logCompanionModelFailure(error, "chat", modelSource);
           if (emitted) throw new Error("陪伴回复中断");
           assistantText = "我暂时没接上话，但我还在这里。";
           onDelta(assistantText);
@@ -260,41 +276,7 @@ export function createCompanionService(options: ServiceOptions = {}) {
       return assistantText;
     },
 
-    listMessages(spaceId: string, limit: number, cursor: string | null) {
-      return repository.listMessagePage(spaceId, limit, cursor);
-    },
-
-    listMemories(spaceId: string) {
-      return repository.listMemories(spaceId);
-    },
-
-    async saveMemory(spaceId: string, accountId: string, proposal: MemoryConfirmation) {
-      const memory = await repository.saveMemory(spaceId, accountId, proposal);
-      await stateRepository.awardBond(spaceId, `memory:${memory.id}`, 3);
-      return memory;
-    },
-
-    deleteMemory(spaceId: string, memoryId: string) {
-      return repository.deleteMemory(spaceId, memoryId);
-    },
-
-    async clearMessages(spaceId: string) {
-      await repository.clearMessages(spaceId);
-      await stateRepository.clearConversationSummary(spaceId);
-    },
-
-    async getState(spaceId: string, accountId: string) {
-      const [member, bond] = await Promise.all([
-        stateRepository.getMemberState(spaceId, accountId),
-        stateRepository.getBondState(spaceId)
-      ]);
-      return { member, bond };
-    },
-
-    async updateState(spaceId: string, accountId: string, preferences: MemberPreferences) {
-      await stateRepository.updateMemberPreferences(spaceId, accountId, preferences);
-      return this.getState(spaceId, accountId);
-    }
+    ...createCompanionStateOperations({ repository, stateRepository })
   };
 }
 export type CompanionService = ReturnType<typeof createCompanionService>;

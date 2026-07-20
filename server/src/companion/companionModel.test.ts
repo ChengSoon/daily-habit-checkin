@@ -52,6 +52,36 @@ describe("companion model", () => {
     await expect(model.respond({ event, context })).rejects.toThrow("OPENAI_API_KEY");
   });
 
+  it("uses explicit provider credentials for a space model", async () => {
+    const client = clientWith(async () => ({
+      choices: [
+        {
+          message: {
+            content: JSON.stringify({
+              version: 1,
+              eventId: "event-1",
+              decision: "speak",
+              message: "收到啦。",
+              mood: "wave",
+              intent: "encourage",
+              riskLevel: "normal"
+            })
+          }
+        }
+      ]
+    }));
+    const createClient = vi.fn(() => client);
+    const model = createCompanionModel({
+      apiKey: "space-key",
+      baseUrl: "https://relay.example.com/v1",
+      model: "space-model",
+      createClient
+    });
+
+    await expect(model.respond({ event, context })).resolves.toMatchObject({ eventId: "event-1" });
+    expect(createClient).toHaveBeenCalledWith("space-key", "https://relay.example.com/v1");
+  });
+
   it("requests structured JSON and validates the reply", async () => {
     const calls: Record<string, unknown>[] = [];
     const client = clientWith(async (body) => {

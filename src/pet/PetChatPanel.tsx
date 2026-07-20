@@ -26,7 +26,9 @@ type PetChatPanelProps = {
   input: string;
   onChangeInput: (text: string) => void;
   onSend: () => void;
+  onNewConversation: () => void;
   busy: boolean;
+  clearing: boolean;
   loading: boolean;
   streamText: string;
   savingMemoryId: string | null;
@@ -41,7 +43,9 @@ export function PetChatPanel({
   input,
   onChangeInput,
   onSend,
+  onNewConversation,
   busy,
+  clearing,
   loading,
   streamText,
   savingMemoryId,
@@ -78,13 +82,27 @@ export function PetChatPanel({
               gap: 10
             }}
           >
-            <PetSprite mood={busy ? "thinking" : "waiting"} size={48} />
+            <PetSprite mood={busy || clearing ? "thinking" : "waiting"} size={48} />
             <View style={{ flex: 1 }}>
               <AppText style={{ fontWeight: "800", color: colors.ink }}>{PET_NAME}</AppText>
               <AppText variant="small" style={{ color: colors.muted, fontWeight: "600" }}>
                 共同对话 · 双方可见
               </AppText>
             </View>
+            <Pressable
+              onPress={onNewConversation}
+              disabled={busy || clearing || loading}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="开启新对话"
+              accessibilityHint="清空双方可见的近期共同对话并开始新的对话"
+            >
+              <Ionicons
+                name="create-outline"
+                size={20}
+                color={busy || clearing || loading ? colors.line : colors.muted}
+              />
+            </Pressable>
             <Pressable
               onPress={onClose}
               hitSlop={10}
@@ -185,7 +203,7 @@ export function PetChatPanel({
               );
             }}
             ListFooterComponent={
-              busy ? (
+              busy || clearing ? (
                 <View
                   style={{
                     alignSelf: "flex-start",
@@ -201,7 +219,7 @@ export function PetChatPanel({
                       {streamText}
                     </AppText>
                   ) : (
-                    <ThinkingDots label={`${PET_NAME} 思考中`} />
+                    <ThinkingDots label={clearing ? "正在开启新对话" : `${PET_NAME} 思考中`} />
                   )}
                 </View>
               ) : null
@@ -222,7 +240,7 @@ export function PetChatPanel({
               onChangeText={onChangeInput}
               placeholder="跟卡卡说点什么…"
               placeholderTextColor={colors.faint}
-              editable={!busy}
+              editable={!busy && !clearing}
               onSubmitEditing={onSend}
               style={{
                 flex: 1,

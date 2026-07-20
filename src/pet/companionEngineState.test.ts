@@ -86,6 +86,30 @@ describe("companionEngineReducer", () => {
     });
   });
 
+  it("clears the active conversation without losing the selected space", () => {
+    const state = {
+      ...initialCompanionEngineState,
+      spaceId: "space-1",
+      messages: [message("user-1"), message("assistant-1", "assistant")],
+      busy: true,
+      requestId: "request-1",
+      streamText: "正在回复"
+    };
+    const cleared = companionEngineReducer(state, {
+      type: "conversation_cleared",
+      spaceId: "space-1"
+    });
+
+    expect(cleared).toMatchObject({
+      spaceId: "space-1",
+      messages: [],
+      busy: false,
+      requestId: null,
+      streamText: "",
+      errorMessage: null
+    });
+  });
+
   it("finishes with one assistant message and hides raw failures", () => {
     const started = companionEngineReducer(
       { ...initialCompanionEngineState, spaceId: "space-1" },

@@ -1,8 +1,10 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { CompanionContext } from "./companionContext.js";
 import type { MemberDeliveryState } from "./companionPolicy.js";
 import type { CompanionEvent, CompanionReply } from "./companionSchemas.js";
 import { createCompanionService } from "./companionService.js";
+
+afterEach(() => vi.restoreAllMocks());
 
 type Reservation =
   | { allowed: false; reason: "daily_cap" | "cooldown" | "duplicate" | "disabled" }
@@ -153,6 +155,54 @@ describe("companion service respond", () => {
     expect(deps.stateRepository.awardBond).not.toHaveBeenCalled();
     expect(deps.repository.saveMemory).not.toHaveBeenCalled();
   });
+  it("resolves a space model and logs only redacted provider failure metadata", async () => {
+    const deps = dependencies();
+    const error = Object.assign(new Error("upstream secret error"), {
+      status: 429,
+      code: "insufficient_quota"
+    });
+    deps.model.respond.mockRejectedValue(error);
+    const resolveModel = vi.fn(async () => ({ model: deps.model, source: "space" as const }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const service = createCompanionService({
+      ...deps,
+      resolveModel,
+      createId: () => "assistant-1"
+    });
+
+    await service.respond({ spaceId: "space-1", accountId: "account-1", event: event() });
+
+    expect(resolveModel).toHaveBeenCalledWith("space-1");
+    expect(warn).toHaveBeenCalledWith(
+      "companion model failed",
+      expect.objectContaining({
+        operation: "respond",
+        source: "space",
+        name: "Error",
+        status: 429,
+        code: "insufficient_quota"
+      })
+    );
+    expect(JSON.stringify(warn.mock.calls)).not.toContain("upstream secret error");
+  });
+  it("keeps the fallback when a provider rejects with a non-Error value", async () => {
+    const deps = dependencies();
+    deps.model.respond.mockRejectedValue(null);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const service = createCompanionService({ ...deps, createId: () => "assistant-1" });
+
+    const reply = await service.respond({
+      spaceId: "space-1",
+      accountId: "account-1",
+      event: event()
+    });
+
+    expect(reply.message).toBe("回来啦，今天也可以慢慢来。");
+    expect(warn).toHaveBeenCalledWith(
+      "companion model failed",
+      expect.objectContaining({ name: "UnknownError", source: "server" })
+    );
+  });
   it("persists a validated success and awards deterministic bond points", async () => {
     const deps = dependencies();
     const service = createCompanionService({ ...deps, createId: () => "assistant-1" });
@@ -194,7 +244,12 @@ describe("companion service chat and shared state", () => {
       onDelta("这里。");
       return "我在这里。";
     });
-    const service = createCompanionService({ ...deps, createId: () => "assistant-1" });
+    const resolveModel = vi.fn(async () => ({ model: deps.model, source: "space" as const }));
+    const service = createCompanionService({
+      ...deps,
+      resolveModel,
+      createId: () => "assistant-1"
+    });
     const deltas: string[] = [];
     await expect(
       service.chat(
@@ -206,6 +261,7 @@ describe("companion service chat and shared state", () => {
         (delta) => deltas.push(delta)
       )
     ).resolves.toBe("我在这里。");
+    expect(resolveModel).toHaveBeenCalledWith("space-1");
     expect(deltas).toEqual(["我在", "这里。"]);
     expect(deps.repository.appendExchange).toHaveBeenCalledWith(
       "space-1",

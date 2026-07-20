@@ -77,6 +77,15 @@ describe("companion client", () => {
     expect(deltas).toEqual(["回复"]);
   });
 
+  it("clears the shared conversation through the authenticated delete path", async () => {
+    const request = vi.fn(async () => undefined);
+    const client = createCompanionClient({ request, stream: vi.fn() });
+
+    await client.clearMessages();
+
+    expect(request).toHaveBeenCalledWith("/api/companion/messages", { method: "DELETE" });
+  });
+
   it("confirms a proposal with its source assistant message", async () => {
     const request = vi.fn(async () => ({
       memory: {

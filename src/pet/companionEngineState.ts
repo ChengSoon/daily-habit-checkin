@@ -22,6 +22,7 @@ export const initialCompanionEngineState: CompanionEngineState = {
 
 type Action =
   | { type: "space_changed"; spaceId: string | null }
+  | { type: "conversation_cleared"; spaceId: string }
   | { type: "load_started"; spaceId: string }
   | { type: "load_succeeded"; spaceId: string; messages: CompanionMessage[] }
   | { type: "load_failed"; spaceId: string }
@@ -55,6 +56,10 @@ export function companionEngineReducer(
     case "space_changed":
       if (state.spaceId === action.spaceId) return state;
       return { ...initialCompanionEngineState, spaceId: action.spaceId };
+    case "conversation_cleared":
+      return state.spaceId === action.spaceId
+        ? { ...initialCompanionEngineState, spaceId: action.spaceId }
+        : state;
     case "load_started":
       return state.spaceId === action.spaceId ? { ...state, loading: true } : state;
     case "load_succeeded":
