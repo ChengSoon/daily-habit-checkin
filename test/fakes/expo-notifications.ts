@@ -17,6 +17,7 @@ type NotificationRequestInput = {
     title?: string | null;
     body?: string | null;
     sound?: boolean | string | null;
+    priority?: string | null;
     data?: Record<string, unknown>;
   };
   trigger: Record<string, unknown>;
@@ -34,7 +35,32 @@ export const SchedulableTriggerInputTypes = {
 
 export const AndroidImportance = {
   DEFAULT: 5,
-  HIGH: 6
+  HIGH: 6,
+  MAX: 7
+} as const;
+
+export const AndroidNotificationPriority = {
+  MIN: "min",
+  LOW: "low",
+  DEFAULT: "default",
+  HIGH: "high",
+  MAX: "max"
+} as const;
+
+export const AndroidNotificationVisibility = {
+  UNKNOWN: 0,
+  PUBLIC: 1,
+  PRIVATE: 2,
+  SECRET: 3
+} as const;
+
+export const AndroidAudioUsage = {
+  ALARM: 4,
+  NOTIFICATION: 5
+} as const;
+
+export const AndroidAudioContentType = {
+  SONIFICATION: 4
 } as const;
 
 let handler: NotificationHandler | null = null;

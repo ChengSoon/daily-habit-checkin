@@ -14,6 +14,7 @@ import {
   parseReminderTime,
   rescheduleHabitReminders,
   scheduleEveningSummary,
+  scheduleTestSystemReminder,
   requestReminderPermission,
   getReminderPermissionStatus
 } from "./reminderService";
@@ -132,7 +133,7 @@ describe("rescheduleHabitReminders", () => {
     expect(scheduledDateKeys()).toEqual(["2026-07-08", "2026-07-10"]);
   });
 
-  it("queues habit reminders with default sound", async () => {
+  it("queues habit reminders with default sound and max priority", async () => {
     const habit = buildHabit({ reminderTime: "21:30" });
 
     await rescheduleHabitReminders({
@@ -142,7 +143,9 @@ describe("rescheduleHabitReminders", () => {
       horizonDays: 1
     });
 
-    expect(getScheduledNotificationsForTests()[0]?.content.sound).toBe("default");
+    const content = getScheduledNotificationsForTests()[0]?.content;
+    expect(content?.sound).toBe("default");
+    expect(content?.priority).toBe("max");
   });
 });
 
@@ -151,14 +154,14 @@ describe("configureNotificationHandler", () => {
     resetNotificationsForTests();
   });
 
-  it("allows foreground reminder banners to play sound", async () => {
+  it("always allows banners quickly without async data lookups", async () => {
     configureNotificationHandler();
 
     const handler = getConfiguredHandlerForTests();
     const behavior = await handler?.handleNotification({
       request: {
         content: {
-          data: {}
+          data: { habitId: "habit-1" }
         }
       }
     });
@@ -168,6 +171,24 @@ describe("configureNotificationHandler", () => {
       shouldShowList: true,
       shouldPlaySound: true
     });
+  });
+});
+
+describe("scheduleTestSystemReminder", () => {
+  beforeEach(() => {
+    resetNotificationsForTests();
+  });
+
+  it("queues a short interval system notification for background verification", async () => {
+    const id = await scheduleTestSystemReminder(8);
+    expect(id).toBeTruthy();
+    const scheduled = getScheduledNotificationsForTests();
+    expect(scheduled).toHaveLength(1);
+    expect(scheduled[0]?.trigger).toMatchObject({
+      type: SchedulableTriggerInputTypes.TIME_INTERVAL,
+      seconds: 8
+    });
+    expect(scheduled[0]?.content.priority).toBe("max");
   });
 });
 

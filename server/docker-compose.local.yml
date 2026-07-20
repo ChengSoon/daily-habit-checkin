@@ -1,3 +1,6 @@
+# 本机 Docker 部署（不依赖外部 proxy_net）
+# 用法：
+#   cd server && docker compose -f docker-compose.local.yml --env-file .env up -d --build
 services:
   db:
     image: postgres:17-alpine
@@ -6,24 +9,23 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-habit}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-habit}
       POSTGRES_DB: ${POSTGRES_DB:-habit}
+    ports:
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - habit-db:/var/lib/postgresql/data
+      - habit-db-local:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-habit}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   app:
     build:
       context: .
       args:
-        # 国内服务器可在 .env 设置：
-        # NODE_IMAGE=docker.m.daocloud.io/library/node:22-alpine
-        # NPM_REGISTRY=https://registry.npmmirror.com
         NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
-        NPM_REGISTRY: ${NPM_REGISTRY:-}
-    container_name: habit-app
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com}
+    container_name: habit-app-local
     restart: unless-stopped
     depends_on:
       db:
@@ -31,39 +33,28 @@ services:
     environment:
       APP_ENV: ${APP_ENV:-development}
       PORT: ${PORT:-8787}
-      # 未显式提供 DATABASE_URL 时，用 db 服务的 POSTGRES_* 分量自动拼出，
-      # 连到内部网络里的 db:5432（与 db 服务的默认值保持一致）。
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-habit}:${POSTGRES_PASSWORD:-habit}@db:5432/${POSTGRES_DB:-habit}}
+      # 强制走 compose 内部 db，忽略宿主机 .env 里可能存在的 DATABASE_URL
+      DATABASE_URL: postgresql://${POSTGRES_USER:-habit}:${POSTGRES_PASSWORD:-habit}@db:5432/${POSTGRES_DB:-habit}
       JWT_SECRET: ${JWT_SECRET:?set a strong secret}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
       API_KEY: ${API_KEY:-}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-60}
-      # Cloudflare R2：图片 presigned 直传 + 公开域名直读所需凭据。
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-}
+      R2_PUBLIC_BASE: ${R2_PUBLIC_BASE:-}
       APP_UPDATE_MANIFEST_URL: ${APP_UPDATE_MANIFEST_URL:-}
-      # FCM：容器内放密钥文件，或挂载 secrets
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/app/secrets/firebase-adminsdk.json}
+      # 容器内路径（密钥通过 volume 挂载）
+      GOOGLE_APPLICATION_CREDENTIALS: /app/secrets/firebase-adminsdk.json
       FCM_PUSH_SCHEDULER: ${FCM_PUSH_SCHEDULER:-1}
       FCM_PUSH_TICK_MS: ${FCM_PUSH_TICK_MS:-30000}
-    # 只接入 db 的内部网络 + 复用现有的 proxy_net，
-    # 让 my-nginx 能用容器名 habit-app 反代过来；不对主机映射端口。
-    networks:
-      - default
-      - proxy_net
+    volumes:
+      - ./secrets:/app/secrets:ro
     ports:
       - "${APP_PORT:-8787}:8787"
-    volumes:
-      # FCM 服务账号：宿主机 ./secrets/firebase-adminsdk.json → 容器 /app/secrets/
-      - ./secrets:/app/secrets:ro
-
-networks:
-  proxy_net:
-    external: true
 
 volumes:
-  habit-db:
+  habit-db-local:

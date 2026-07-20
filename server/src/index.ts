@@ -15,6 +15,8 @@ import { generateHabitPlan } from "./openaiHabitPlanner.js";
 import { syncChangeHub } from "./sync/changeHub.js";
 import { attachSyncWebSocketServer } from "./sync/syncWebSocketServer.js";
 import { createUploadRouter } from "./uploads/uploadRoutes.js";
+import { createPushRouter } from "./push/pushRoutes.js";
+import { startHabitReminderPushScheduler } from "./push/reminderPushJob.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8787);
@@ -82,16 +84,38 @@ app.use("/api/adventure", requireAuth, createAdventureRouter({ onChange: notifyS
 app.use("/api/data", requireAuth, createDataRouter({ onChange: notifySyncChange }));
 app.use("/api/wallet", requireAuth, createWalletRouter({ onChange: notifySyncChange }));
 app.use("/api/settings", requireAuth, createSettingsRouter({ onChange: notifySyncChange }));
+app.use("/api/push", requireAuth, createPushRouter());
 
 async function start(): Promise<void> {
   if (process.env.DATABASE_URL) {
-    await runSchema();
-    console.log("数据库表已就绪");
+    try {
+      await runSchema();
+      console.log("数据库表已就绪");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error("启动失败：无法连接数据库");
+      console.error(`  DATABASE_URL host 解析结果应可访问（当前: ${maskDatabaseUrl(process.env.DATABASE_URL)}）`);
+      console.error("  常见原因：Postgres 未启动、端口未映射到宿主机、端口不是 5432");
+      console.error("  本机 Docker 可先执行：");
+      console.error("    cd server && docker compose -f docker-compose.local.yml --env-file .env up -d db");
+      console.error("  然后检查：");
+      console.error("    docker compose -f docker-compose.local.yml ps");
+      console.error("    lsof -nP -iTCP:5432 -sTCP:LISTEN");
+      console.error("原始错误:", message);
+      process.exit(1);
+    }
+  } else {
+    console.warn("DATABASE_URL 未设置，账号与同步相关接口将不可用。");
   }
   const server = app.listen(port, () => {
     console.log(`Habit server listening on http://localhost:${port}`);
   });
   attachSyncWebSocketServer(server);
+  startHabitReminderPushScheduler();
+}
+
+function maskDatabaseUrl(url: string): string {
+  return url.replace(/:\/\/([^:]+):([^@]+)@/, "://$1:***@");
 }
 
 start().catch((error) => {

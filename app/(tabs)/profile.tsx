@@ -10,12 +10,16 @@ import { shouldRunOnDate } from "../../src/habits/habitRules";
 import { eachDateKey, todayKey } from "../../src/utils/date";
 import { selectCurrentIsland, type CurrentIsland } from "../../src/adventure/currentIsland";
 import { buildExportJson } from "../../src/export/exportData";
+import { hasCompletedAndroidReminderGuide } from "../../src/reminders/androidReminderGuide";
+import { registerDevicePushToken, requestServerPushTest } from "../../src/reminders/pushTokenService";
 import {
   getReminderPermissionStatus,
   refreshScheduledReminders,
   ReminderPermissionStatus,
-  requestReminderPermission
+  requestReminderPermission,
+  scheduleTestSystemReminder
 } from "../../src/reminders/reminderService";
+import { AndroidReminderGuideModal } from "../../src/ui/AndroidReminderGuideModal";
 import { AppSettings, getAppSettings, saveAppSettings } from "../../src/settings/settingsRepository";
 import { getCurrentAccount } from "../../src/sync/authService";
 import type { Account } from "../../src/sync/authService";
@@ -52,6 +56,8 @@ export default function ProfileScreen() {
     aiModel: ""
   });
   const [permission, setPermission] = useState<ReminderPermissionStatus>("undetermined");
+  const [testReminderMessage, setTestReminderMessage] = useState<string | null>(null);
+  const [androidGuideVisible, setAndroidGuideVisible] = useState(false);
   const [xpBalance, setXpBalance] = useState(0);
   const [lifetimeEarned, setLifetimeEarned] = useState(0);
   const [account, setAccount] = useState<Account | null>(null);
@@ -148,9 +154,43 @@ export default function ProfileScreen() {
       setPermission(granted ? "granted" : (await getReminderPermissionStatus()));
       if (granted) {
         await refreshScheduledReminders();
+        if (Platform.OS === "android") {
+          setAndroidGuideVisible(true);
+        }
       }
     } catch {
       setPermission(await getReminderPermissionStatus().catch((): ReminderPermissionStatus => "undetermined"));
+    }
+  }
+
+  async function runTestReminder() {
+    setTestReminderMessage(null);
+    try {
+      const id = await scheduleTestSystemReminder(8);
+      if (!id) {
+        setTestReminderMessage("无法调度测试通知，请先开启通知权限。");
+        return;
+      }
+      setTestReminderMessage("已安排 8 秒后测试。请立刻按 Home 退到桌面等待横幅。");
+    } catch (error) {
+      setTestReminderMessage(error instanceof Error ? error.message : "测试通知失败");
+    }
+  }
+
+  async function runServerPushTest() {
+    setTestReminderMessage(null);
+    try {
+      await registerDevicePushToken();
+      const result = await requestServerPushTest();
+      if (!result.ok) {
+        setTestReminderMessage(result.error ?? "服务端推送失败");
+        return;
+      }
+      setTestReminderMessage(
+        `服务端 FCM 已发送（成功 ${result.successCount ?? 0} / 失败 ${result.failureCount ?? 0}）。请退到桌面查看。`
+      );
+    } catch (error) {
+      setTestReminderMessage(error instanceof Error ? error.message : "服务端推送失败");
     }
   }
 
@@ -266,7 +306,19 @@ export default function ProfileScreen() {
               icon="notifications-outline"
               iconBg={colors.candySkySurface}
               iconColor={colors.candySkyInk}
-              onPress={() => setSettingsPanel(settingsPanel === "reminders" ? null : "reminders")}
+              onPress={() => {
+                const next = settingsPanel === "reminders" ? null : "reminders";
+                setSettingsPanel(next);
+                if (next === "reminders" && Platform.OS === "android") {
+                  void hasCompletedAndroidReminderGuide()
+                    .then((done) => {
+                      if (!done) {
+                        setAndroidGuideVisible(true);
+                      }
+                    })
+                    .catch(() => undefined);
+                }
+              }}
             >
               <AppText variant="bodyStrong" style={{ fontSize: 15 }}>
                 提醒与免打扰
@@ -415,6 +467,25 @@ export default function ProfileScreen() {
                 </View>
                 </AnimatedReveal>
               ) : null}
+              {Platform.OS !== "web" ? (
+                <>
+                  <Divider />
+                  <HelperText>
+                    服务端推送不依赖本地闹钟；点「测试服务端推送」后请退到桌面查看系统通知。
+                  </HelperText>
+                  <AppButton title="测试服务端推送 (FCM)" onPress={() => void runServerPushTest()} />
+                  <AppButton title="8 秒后测试本地通知" variant="secondary" onPress={() => void runTestReminder()} />
+                  {Platform.OS === "android" ? (
+                    <>
+                      <HelperText>
+                        安卓后台还须关闭智能优化并打开横幅。可走下方完整引导。
+                      </HelperText>
+                      <AppButton title="设置后台提醒保护" variant="secondary" onPress={() => setAndroidGuideVisible(true)} />
+                    </>
+                  ) : null}
+                  {testReminderMessage ? <HelperText>{testReminderMessage}</HelperText> : null}
+                </>
+              ) : null}
             </SectionCard>
             </AnimatedReveal>
           ) : null}
@@ -524,6 +595,12 @@ export default function ProfileScreen() {
           <AppButton title="登录 / 注册" icon="log-in-outline" onPress={() => router.push("/account")} />
         </View>
       )}
-    </Screen>
+    
+      <AndroidReminderGuideModal
+        visible={androidGuideVisible}
+        onClose={() => setAndroidGuideVisible(false)}
+        onPermissionChanged={(granted) => setPermission(granted ? "granted" : "denied")}
+      />
+</Screen>
   );
 }

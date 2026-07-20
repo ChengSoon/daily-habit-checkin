@@ -222,6 +222,31 @@ ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS fulfillment_status TEXT NO
 ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS fulfilled_at TIMESTAMPTZ;
 ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
 ALTER TABLE adventure_claims ADD COLUMN IF NOT EXISTS note TEXT;
+
+-- FCM 设备推送令牌（按账号登记，按空间推习惯提醒）
+CREATE TABLE IF NOT EXISTS device_push_tokens (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  token TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(account_id, token)
+);
+CREATE INDEX IF NOT EXISTS idx_device_push_tokens_space ON device_push_tokens(space_id);
+CREATE INDEX IF NOT EXISTS idx_device_push_tokens_account ON device_push_tokens(account_id);
+
+-- 防同一习惯同一天重复推送
+CREATE TABLE IF NOT EXISTS push_send_log (
+  id TEXT PRIMARY KEY,
+  account_id TEXT NOT NULL,
+  habit_id TEXT NOT NULL,
+  date_key TEXT NOT NULL,
+  kind TEXT NOT NULL,
+  sent_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(account_id, habit_id, date_key, kind)
+);
+CREATE INDEX IF NOT EXISTS idx_push_send_log_date ON push_send_log(date_key);
 `;
 
 export async function runSchema(): Promise<void> {

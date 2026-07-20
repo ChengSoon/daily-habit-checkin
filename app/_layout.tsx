@@ -5,11 +5,12 @@ import * as SplashScreen from "expo-splash-screen";
 import { useCallback, useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
-import { Platform, StyleSheet, View } from "react-native";
+import { AppState, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { initializeDatabase } from "../src/db/database";
 import { configureNotificationHandler, refreshScheduledReminders } from "../src/reminders/reminderService";
+import { registerDevicePushToken } from "../src/reminders/pushTokenService";
 import { GlobalPet, PetProvider } from "../src/pet";
 import { AppSplash } from "../src/ui/AppSplash";
 import { ThemeProvider, useTheme } from "../src/ui/ThemeContext";
@@ -96,10 +97,25 @@ export default function RootLayout() {
   useEffect(() => {
     configureNotificationHandler();
     void initializeDatabase()
-      .then(() => refreshScheduledReminders())
+      .then(async () => {
+        await refreshScheduledReminders();
+        // 登录态下上报 FCM token；未登录时接口 401，忽略
+        await registerDevicePushToken();
+      })
       .catch((error) => {
         console.warn("Failed to initialize app reminders", error);
       });
+
+    // 回前台时重排本地提醒 + 刷新推送令牌
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "active") {
+        void refreshScheduledReminders().catch((error) => {
+          console.warn("Failed to refresh reminders on foreground", error);
+        });
+        void registerDevicePushToken();
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {

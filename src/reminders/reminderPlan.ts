@@ -2,7 +2,7 @@ import { shouldRunOnDate } from "../habits/habitRules";
 import { Habit } from "../habits/types";
 import { addDays, toDateKey } from "../utils/date";
 
-export const REMINDER_CHANNEL_ID = "habit-reminders-v2";
+export const REMINDER_CHANNEL_ID = "habit-reminders-v4";
 export const REMINDER_HORIZON_DAYS = 7;
 
 const REMINDER_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
