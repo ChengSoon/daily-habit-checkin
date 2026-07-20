@@ -11,7 +11,6 @@ import { eachDateKey, todayKey } from "../../src/utils/date";
 import { selectCurrentIsland, type CurrentIsland } from "../../src/adventure/currentIsland";
 import { buildExportJson } from "../../src/export/exportData";
 import { hasCompletedAndroidReminderGuide } from "../../src/reminders/androidReminderGuide";
-import { registerDevicePushToken, requestServerPushTest } from "../../src/reminders/pushTokenService";
 import {
   getReminderPermissionStatus,
   refreshScheduledReminders,
@@ -174,23 +173,6 @@ export default function ProfileScreen() {
       setTestReminderMessage("已安排 8 秒后测试。请立刻按 Home 退到桌面等待横幅。");
     } catch (error) {
       setTestReminderMessage(error instanceof Error ? error.message : "测试通知失败");
-    }
-  }
-
-  async function runServerPushTest() {
-    setTestReminderMessage(null);
-    try {
-      await registerDevicePushToken();
-      const result = await requestServerPushTest();
-      if (!result.ok) {
-        setTestReminderMessage(result.error ?? "服务端推送失败");
-        return;
-      }
-      setTestReminderMessage(
-        `服务端个推已发送（成功 ${result.successCount ?? 0} / 失败 ${result.failureCount ?? 0}）。请退到桌面查看。`
-      );
-    } catch (error) {
-      setTestReminderMessage(error instanceof Error ? error.message : "服务端推送失败");
     }
   }
 
@@ -470,10 +452,6 @@ export default function ProfileScreen() {
               {Platform.OS !== "web" ? (
                 <>
                   <Divider />
-                  <HelperText>
-                    服务端推送不依赖本地闹钟；点「测试服务端推送」后请退到桌面查看系统通知。
-                  </HelperText>
-                  <AppButton title="测试服务端推送 (个推)" onPress={() => void runServerPushTest()} />
                   <AppButton title="8 秒后测试本地通知" variant="secondary" onPress={() => void runTestReminder()} />
                   {Platform.OS === "android" ? (
                     <>

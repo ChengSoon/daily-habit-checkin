@@ -76,7 +76,6 @@ module.exports = ({ config }) => {
   const fileEnv = loadEnvFiles(appEnv);
   const apiBaseUrl = appConfigValue(fileEnv, "API_BASE_URL");
   const r2PublicBase = appConfigValue(fileEnv, "R2_PUBLIC_BASE");
-  const getuiAppId = appConfigValue(fileEnv, "GETUI_APPID");
 
   return {
     ...config,
@@ -85,8 +84,7 @@ module.exports = ({ config }) => {
       ...base.expo.extra,
       appEnv,
       apiBaseUrl,
-      r2PublicBase,
-      getuiAppId
+      r2PublicBase
     }
   };
 };

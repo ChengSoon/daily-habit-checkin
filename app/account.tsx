@@ -27,7 +27,6 @@ import { Screen } from "../src/ui/Screen";
 import { sceneTint } from "../src/ui/theme";
 import { useTheme } from "../src/ui/ThemeContext";
 import { refreshScheduledReminders } from "../src/reminders/reminderService";
-import { registerDevicePushToken } from "../src/reminders/pushTokenService";
 
 type Mode = "login" | "register";
 type AccountLoadState = "checking" | "ready";
@@ -98,7 +97,6 @@ export default function AccountScreen() {
       reloadTheme();
       // 登录后才能拉到习惯列表，这里补一次本地通知调度
       void refreshScheduledReminders().catch(() => undefined);
-      void registerDevicePushToken();
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : "操作失败");
     } finally {

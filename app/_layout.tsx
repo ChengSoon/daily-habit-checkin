@@ -1,7 +1,6 @@
 import { Nunito_500Medium, Nunito_600SemiBold, Nunito_700Bold, Nunito_800ExtraBold } from "@expo-google-fonts/nunito";
 import { Outfit_600SemiBold, Outfit_700Bold, Outfit_800ExtraBold, useFonts } from "@expo-google-fonts/outfit";
 import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
 import { useCallback, useEffect, useState } from "react";
 import { StatusBar } from "expo-status-bar";
 import * as SystemUI from "expo-system-ui";
@@ -10,13 +9,9 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { initializeDatabase } from "../src/db/database";
 import { configureNotificationHandler, refreshScheduledReminders } from "../src/reminders/reminderService";
-import { registerDevicePushToken } from "../src/reminders/pushTokenService";
 import { GlobalPet, PetProvider } from "../src/pet";
 import { AppSplash } from "../src/ui/AppSplash";
 import { ThemeProvider, useTheme } from "../src/ui/ThemeContext";
-
-// 字体就绪前保持原生 splash，避免白屏；就绪后直接进入主界面。
-void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 function ThemedStack() {
   const { colors, scheme } = useTheme();
@@ -82,7 +77,7 @@ function ThemedStack() {
 
 export default function RootLayout() {
   // 加载 board 同款字体：Outfit（标题/数字）+ Nunito（正文）。系统字体气质与设计稿差距大。
-  const [fontsLoaded, fontError] = useFonts({
+  useFonts({
     Outfit_600SemiBold,
     Outfit_700Bold,
     Outfit_800ExtraBold,
@@ -91,7 +86,6 @@ export default function RootLayout() {
     Nunito_700Bold,
     Nunito_800ExtraBold
   });
-  const fontsReady = fontsLoaded || Boolean(fontError);
   const [splashVisible, setSplashVisible] = useState(true);
 
   useEffect(() => {
@@ -99,41 +93,25 @@ export default function RootLayout() {
     void initializeDatabase()
       .then(async () => {
         await refreshScheduledReminders();
-        // 登录态下上报个推 CID；未登录时接口 401，忽略
-        await registerDevicePushToken();
       })
       .catch((error) => {
         console.warn("Failed to initialize app reminders", error);
       });
 
-    // 回前台时重排本地提醒 + 刷新推送令牌
+    // 回前台时重排本地提醒
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") {
         void refreshScheduledReminders().catch((error) => {
           console.warn("Failed to refresh reminders on foreground", error);
         });
-        void registerDevicePushToken();
       }
     });
     return () => sub.remove();
   }, []);
 
-  useEffect(() => {
-    if (!fontsReady) {
-      return;
-    }
-    // 字体就绪后藏原生 splash，交给满屏品牌开屏接棒。
-    void SplashScreen.hideAsync().catch(() => undefined);
-  }, [fontsReady]);
-
   const handleSplashFinish = useCallback(() => {
     setSplashVisible(false);
   }, []);
-
-  // 字体未就绪先不渲染业务树（保持原生 splash）；加载出错则照常渲染，回退系统字体。
-  if (!fontsReady) {
-    return null;
-  }
 
   return (
     <GestureHandlerRootView style={styles.flex}>

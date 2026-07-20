@@ -15,8 +15,6 @@ import { generateHabitPlan } from "./openaiHabitPlanner.js";
 import { syncChangeHub } from "./sync/changeHub.js";
 import { attachSyncWebSocketServer } from "./sync/syncWebSocketServer.js";
 import { createUploadRouter } from "./uploads/uploadRoutes.js";
-import { createPushRouter } from "./push/pushRoutes.js";
-import { startHabitReminderPushScheduler } from "./push/reminderPushJob.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8787);
@@ -84,7 +82,6 @@ app.use("/api/adventure", requireAuth, createAdventureRouter({ onChange: notifyS
 app.use("/api/data", requireAuth, createDataRouter({ onChange: notifySyncChange }));
 app.use("/api/wallet", requireAuth, createWalletRouter({ onChange: notifySyncChange }));
 app.use("/api/settings", requireAuth, createSettingsRouter({ onChange: notifySyncChange }));
-app.use("/api/push", requireAuth, createPushRouter());
 
 async function start(): Promise<void> {
   if (process.env.DATABASE_URL) {
@@ -111,7 +108,6 @@ async function start(): Promise<void> {
     console.log(`Habit server listening on http://localhost:${port}`);
   });
   attachSyncWebSocketServer(server);
-  startHabitReminderPushScheduler();
 }
 
 function maskDatabaseUrl(url: string): string {

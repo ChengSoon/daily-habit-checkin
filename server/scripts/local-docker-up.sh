@@ -23,7 +23,7 @@ for i in $(seq 1 40); do
     docker compose -f docker-compose.local.yml --env-file .env ps
     echo
     echo "查看日志: docker compose -f docker-compose.local.yml logs -f app"
-    echo "期望日志含: 个推提醒调度已启动 / 数据库表已就绪"
+    echo "期望日志含: 数据库表已就绪"
     exit 0
   fi
   sleep 2
