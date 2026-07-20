@@ -218,12 +218,10 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        animation: "fade",
-        transitionSpec: {
-          animation: "timing",
-          config: {
-            duration: 180
-          }
+        // 关闭内容区转场：fade/shift 在部分机型会停在透明/错位，表现为内容加载不出来
+        animation: "none",
+        sceneStyle: {
+          backgroundColor: colors.background
         },
         tabBarActiveTintColor: colors.primaryInk,
         tabBarInactiveTintColor: colors.faint,

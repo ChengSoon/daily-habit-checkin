@@ -628,7 +628,7 @@ function ModeCrossfade({
   useEffect(() => {
     opacity.setValue(0);
     translateY.setValue(8);
-    Animated.parallel([
+    const animation = Animated.parallel([
       Animated.timing(opacity, {
         toValue: 1,
         duration: 260,
@@ -641,7 +641,19 @@ function ModeCrossfade({
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true
       })
-    ]).start();
+    ]);
+    animation.start();
+    // 兜底：避免切换登录/注册时动画被打断导致表单一直透明
+    const failsafe = setTimeout(() => {
+      opacity.setValue(1);
+      translateY.setValue(0);
+    }, 400);
+    return () => {
+      animation.stop();
+      clearTimeout(failsafe);
+      opacity.setValue(1);
+      translateY.setValue(0);
+    };
   }, [mode, opacity, translateY]);
 
   return <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>{children}</Animated.View>;

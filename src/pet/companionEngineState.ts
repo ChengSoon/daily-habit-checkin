@@ -31,13 +31,23 @@ type Action =
   | { type: "chat_succeeded"; requestId: string; message: CompanionMessage }
   | { type: "chat_failed"; requestId: string; message: CompanionMessage };
 
+function compareMessages(left: CompanionMessage, right: CompanionMessage): number {
+  const byTime = left.createdAt.localeCompare(right.createdAt);
+  if (byTime !== 0) return byTime;
+  // 时间戳相同时保持「先用户、后助手」，避免回复结束后用户气泡掉到下面
+  if (left.role !== right.role) {
+    return left.role === "user" ? -1 : 1;
+  }
+  return left.id.localeCompare(right.id);
+}
+
 function mergeMessages(
   current: CompanionMessage[],
   incoming: CompanionMessage[]
 ): CompanionMessage[] {
   const byId = new Map(current.map((message) => [message.id, message]));
   for (const message of incoming) byId.set(message.id, message);
-  return [...byId.values()].sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  return [...byId.values()].sort(compareMessages);
 }
 
 export function canStartChat(state: CompanionEngineState): boolean {

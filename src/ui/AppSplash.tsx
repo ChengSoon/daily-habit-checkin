@@ -1,127 +1,160 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
-import { Animated, Easing, StyleSheet, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Animated, Dimensions, Easing, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Rect, Stop } from "react-native-svg";
+import { AppSplashBackdrop } from "./AppSplashBackdrop";
 import { AppText } from "./Controls";
 import { useTheme } from "./ThemeContext";
 import { useReducedMotion } from "./useReducedMotion";
+import { appSplashStyles as styles } from "./appSplashStyles";
 
-const INTRO_MS = 1400;
-const EXIT_MS = 320;
+const INTRO_MS = 2100;
+const EXIT_MS = 380;
+const STATUS_LINES = ["正在唤醒小岛…", "同步你们的节奏…", "点亮今日角落…"] as const;
 
-/**
- * 品牌开屏：珊瑚印章 + 双人轨道 + 标题渐入。
- * 由 RootLayout 在字体就绪后短暂展示，再淡出进入主界面。
- */
-export function AppSplash({
-  visible,
-  onFinish
-}: {
+type AppSplashProps = {
   visible: boolean;
   onFinish: () => void;
-}) {
-  const { colors } = useTheme();
+};
+
+/**
+ * 满屏品牌开屏：沉浸式岛景 + 双人轨迹 + 底部进度。
+ * 字体就绪后由 RootLayout 展示，结束后淡出进入主界面。
+ */
+export function AppSplash({ visible, onFinish }: AppSplashProps) {
+  const { colors, scheme } = useTheme();
   const insets = useSafeAreaInsets();
   const reducedMotion = useReducedMotion();
-  const [loop] = useState(() => new Animated.Value(0));
-  const [pulse] = useState(() => new Animated.Value(0));
+  const finishedRef = useRef(false);
+  const [statusIndex, setStatusIndex] = useState(0);
+
   const [enter] = useState(() => new Animated.Value(0));
   const [exit] = useState(() => new Animated.Value(1));
+  const [progress] = useState(() => new Animated.Value(0));
+  const [wave] = useState(() => new Animated.Value(0));
+  const [floatA] = useState(() => new Animated.Value(0));
+  const [floatB] = useState(() => new Animated.Value(0));
+  const [orbit] = useState(() => new Animated.Value(0));
+
+  const { width, height } = Dimensions.get("window");
 
   useEffect(() => {
     if (!visible) {
       return;
     }
-
+    finishedRef.current = false;
     enter.setValue(0);
     exit.setValue(1);
+    progress.setValue(0);
 
-    const enterAnim = Animated.timing(enter, {
+    const enterMs = reducedMotion ? 1 : 520;
+    const holdMs = reducedMotion ? 220 : INTRO_MS;
+
+    Animated.timing(enter, {
       toValue: 1,
-      duration: reducedMotion ? 1 : 420,
+      duration: enterMs,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true
-    });
+    }).start();
 
-    let finished = false;
+    Animated.timing(progress, {
+      toValue: 1,
+      duration: holdMs,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false
+    }).start();
+
     const finishTimer = setTimeout(() => {
       Animated.timing(exit, {
         toValue: 0,
         duration: reducedMotion ? 1 : EXIT_MS,
-        easing: Easing.in(Easing.quad),
+        easing: Easing.in(Easing.cubic),
         useNativeDriver: true
-      }).start(({ finished: ok }) => {
-        if (ok && !finished) {
-          finished = true;
+      }).start(({ finished }) => {
+        if (finished && !finishedRef.current) {
+          finishedRef.current = true;
           onFinish();
         }
       });
-    }, reducedMotion ? 180 : INTRO_MS);
+    }, holdMs);
 
-    enterAnim.start();
+    const failsafe = setTimeout(() => {
+      if (!finishedRef.current) {
+        finishedRef.current = true;
+        onFinish();
+      }
+    }, holdMs + EXIT_MS + 240);
 
     return () => {
       clearTimeout(finishTimer);
+      clearTimeout(failsafe);
       enter.stopAnimation();
       exit.stopAnimation();
+      progress.stopAnimation();
     };
-  }, [enter, exit, onFinish, reducedMotion, visible]);
+  }, [enter, exit, onFinish, progress, reducedMotion, visible]);
 
   useEffect(() => {
     if (!visible || reducedMotion) {
       return;
     }
 
-    const orbit = Animated.loop(
-      Animated.timing(loop, {
+    const waveLoop = Animated.loop(
+      Animated.timing(wave, {
         toValue: 1,
-        duration: 2800,
+        duration: 4200,
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true
+      })
+    );
+    const floatLoopA = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatA, { toValue: 1, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(floatA, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true })
+      ])
+    );
+    const floatLoopB = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatB, { toValue: 1, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(floatB, { toValue: 0, duration: 2200, easing: Easing.inOut(Easing.sin), useNativeDriver: true })
+      ])
+    );
+    const orbitLoop = Animated.loop(
+      Animated.timing(orbit, {
+        toValue: 1,
+        duration: 9000,
         easing: Easing.linear,
         useNativeDriver: true
       })
     );
-    const heartbeat = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 760,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true
-        }),
-        Animated.timing(pulse, {
-          toValue: 0,
-          duration: 920,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true
-        })
-      ])
-    );
 
-    orbit.start();
-    heartbeat.start();
+    waveLoop.start();
+    floatLoopA.start();
+    floatLoopB.start();
+    orbitLoop.start();
+
+    const statusTimer = setInterval(() => {
+      setStatusIndex((prev) => (prev + 1) % STATUS_LINES.length);
+    }, 700);
+
     return () => {
-      orbit.stop();
-      heartbeat.stop();
+      waveLoop.stop();
+      floatLoopA.stop();
+      floatLoopB.stop();
+      orbitLoop.stop();
+      clearInterval(statusTimer);
     };
-  }, [loop, pulse, reducedMotion, visible]);
+  }, [floatA, floatB, orbit, reducedMotion, visible, wave]);
 
-  const firstOrbit = loop.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
-  const secondOrbit = loop.interpolate({ inputRange: [0, 1], outputRange: ["180deg", "540deg"] });
-  const stampScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.07] });
-  const glowScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.18] });
-  const glowOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.22, 0.42] });
-  const titleY = enter.interpolate({ inputRange: [0, 1], outputRange: [14, 0] });
-  const markY = enter.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
-
-  const gradientStops = useMemo(
-    () => [
-      { offset: "0%", color: colors.surfaceTint },
-      { offset: "48%", color: colors.partnerSurface },
-      { offset: "100%", color: colors.background }
-    ],
-    [colors.background, colors.partnerSurface, colors.surfaceTint]
-  );
+  const titleY = enter.interpolate({ inputRange: [0, 1], outputRange: [22, 0] });
+  const heroY = enter.interpolate({ inputRange: [0, 1], outputRange: [36, 0] });
+  const footerY = enter.interpolate({ inputRange: [0, 1], outputRange: [18, 0] });
+  const waveShift = wave.interpolate({ inputRange: [0, 1], outputRange: [0, -18] });
+  const floatShiftA = floatA.interpolate({ inputRange: [0, 1], outputRange: [0, -10] });
+  const floatShiftB = floatB.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
+  const orbitRotate = orbit.interpolate({ inputRange: [0, 1], outputRange: ["0deg", "360deg"] });
+  const progressWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ["8%", "100%"] });
+  const cardBg = scheme === "dark" ? colors.surface : "rgba(255,255,255,0.78)";
 
   if (!visible) {
     return null;
@@ -130,74 +163,86 @@ export function AppSplash({
   return (
     <Animated.View
       pointerEvents="auto"
-      style={[styles.root, { opacity: exit, paddingTop: insets.top, paddingBottom: insets.bottom }]}
+      accessibilityRole="progressbar"
+      accessibilityLabel="正在启动每日打卡"
+      style={[styles.root, { opacity: exit, backgroundColor: colors.background }]}
     >
-      <Svg pointerEvents="none" style={StyleSheet.absoluteFill} preserveAspectRatio="none" viewBox="0 0 390 844">
-        <Defs>
-          <SvgLinearGradient id="splash-bg" x1="0" y1="0" x2="0" y2="1">
-            {gradientStops.map((stop) => (
-              <Stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
-            ))}
-          </SvgLinearGradient>
-        </Defs>
-        <Rect x="0" y="0" width="390" height="844" fill="url(#splash-bg)" />
-      </Svg>
+      <AppSplashBackdrop width={width} height={height} colors={colors} scheme={scheme} />
 
-      <View style={styles.center}>
-        <Animated.View
-          style={[
-            styles.markWrap,
-            {
-              opacity: enter,
-              transform: [{ translateY: markY }, { scale: stampScale }]
-            }
-          ]}
-        >
-          <View style={styles.orbitStage}>
-            <Animated.View
-              style={[
-                styles.glow,
-                {
-                  backgroundColor: colors.primary,
-                  opacity: glowOpacity,
-                  transform: [{ scale: glowScale }]
-                }
-              ]}
-            />
-            <View style={[styles.stampPlate, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
-              <Ionicons name="leaf" size={40} color={colors.onPrimary} />
-            </View>
-            <View style={[styles.stampBadge, { backgroundColor: colors.celebration, borderColor: colors.surface }]}>
-              <Ionicons name="checkmark" size={15} color="#FFFFFF" />
-            </View>
-            <Animated.View style={[styles.orbit, { transform: [{ rotate: firstOrbit }] }]}>
-              <View style={[styles.planet, { backgroundColor: colors.primary }]} />
-            </Animated.View>
-            <Animated.View style={[styles.orbit, { transform: [{ rotate: secondOrbit }] }]}>
-              <View style={[styles.planet, styles.partnerPlanet, { backgroundColor: colors.partner }]} />
-            </Animated.View>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.orbitLayer,
+          {
+            top: height * 0.18,
+            opacity: enter,
+            transform: [{ translateY: heroY }, { rotate: orbitRotate }]
+          }
+        ]}
+      >
+        <View style={[styles.orbitRing, { borderColor: `${colors.primary}33` }]} />
+        <View style={[styles.orbitRingInner, { borderColor: `${colors.partner}40` }]} />
+        <View style={[styles.personDot, styles.personYou, { backgroundColor: colors.primary }]} />
+        <View style={[styles.personDot, styles.personPartner, { backgroundColor: colors.partner }]} />
+      </Animated.View>
+
+      <View style={[styles.content, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 22 }]}>
+        <Animated.View style={{ opacity: enter, transform: [{ translateY: titleY }] }}>
+          <View style={[styles.eyebrow, { backgroundColor: cardBg }]}>
+            <View style={[styles.eyebrowDot, { backgroundColor: colors.primary }]} />
+            <AppText variant="caption" tone="soft">
+              FOR TWO · DAILY RITUAL
+            </AppText>
           </View>
         </Animated.View>
 
-        <Animated.View
-          style={{
-            opacity: enter,
-            transform: [{ translateY: titleY }],
-            alignItems: "center",
-            gap: 8
-          }}
-        >
-          <AppText variant="display" style={{ textAlign: "center" }}>
-            每日打卡
-          </AppText>
-          <AppText variant="body" tone="soft" style={{ textAlign: "center" }}>
-            一起浇灌你们的小岛
-          </AppText>
-          <View style={[styles.pill, { backgroundColor: colors.surface, borderColor: colors.line }]}>
-            <View style={[styles.dot, { backgroundColor: colors.primary }]} />
-            <AppText variant="small" tone="soft">
-              正在唤醒小岛…
-            </AppText>
+        <View style={styles.heroBlock}>
+          <Animated.View
+            style={[
+              styles.emblemWrap,
+              { opacity: enter, transform: [{ translateY: Animated.add(heroY, floatShiftA) }] }
+            ]}
+          >
+            <View style={[styles.emblemPlate, { backgroundColor: colors.surface, borderColor: colors.line }]}>
+              <View style={[styles.emblemCore, { backgroundColor: colors.primary, shadowColor: colors.primary }]}>
+                <Ionicons name="leaf" size={34} color={colors.onPrimary} />
+              </View>
+              <View style={[styles.emblemChip, { backgroundColor: colors.partnerSurface, borderColor: colors.surface }]}>
+                <Ionicons name="heart" size={13} color={colors.partnerInk} />
+              </View>
+            </View>
+            <Animated.View style={{ transform: [{ translateY: floatShiftB }] }}>
+              <AppText variant="display" style={styles.title}>
+                每日打卡
+              </AppText>
+              <AppText variant="body" tone="soft" style={styles.subtitle}>
+                两个人，一座慢慢长大的小岛
+              </AppText>
+            </Animated.View>
+          </Animated.View>
+        </View>
+
+        <Animated.View style={[styles.footer, { opacity: enter, transform: [{ translateY: footerY }, { translateX: waveShift }] }]}>
+          <View style={[styles.statusCard, { backgroundColor: cardBg, borderColor: colors.line }]}>
+            <View style={styles.statusRow}>
+              <View style={[styles.statusAvatar, { backgroundColor: colors.primary }]}>
+                <AppText variant="caption" style={{ color: colors.onPrimary, fontWeight: "800" }}>
+                  你
+                </AppText>
+              </View>
+              <View style={[styles.statusBridge, { backgroundColor: colors.lineStrong }]} />
+              <View style={[styles.statusAvatar, { backgroundColor: colors.partner }]}>
+                <AppText variant="caption" style={{ color: colors.onPartner, fontWeight: "800" }}>
+                  TA
+                </AppText>
+              </View>
+              <AppText variant="small" tone="soft" style={{ flex: 1 }}>
+                {STATUS_LINES[statusIndex]}
+              </AppText>
+            </View>
+            <View style={[styles.track, { backgroundColor: colors.line }]}>
+              <Animated.View style={[styles.trackFill, { width: progressWidth, backgroundColor: colors.primary }]} />
+            </View>
           </View>
         </Animated.View>
       </View>
@@ -205,92 +250,3 @@ export function AppSplash({
   );
 }
 
-const styles = StyleSheet.create({
-  root: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 100,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  center: {
-    alignItems: "center",
-    gap: 28,
-    paddingHorizontal: 28
-  },
-  markWrap: {
-    width: 188,
-    height: 188,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  orbitStage: {
-    width: 168,
-    height: 168,
-    alignItems: "center",
-    justifyContent: "center"
-  },
-  glow: {
-    position: "absolute",
-    width: 132,
-    height: 132,
-    borderRadius: 66
-  },
-  stampPlate: {
-    width: 88,
-    height: 88,
-    borderRadius: 28,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6
-  },
-  stampBadge: {
-    position: "absolute",
-    right: 34,
-    bottom: 34,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 3
-  },
-  orbit: {
-    position: "absolute",
-    width: 148,
-    height: 148,
-    borderRadius: 74
-  },
-  planet: {
-    position: "absolute",
-    top: 6,
-    left: 66,
-    width: 16,
-    height: 16,
-    borderRadius: 8
-  },
-  partnerPlanet: {
-    width: 13,
-    height: 13,
-    borderRadius: 7,
-    top: 8,
-    left: 67
-  },
-  pill: {
-    marginTop: 6,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1
-  },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4
-  }
-});

@@ -130,6 +130,23 @@ describe("companionEngineReducer", () => {
     expect(finished.busy).toBe(false);
     expect(failed.messages[1].content).not.toMatch(/HTTP|API|error/i);
   });
+
+  it("keeps user message above assistant when createdAt is identical", () => {
+    const sameTime = "2026-07-19T12:00:00.000Z";
+    const loaded = companionEngineReducer(
+      { ...initialCompanionEngineState, spaceId: "space-1" },
+      {
+        type: "load_succeeded",
+        spaceId: "space-1",
+        messages: [
+          { ...message("assistant-1", "assistant"), createdAt: sameTime },
+          { ...message("user-1"), createdAt: sameTime }
+        ]
+      }
+    );
+
+    expect(loaded.messages.map((item) => item.id)).toEqual(["user-1", "assistant-1"]);
+  });
 });
 
 describe("shouldReloadCompanion", () => {

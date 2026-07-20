@@ -130,8 +130,13 @@ describe("companion repository", () => {
     expect(transactionCount).toBe(1);
     expect(queries).toHaveLength(2);
     expect(queries.every((query) => query.values[1] === "space-1")).toBe(true);
+    expect(queries[0].values[5]).toEqual(expect.any(String));
     expect(queries[1].values[4]).toBe(
       JSON.stringify({ category: "shared_moment", content: "今天选择先休息" })
+    );
+    expect(queries[1].values[5]).toEqual(expect.any(String));
+    expect(Date.parse(String(queries[1].values[5]))).toBeGreaterThan(
+      Date.parse(String(queries[0].values[5]))
     );
   });
 

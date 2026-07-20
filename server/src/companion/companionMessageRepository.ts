@@ -76,7 +76,10 @@ export function createCompanionMessageRepository(input: {
       const result = await input.db.query<MessageRow>(
         `${MESSAGE_SELECT}
          WHERE m.space_id = $1 AND m.expires_at > now()
-         ORDER BY m.created_at DESC LIMIT $2`,
+         ORDER BY m.created_at DESC,
+           CASE m.role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END,
+           m.id DESC
+         LIMIT $2`,
         [spaceId, limit]
       );
       return result.rows.reverse().map(mapMessage);
@@ -87,7 +90,10 @@ export function createCompanionMessageRepository(input: {
         `${MESSAGE_SELECT}
          WHERE m.space_id = $1 AND m.expires_at > now()
            AND ($2::timestamptz IS NULL OR m.created_at < $2)
-         ORDER BY m.created_at DESC LIMIT $3`,
+         ORDER BY m.created_at DESC,
+           CASE m.role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END,
+           m.id DESC
+         LIMIT $3`,
         [spaceId, cursor, limit + 1]
       );
       const rows = page.rows.slice(0, limit);
@@ -109,23 +115,35 @@ export function createCompanionMessageRepository(input: {
         memoryProposal: MemoryProposal | null;
       }
     ): Promise<void> {
+      // 同一事务里默认 now() 常得到相同时间戳；排序时会把用户消息排到助手后面。
+      // 显式错开 1ms，保证「先用户、后助手」。
+      const userCreatedAt = new Date();
+      const assistantCreatedAt = new Date(userCreatedAt.getTime() + 1);
       await input.transact(async (client) => {
         await client.query(
           `INSERT INTO companion_messages
-             (id, space_id, sender_account_id, role, content, risk_level)
-           VALUES ($1, $2, $3, 'user', $4, $5)`,
-          [exchange.userMessageId, spaceId, accountId, exchange.userText, exchange.riskLevel]
+             (id, space_id, sender_account_id, role, content, risk_level, created_at)
+           VALUES ($1, $2, $3, 'user', $4, $5, $6)`,
+          [
+            exchange.userMessageId,
+            spaceId,
+            accountId,
+            exchange.userText,
+            exchange.riskLevel,
+            userCreatedAt.toISOString()
+          ]
         );
         await client.query(
           `INSERT INTO companion_messages
-             (id, space_id, sender_account_id, role, content, risk_level, memory_proposal_json)
-           VALUES ($1, $2, NULL, 'assistant', $3, $4, $5::jsonb)`,
+             (id, space_id, sender_account_id, role, content, risk_level, memory_proposal_json, created_at)
+           VALUES ($1, $2, NULL, 'assistant', $3, $4, $5::jsonb, $6)`,
           [
             exchange.assistantMessageId,
             spaceId,
             exchange.assistantText,
             exchange.riskLevel,
-            exchange.memoryProposal ? JSON.stringify(exchange.memoryProposal) : null
+            exchange.memoryProposal ? JSON.stringify(exchange.memoryProposal) : null,
+            assistantCreatedAt.toISOString()
           ]
         );
       });

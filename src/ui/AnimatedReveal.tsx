@@ -1,12 +1,5 @@
-import { PropsWithChildren } from "react";
-import { StyleProp, View, ViewStyle } from "react-native";
-import Animated, {
-  FadeIn,
-  FadeInDown,
-  FadeOut,
-  FadeOutUp,
-  LinearTransition
-} from "react-native-reanimated";
+import { PropsWithChildren, useEffect, useRef } from "react";
+import { Animated, Easing, Platform, StyleProp, View, ViewStyle } from "react-native";
 import { useReducedMotion } from "./useReducedMotion";
 
 type RevealVariant = "panel" | "inline" | "fade";
@@ -19,8 +12,10 @@ type AnimatedRevealProps = PropsWithChildren<{
 }>;
 
 /**
- * 功能面板 / 折叠区块的统一显隐动画。
- * 条件渲染包裹：`{open ? <AnimatedReveal>...</AnimatedReveal> : null}`
+ * 功能面板 / 折叠区块的轻量显隐动画。
+ *
+ * 不用 Reanimated entering/exiting：在页面切换、tab 转场时 entering 可能停在 opacity:0，
+ * 导致内容“加载不出来”。这里用 RN Animated，并用超时兜底强制可见。
  */
 export function AnimatedReveal({
   children,
@@ -29,48 +24,62 @@ export function AnimatedReveal({
   delayMs = 0
 }: AnimatedRevealProps) {
   const reducedMotion = useReducedMotion();
+  // web 上 native driver + 条件卸载更容易闪空，直接静态渲染
+  const disableMotion = reducedMotion || Platform.OS === "web";
+  const opacity = useRef(new Animated.Value(disableMotion ? 1 : 0)).current;
+  const translateY = useRef(new Animated.Value(disableMotion ? 0 : variant === "fade" ? 0 : 10)).current;
 
-  if (reducedMotion) {
+  useEffect(() => {
+    if (disableMotion) {
+      opacity.setValue(1);
+      translateY.setValue(0);
+      return;
+    }
+
+    opacity.setValue(0);
+    translateY.setValue(variant === "fade" ? 0 : variant === "inline" ? 6 : 10);
+
+    const duration = variant === "panel" ? 220 : 160;
+    const animation = Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration,
+        delay: delayMs,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration,
+        delay: delayMs,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      })
+    ]);
+
+    animation.start();
+
+    // 兜底：动画被导航打断时仍保证可见
+    const failsafe = setTimeout(() => {
+      opacity.setValue(1);
+      translateY.setValue(0);
+    }, delayMs + duration + 120);
+
+    return () => {
+      animation.stop();
+      clearTimeout(failsafe);
+      opacity.setValue(1);
+      translateY.setValue(0);
+    };
+  }, [delayMs, disableMotion, opacity, translateY, variant]);
+
+  if (disableMotion) {
     return <View style={style}>{children}</View>;
   }
 
-  if (variant === "fade") {
-    return (
-      <Animated.View
-        entering={FadeIn.duration(180).delay(delayMs)}
-        exiting={FadeOut.duration(140)}
-        layout={LinearTransition.duration(200)}
-        style={style}
-      >
-        {children}
-      </Animated.View>
-    );
-  }
-
-  if (variant === "inline") {
-    return (
-      <Animated.View
-        entering={FadeInDown.duration(180).delay(delayMs)}
-        exiting={FadeOutUp.duration(120)}
-        layout={LinearTransition.duration(180)}
-        style={style}
-      >
-        {children}
-      </Animated.View>
-    );
-  }
-
   return (
-    <Animated.View
-      entering={FadeInDown.duration(240).delay(delayMs)}
-      exiting={FadeOutUp.duration(160)}
-      layout={LinearTransition.duration(200)}
-      style={style}
-    >
+    <Animated.View style={[style, { opacity, transform: [{ translateY }] }]}>
       {children}
     </Animated.View>
   );
 }
-
-/** 列表项重排 / 相邻区块高度变化时的布局过渡 */
-export const revealLayoutTransition = LinearTransition.duration(200);
