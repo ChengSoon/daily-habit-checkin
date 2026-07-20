@@ -109,7 +109,7 @@ function getAndroidPackageName(): string {
   return "com.dailyhabitcheckin.app";
 }
 
-async function openAndroidIntent(action: string, extras?: Array<{ key: string; value: string }>): Promise<boolean> {
+async function openAndroidIntent(action: string, extras?: { key: string; value: string }[]): Promise<boolean> {
   try {
     // 动态 require，避免 vitest/node 加载 react-native。
     // eslint-disable-next-line @typescript-eslint/no-require-imports

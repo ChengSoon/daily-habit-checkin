@@ -1,4 +1,4 @@
-import { PropsWithChildren, useEffect, useRef } from "react";
+import { PropsWithChildren, useEffect, useState } from "react";
 import { Animated, Easing, Platform, StyleProp, View, ViewStyle } from "react-native";
 import { useReducedMotion } from "./useReducedMotion";
 
@@ -16,6 +16,8 @@ type AnimatedRevealProps = PropsWithChildren<{
  *
  * 不用 Reanimated entering/exiting：在页面切换、tab 转场时 entering 可能停在 opacity:0，
  * 导致内容“加载不出来”。这里用 RN Animated，并用超时兜底强制可见。
+ *
+ * Animated.Value 用 useState 惰性初始化，避免 useRef().current 在 render 中被 lint 判定为非法访问。
  */
 export function AnimatedReveal({
   children,
@@ -26,8 +28,10 @@ export function AnimatedReveal({
   const reducedMotion = useReducedMotion();
   // web 上 native driver + 条件卸载更容易闪空，直接静态渲染
   const disableMotion = reducedMotion || Platform.OS === "web";
-  const opacity = useRef(new Animated.Value(disableMotion ? 1 : 0)).current;
-  const translateY = useRef(new Animated.Value(disableMotion ? 0 : variant === "fade" ? 0 : 10)).current;
+  const [opacity] = useState(() => new Animated.Value(disableMotion ? 1 : 0));
+  const [translateY] = useState(
+    () => new Animated.Value(disableMotion ? 0 : variant === "fade" ? 0 : 10)
+  );
 
   useEffect(() => {
     if (disableMotion) {
