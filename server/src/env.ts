@@ -8,7 +8,7 @@ import path from "node:path";
  * 会读这些文件（后者覆盖前者）：
  *   1. 仓库根 `.env.dev` / `.env.prod`（App 与 Server 共用）
  *   2. `server/.env.dev` / `server/.env.prod`
- *   3. `server/.env`（本机/Docker 常用：DATABASE_URL、JWT、FCM 等）
+ *   3. `server/.env`（本机/Docker 常用：DATABASE_URL、JWT、个推等）
  *   4. 对应的 `*.local` 覆盖文件
  *
  * 之前只读 `.env.dev`，不读 `server/.env`，会导致你在 server/.env 配了 DATABASE_URL 却提示未设置。

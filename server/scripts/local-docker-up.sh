@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 本机 Docker 启动后端（db + app + FCM 密钥挂载）
+# 本机 Docker 启动后端（db + app）
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -13,11 +13,6 @@ if [[ ! -f .env ]]; then
   exit 1
 fi
 
-if [[ ! -f secrets/firebase-adminsdk.json ]]; then
-  echo "缺少 secrets/firebase-adminsdk.json（FCM 密钥）"
-  exit 1
-fi
-
 echo "==> 构建并启动（docker-compose.local.yml）…"
 docker compose -f docker-compose.local.yml --env-file .env up -d --build
 
@@ -28,7 +23,7 @@ for i in $(seq 1 40); do
     docker compose -f docker-compose.local.yml --env-file .env ps
     echo
     echo "查看日志: docker compose -f docker-compose.local.yml logs -f app"
-    echo "期望日志含: FCM 已初始化 / 数据库表已就绪"
+    echo "期望日志含: 个推提醒调度已启动 / 数据库表已就绪"
     exit 0
   fi
   sleep 2

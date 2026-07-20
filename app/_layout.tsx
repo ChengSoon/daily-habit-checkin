@@ -99,7 +99,7 @@ export default function RootLayout() {
     void initializeDatabase()
       .then(async () => {
         await refreshScheduledReminders();
-        // 登录态下上报 FCM token；未登录时接口 401，忽略
+        // 登录态下上报个推 CID；未登录时接口 401，忽略
         await registerDevicePushToken();
       })
       .catch((error) => {

@@ -1,10 +1,10 @@
 import * as Notifications from "expo-notifications";
 import { apiRequest } from "../sync/apiClient";
+import { getGetuiClientId } from "./getuiClient";
 
 /**
- * 客户端 FCM/APNs device token 上报。
- * 走 getDevicePushTokenAsync（原生 FCM/APNs），供服务端 firebase-admin 直推。
- * 注意：Expo Go 上 Android FCM 受限，需 dev/production 安装包。
+ * Android 客户端个推 CID 上报。
+ * 个推是原生模块，Expo Go 不包含该模块，需使用 dev/production 安装包。
  */
 
 function isWebRuntime(): boolean {
@@ -38,8 +38,8 @@ export async function registerDevicePushToken(): Promise<{ ok: boolean; reason?:
   }
 
   const platform = getPlatform();
-  if (platform === "web") {
-    return { ok: false, reason: "web" };
+  if (platform !== "android") {
+    return { ok: false, reason: "unsupported-platform" };
   }
 
   try {
@@ -53,15 +53,11 @@ export async function registerDevicePushToken(): Promise<{ ok: boolean; reason?:
       return { ok: false, reason: "permission" };
     }
 
-    const deviceToken = await Notifications.getDevicePushTokenAsync();
-    const token = typeof deviceToken.data === "string" ? deviceToken.data : String(deviceToken.data ?? "");
-    if (!token || token.length < 10) {
-      return { ok: false, reason: "empty-token" };
-    }
+    const token = await getGetuiClientId();
 
     await apiRequest<{ ok: boolean }>("/api/push/token", {
       method: "PUT",
-      body: { token, platform }
+      body: { token, platform, provider: "getui" }
     });
     return { ok: true };
   } catch (error) {

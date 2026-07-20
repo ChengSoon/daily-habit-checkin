@@ -6,12 +6,13 @@ import {
   listTokensForAccount,
   upsertDevicePushToken
 } from "./pushTokenRepository.js";
-import { getFcmInitError, isFcmConfigured, sendFcmToTokens } from "./fcmClient.js";
+import { getGetuiConfigError, isGetuiConfigured, sendGetuiToCids } from "./getuiClient.js";
 import { runHabitReminderPushTick } from "./reminderPushJob.js";
 
 const RegisterSchema = z.object({
   token: z.string().min(10).max(4096),
-  platform: z.enum(["android", "ios", "web"]).default("android")
+  platform: z.literal("android"),
+  provider: z.literal("getui")
 });
 
 const TestSchema = z.object({
@@ -24,12 +25,13 @@ export function createPushRouter(): Router {
 
   router.get("/status", (_request, response) => {
     response.json({
-      configured: isFcmConfigured(),
-      error: getFcmInitError()
+      provider: "getui",
+      configured: isGetuiConfigured(),
+      error: getGetuiConfigError()
     });
   });
 
-  /** 客户端上报 FCM/APNs device token */
+  /** Android 客户端上报个推 CID。 */
   router.put("/token", async (request, response) => {
     try {
       const body = RegisterSchema.parse(request.body);
@@ -37,13 +39,15 @@ export function createPushRouter(): Router {
         accountId: request.accountId!,
         spaceId: request.spaceId!,
         token: body.token,
-        platform: body.platform
+        platform: body.platform,
+        provider: body.provider
       });
       response.json({
         ok: true,
         token: {
           id: saved.id,
           platform: saved.platform,
+          provider: saved.provider,
           updatedAt: saved.updatedAt
         }
       });
@@ -67,8 +71,8 @@ export function createPushRouter(): Router {
   /** 给当前账号所有设备发一条测试推送 */
   router.post("/test", async (request, response) => {
     try {
-      if (!isFcmConfigured()) {
-        response.status(503).json({ error: getFcmInitError() ?? "FCM 未配置" });
+      if (!isGetuiConfigured()) {
+        response.status(503).json({ error: getGetuiConfigError() ?? "个推未配置" });
         return;
       }
 
@@ -79,11 +83,11 @@ export function createPushRouter(): Router {
         return;
       }
 
-      const result = await sendFcmToTokens(
+      const result = await sendGetuiToCids(
         devices.map((d) => d.token),
         {
           title: body.title ?? "推送测试",
-          body: body.body ?? "若看到这条，说明 FCM 服务端推送已打通。",
+          body: body.body ?? "若看到这条，说明个推服务端推送已打通。",
           data: { kind: "test" }
         }
       );
@@ -117,4 +121,3 @@ export function createPushRouter(): Router {
 
   return router;
 }
-

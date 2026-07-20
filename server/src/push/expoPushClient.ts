@@ -1,9 +1,3 @@
-/**
- * Expo Push API：可把通知发到 ExponentPushToken[...]（iOS/Android Expo 应用通用）。
- * iOS 上 getDevicePushTokenAsync 拿到的是 APNs token，不能直接交给 FCM；
- * 用 Expo Push Token 才能在不接原生 Firebase iOS SDK 的情况下打通。
- */
-
 export type ExpoPushMessage = {
   to: string | string[];
   title: string;

@@ -7,6 +7,7 @@ export type DevicePushToken = {
   spaceId: string;
   token: string;
   platform: string;
+  provider: string;
   updatedAt: string;
 };
 
@@ -16,6 +17,7 @@ type TokenRow = {
   space_id: string;
   token: string;
   platform: string;
+  provider: string;
   updated_at: Date | string;
 };
 
@@ -26,6 +28,7 @@ function mapRow(row: TokenRow): DevicePushToken {
     spaceId: row.space_id,
     token: row.token,
     platform: row.platform,
+    provider: row.provider,
     updatedAt: typeof row.updated_at === "string" ? row.updated_at : row.updated_at.toISOString()
   };
 }
@@ -35,12 +38,13 @@ export async function upsertDevicePushToken(input: {
   spaceId: string;
   token: string;
   platform: string;
+  provider: "getui";
 }): Promise<DevicePushToken> {
   const existing = await queryOne<TokenRow>(
-    `SELECT id, account_id, space_id, token, platform, updated_at
+    `SELECT id, account_id, space_id, token, platform, provider, updated_at
      FROM device_push_tokens
-     WHERE account_id = $1 AND token = $2`,
-    [input.accountId, input.token]
+     WHERE account_id = $1 AND token = $2 AND provider = $3`,
+    [input.accountId, input.token, input.provider]
   );
 
   if (existing) {
@@ -48,7 +52,7 @@ export async function upsertDevicePushToken(input: {
       `UPDATE device_push_tokens
        SET space_id = $1, platform = $2, updated_at = now()
        WHERE id = $3
-       RETURNING id, account_id, space_id, token, platform, updated_at`,
+       RETURNING id, account_id, space_id, token, platform, provider, updated_at`,
       [input.spaceId, input.platform, existing.id]
     );
     return mapRow(row!);
@@ -56,19 +60,19 @@ export async function upsertDevicePushToken(input: {
 
   const id = `dpt_${randomUUID().replaceAll("-", "")}`;
   const row = await queryOne<TokenRow>(
-    `INSERT INTO device_push_tokens (id, account_id, space_id, token, platform)
-     VALUES ($1, $2, $3, $4, $5)
-     RETURNING id, account_id, space_id, token, platform, updated_at`,
-    [id, input.accountId, input.spaceId, input.token, input.platform]
+    `INSERT INTO device_push_tokens (id, account_id, space_id, token, platform, provider)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, account_id, space_id, token, platform, provider, updated_at`,
+    [id, input.accountId, input.spaceId, input.token, input.platform, input.provider]
   );
   return mapRow(row!);
 }
 
 export async function listTokensForAccount(accountId: string): Promise<DevicePushToken[]> {
   const rows = await query<TokenRow>(
-    `SELECT id, account_id, space_id, token, platform, updated_at
+    `SELECT id, account_id, space_id, token, platform, provider, updated_at
      FROM device_push_tokens
-     WHERE account_id = $1
+     WHERE account_id = $1 AND provider = 'getui'
      ORDER BY updated_at DESC`,
     [accountId]
   );
@@ -77,9 +81,9 @@ export async function listTokensForAccount(accountId: string): Promise<DevicePus
 
 export async function listTokensForSpace(spaceId: string): Promise<DevicePushToken[]> {
   const rows = await query<TokenRow>(
-    `SELECT id, account_id, space_id, token, platform, updated_at
+    `SELECT id, account_id, space_id, token, platform, provider, updated_at
      FROM device_push_tokens
-     WHERE space_id = $1
+     WHERE space_id = $1 AND provider = 'getui'
      ORDER BY updated_at DESC`,
     [spaceId]
   );
@@ -90,9 +94,12 @@ export async function deleteTokens(tokens: string[]): Promise<void> {
   if (tokens.length === 0) {
     return;
   }
-  await query(`DELETE FROM device_push_tokens WHERE token = ANY($1::text[])`, [tokens]);
+  await query(`DELETE FROM device_push_tokens WHERE provider = 'getui' AND token = ANY($1::text[])`, [tokens]);
 }
 
 export async function deleteTokenForAccount(accountId: string, token: string): Promise<void> {
-  await query(`DELETE FROM device_push_tokens WHERE account_id = $1 AND token = $2`, [accountId, token]);
+  await query(
+    `DELETE FROM device_push_tokens WHERE account_id = $1 AND provider = 'getui' AND token = $2`,
+    [accountId, token]
+  );
 }

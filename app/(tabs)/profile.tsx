@@ -187,7 +187,7 @@ export default function ProfileScreen() {
         return;
       }
       setTestReminderMessage(
-        `服务端 FCM 已发送（成功 ${result.successCount ?? 0} / 失败 ${result.failureCount ?? 0}）。请退到桌面查看。`
+        `服务端个推已发送（成功 ${result.successCount ?? 0} / 失败 ${result.failureCount ?? 0}）。请退到桌面查看。`
       );
     } catch (error) {
       setTestReminderMessage(error instanceof Error ? error.message : "服务端推送失败");
@@ -473,7 +473,7 @@ export default function ProfileScreen() {
                   <HelperText>
                     服务端推送不依赖本地闹钟；点「测试服务端推送」后请退到桌面查看系统通知。
                   </HelperText>
-                  <AppButton title="测试服务端推送 (FCM)" onPress={() => void runServerPushTest()} />
+                  <AppButton title="测试服务端推送 (个推)" onPress={() => void runServerPushTest()} />
                   <AppButton title="8 秒后测试本地通知" variant="secondary" onPress={() => void runTestReminder()} />
                   {Platform.OS === "android" ? (
                     <>

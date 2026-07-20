@@ -54,8 +54,5 @@ server/certs/
 .worktrees/
 docs/assets/generated/
 
-# Firebase / FCM secrets (never commit)
+# Server secrets (never commit)
 server/secrets/
-GoogleService-Info.plist
-
-# google-services.json 为 Android 客户端配置，需提交仓库以便 EAS/CI 构建

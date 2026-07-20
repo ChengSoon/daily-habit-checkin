@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { query, queryOne } from "../db/pool.js";
 import { deleteTokens, listTokensForSpace } from "./pushTokenRepository.js";
-import { isFcmConfigured, sendFcmToTokens } from "./fcmClient.js";
+import { isGetuiConfigured, sendGetuiToCids } from "./getuiClient.js";
 
 type HabitRow = {
   id: string;
@@ -94,14 +94,14 @@ async function isCompletedToday(habitId: string, spaceId: string, dateKey: strin
 }
 
 /**
- * 每分钟扫一次：当前上海时间 HH:mm 命中的习惯，给同空间已登记设备推 FCM。
+ * 每分钟扫一次：当前上海时间 HH:mm 命中的习惯，给同空间已登记设备走个推。
  */
 export async function runHabitReminderPushTick(now = new Date()): Promise<{
   matchedHabits: number;
   sent: number;
   failed: number;
 }> {
-  if (!isFcmConfigured()) {
+  if (!isGetuiConfigured()) {
     return { matchedHabits: 0, sent: 0, failed: 0 };
   }
 
@@ -152,7 +152,7 @@ export async function runHabitReminderPushTick(now = new Date()): Promise<{
     }
 
     const tokens = devices.filter((d) => accountsToNotify.includes(d.accountId)).map((d) => d.token);
-    const result = await sendFcmToTokens(tokens, {
+    const result = await sendGetuiToCids(tokens, {
       title: `该打卡了：${habit.name}`,
       body: "完成后点一下，今天就算坚持住了。",
       data: {
@@ -182,12 +182,12 @@ export async function runHabitReminderPushTick(now = new Date()): Promise<{
 }
 
 export function startHabitReminderPushScheduler(): void {
-  if (process.env.FCM_PUSH_SCHEDULER === "0") {
-    console.log("FCM 提醒调度已关闭（FCM_PUSH_SCHEDULER=0）");
+  if (process.env.GETUI_PUSH_SCHEDULER === "0") {
+    console.log("个推提醒调度已关闭（GETUI_PUSH_SCHEDULER=0）");
     return;
   }
-  if (!isFcmConfigured()) {
-    console.warn("FCM 未配置，跳过习惯提醒推送调度");
+  if (!isGetuiConfigured()) {
+    console.warn("个推未配置，跳过习惯提醒推送调度");
     return;
   }
   if (!process.env.DATABASE_URL) {
@@ -195,8 +195,8 @@ export function startHabitReminderPushScheduler(): void {
     return;
   }
 
-  const tickMs = Number(process.env.FCM_PUSH_TICK_MS ?? 30_000);
-  console.log(`FCM 习惯提醒调度已启动（每 ${tickMs}ms）`);
+  const tickMs = Number(process.env.GETUI_PUSH_TICK_MS ?? 30_000);
+  console.log(`个推习惯提醒调度已启动（每 ${tickMs}ms）`);
 
   let lastDbErrorLogAt = 0;
 
@@ -205,7 +205,7 @@ export function startHabitReminderPushScheduler(): void {
       .then((summary) => {
         if (summary.matchedHabits > 0 || summary.sent > 0) {
           console.log(
-            `FCM tick: habits=${summary.matchedHabits} sent=${summary.sent} failed=${summary.failed}`
+            `Getui tick: habits=${summary.matchedHabits} sent=${summary.sent} failed=${summary.failed}`
           );
         }
       })
@@ -222,11 +222,11 @@ export function startHabitReminderPushScheduler(): void {
         if (isDbDown) {
           if (now - lastDbErrorLogAt > 60_000) {
             lastDbErrorLogAt = now;
-            console.warn("FCM tick 跳过：Postgres 连不上（请先 docker 起 db，或检查 DATABASE_URL）");
+            console.warn("Getui tick 跳过：Postgres 连不上（请先 docker 起 db，或检查 DATABASE_URL）");
           }
           return;
         }
-        console.warn("FCM tick 失败", error);
+        console.warn("Getui tick 失败", error);
       });
   };
 

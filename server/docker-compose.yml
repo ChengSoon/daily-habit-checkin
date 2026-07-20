@@ -46,10 +46,12 @@ services:
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
       R2_BUCKET: ${R2_BUCKET:-}
       APP_UPDATE_MANIFEST_URL: ${APP_UPDATE_MANIFEST_URL:-}
-      # FCM：容器内放密钥文件，或挂载 secrets
-      GOOGLE_APPLICATION_CREDENTIALS: ${GOOGLE_APPLICATION_CREDENTIALS:-/app/secrets/firebase-adminsdk.json}
-      FCM_PUSH_SCHEDULER: ${FCM_PUSH_SCHEDULER:-1}
-      FCM_PUSH_TICK_MS: ${FCM_PUSH_TICK_MS:-30000}
+      GETUI_APP_ID: ${GETUI_APP_ID:-}
+      GETUI_APP_KEY: ${GETUI_APP_KEY:-}
+      GETUI_MASTER_SECRET: ${GETUI_MASTER_SECRET:-}
+      GETUI_API_BASE_URL: ${GETUI_API_BASE_URL:-}
+      GETUI_PUSH_SCHEDULER: ${GETUI_PUSH_SCHEDULER:-1}
+      GETUI_PUSH_TICK_MS: ${GETUI_PUSH_TICK_MS:-30000}
     # 只接入 db 的内部网络 + 复用现有的 proxy_net，
     # 让 my-nginx 能用容器名 habit-app 反代过来；不对主机映射端口。
     networks:
@@ -57,9 +59,6 @@ services:
       - proxy_net
     ports:
       - "${APP_PORT:-8787}:8787"
-    volumes:
-      # FCM 服务账号：宿主机 ./secrets/firebase-adminsdk.json → 容器 /app/secrets/
-      - ./secrets:/app/secrets:ro
 
 networks:
   proxy_net:

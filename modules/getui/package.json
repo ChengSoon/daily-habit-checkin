@@ -1,0 +1,11 @@
+{
+  "name": "@daily-habit-checkin/getui",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "expo": {
+    "autolinking": {
+      "platforms": ["android"]
+    }
+  }
+}
