@@ -75,6 +75,12 @@ function ttsMock() {
   };
 }
 
+function asrMock() {
+  return {
+    transcribe: vi.fn(async () => ({ text: "今天打卡" }))
+  };
+}
+
 let server: Server | null = null;
 
 afterEach(() => {
@@ -83,10 +89,10 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-async function start(service = serviceMock(), tts = ttsMock()) {
+async function start(service = serviceMock(), tts = ttsMock(), asr = asrMock()) {
   const onChange = vi.fn();
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: "4mb" }));
   app.use(
     "/api/companion",
     (request, response, next) => {
@@ -98,14 +104,14 @@ async function start(service = serviceMock(), tts = ttsMock()) {
       request.accountId = "account-1";
       next();
     },
-    createCompanionRouter({ service, tts, onChange })
+    createCompanionRouter({ service, tts, asr, onChange })
   );
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => resolve());
   });
   const address = server!.address();
   if (!address || typeof address === "string") throw new Error("测试服务监听失败");
-  return { baseUrl: `http://127.0.0.1:${address.port}/api/companion`, service, tts, onChange };
+  return { baseUrl: `http://127.0.0.1:${address.port}/api/companion`, service, tts, asr, onChange };
 }
 
 const event = {
@@ -224,6 +230,23 @@ describe("companion routes", () => {
     ).toBe(204);
     expect((await fetch(`${baseUrl}/messages`, { method: "DELETE", headers: headers() })).status).toBe(204);
     expect(onChange).toHaveBeenCalledWith("space-1", "companion");
+  });
+
+  it("transcribes speech audio through companion asr", async () => {
+    const asr = asrMock();
+    const { baseUrl } = await start(serviceMock(), ttsMock(), asr);
+    const response = await fetch(`${baseUrl}/asr`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({
+        audioBase64: Buffer.alloc(512, 1).toString("base64"),
+        mimeType: "audio/m4a",
+        language: "zh"
+      })
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ text: "今天打卡" });
+    expect(asr.transcribe).toHaveBeenCalledOnce();
   });
 
   it("does not expose internal service errors", async () => {

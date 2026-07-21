@@ -13,6 +13,10 @@ import {
   loadSpeechRecognitionPackage,
   useSafeSpeechRecognitionEvent
 } from "./speechRecognition";
+import {
+  androidSpeechStartOptions,
+  inspectSpeechRecognition
+} from "./speechRecognitionSupport";
 
 const RESTART_DELAY_MS = 850;
 
@@ -28,6 +32,7 @@ export function usePetVoiceWake({ enabled, onWake }: VoiceWakeOptions) {
   const recognitionRef = useRef(false);
   const onWakeRef = useRef(onWake);
   const restartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const androidServicePackageRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     enabledRef.current = enabled;
@@ -48,7 +53,7 @@ export function usePetVoiceWake({ enabled, onWake }: VoiceWakeOptions) {
       dispatch({
         type: "failed",
         active: false,
-        message: "当前 App 没有包含语音唤醒模块，请安装 development build"
+        message: "当前 App 没有包含语音唤醒模块，请重新安装 development build"
       });
       return;
     }
@@ -75,7 +80,8 @@ export function usePetVoiceWake({ enabled, onWake }: VoiceWakeOptions) {
           mode: "voiceChat"
         },
         iosVoiceProcessingEnabled: true,
-        volumeChangeEventOptions: { enabled: true, intervalMillis: 160 }
+        volumeChangeEventOptions: { enabled: true, intervalMillis: 160 },
+        ...androidSpeechStartOptions(androidServicePackageRef.current)
       });
     } catch {
       recognitionRef.current = false;
@@ -98,14 +104,23 @@ export function usePetVoiceWake({ enabled, onWake }: VoiceWakeOptions) {
     if (!enabledRef.current || activeRef.current) return;
     activeRef.current = true;
     recognitionRef.current = false;
+    androidServicePackageRef.current = undefined;
     dispatch({ type: "started" });
     await Speech.stop();
 
     try {
-      const module = loadSpeechRecognitionPackage()?.ExpoSpeechRecognitionModule;
-      if (!module) throw new Error("missing-module");
-      if (!module.isRecognitionAvailable()) throw new Error("unavailable");
-      const permission = await module.requestPermissionsAsync();
+      const readiness = inspectSpeechRecognition();
+      if (!readiness.ok) {
+        activeRef.current = false;
+        dispatch({
+          type: "failed",
+          active: false,
+          message: readiness.message
+        });
+        return;
+      }
+      androidServicePackageRef.current = readiness.androidServicePackage;
+      const permission = await readiness.module.requestPermissionsAsync();
       if (!activeRef.current) return;
       if (!permission.granted) {
         activeRef.current = false;
@@ -122,7 +137,7 @@ export function usePetVoiceWake({ enabled, onWake }: VoiceWakeOptions) {
       dispatch({
         type: "failed",
         active: false,
-        message: "请重新构建 Expo development build 后再开启语音唤醒"
+        message: "语音唤醒暂不可用，可点卡卡开始对话"
       });
     }
   }, [startNativeRecognition]);

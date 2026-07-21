@@ -86,6 +86,12 @@ JWT_SECRET=<强随机字符串>
 OPENAI_API_KEY=<你的 OpenAI 或兼容服务 Key>
 OPENAI_MODEL=<模型名>
 MIMO_API_KEY=<小米 MiMo API Key，用于卡卡流式语音>
+# 腾讯云 ASR（卡卡 Android 语音识别 / 一句话识别，每月有免费额度）
+TENCENT_SECRET_ID=<腾讯云 SecretId>
+TENCENT_SECRET_KEY=<腾讯云 SecretKey>
+# 可选
+TENCENT_ASR_REGION=ap-guangzhou
+TENCENT_ASR_ENGINE=16k_zh
 # 可选：默认 https://api.xiaomimimo.com/v1 / mimo-v2.5-tts / 冰糖
 MIMO_TTS_BASE_URL=https://api.xiaomimimo.com/v1
 MIMO_TTS_MODEL=mimo-v2.5-tts

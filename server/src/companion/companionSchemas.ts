@@ -118,6 +118,15 @@ export const CompanionChatRequestSchema = z
   })
   .strict();
 
+
+export const CompanionAsrRequestSchema = z
+  .object({
+    audioBase64: z.string().min(8).max(3_500_000),
+    mimeType: z.enum(["audio/mp4", "audio/m4a", "audio/mpeg", "audio/wav", "audio/webm"]),
+    language: z.enum(["zh", "en"]).optional()
+  })
+  .strict();
+
 export const CompanionTtsRequestSchema = z
   .object({
     text: z.string().trim().min(1).max(800)
@@ -137,5 +146,6 @@ export type MemoryProposal = z.infer<typeof MemoryProposalSchema>;
 export type MemoryConfirmation = z.infer<typeof MemoryConfirmationSchema>;
 export type CompanionChatRequest = z.infer<typeof CompanionChatRequestSchema>;
 export type CompanionTtsRequest = z.infer<typeof CompanionTtsRequestSchema>;
+export type CompanionAsrRequest = z.infer<typeof CompanionAsrRequestSchema>;
 export type MemberPreferences = z.infer<typeof MemberPreferencesSchema>;
 export type CompanionRiskLevel = CompanionReply["riskLevel"];

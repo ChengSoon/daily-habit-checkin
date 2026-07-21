@@ -17,6 +17,7 @@
     "jsonwebtoken": "^9.0.2",
     "openai": "^6.45.0",
     "pg": "^8.13.1",
+    "tencentcloud-sdk-nodejs": "^4.1.272",
     "ws": "^8.21.0",
     "zod": "^4.4.3"
   },

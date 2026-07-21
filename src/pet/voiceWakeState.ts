@@ -64,12 +64,14 @@ export function commandAfterWakePhrase(transcript: string): string | null {
 
 export function voiceWakeErrorMessage(error: ExpoSpeechRecognitionErrorCode): string {
   if (error === "not-allowed") return "需要麦克风和语音识别权限才能唤醒卡卡";
-  if (error === "service-not-allowed") return "当前设备没有可用的语音识别服务";
+  if (error === "service-not-allowed") {
+    return "当前手机没有可用的系统语音识别，可点卡卡开始对话";
+  }
   if (error === "language-not-supported") return "当前设备暂不支持中文语音唤醒";
-  if (error === "network") return "语音唤醒网络暂时不可用";
+  if (error === "network") return "语音唤醒网络暂时不可用，请检查网络后重试";
   if (error === "audio-capture") return "暂时无法使用麦克风唤醒卡卡";
   if (error === "busy") return "语音识别正忙，稍后会继续监听";
-  return "语音唤醒暂时没有接上";
+  return "语音唤醒暂时没有接上，可点卡卡开始对话";
 }
 
 export function isRecoverableVoiceWakeError(error: ExpoSpeechRecognitionErrorCode): boolean {

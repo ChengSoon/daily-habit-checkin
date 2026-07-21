@@ -62,13 +62,15 @@ export function voiceConversationReducer(
 
 export function voiceErrorMessage(error: ExpoSpeechRecognitionErrorCode): string {
   if (error === "not-allowed") return "需要麦克风和语音识别权限才能继续";
-  if (error === "service-not-allowed") return "模拟器里没有可用的语音识别服务";
+  if (error === "service-not-allowed") {
+    return "系统语音识别暂不可用，请重试或检查网络";
+  }
   if (error === "language-not-supported") return "当前设备暂不支持中文语音识别";
-  if (error === "network") return "语音识别网络暂时不可用";
-  if (error === "audio-capture") return "暂时无法使用麦克风";
+  if (error === "network") return "语音识别网络暂时不可用，请检查网络后重试";
+  if (error === "audio-capture") return "暂时无法使用麦克风，请检查麦克风权限或是否被其他应用占用";
   if (error === "busy") return "语音识别正忙，请稍等一下";
   if (error === "no-speech" || error === "speech-timeout") return "我没听清，再说一次吧";
-  return "语音识别暂时没有接上";
+  return "语音识别暂时没有接上，请检查网络后重试";
 }
 
 export function isRecoverableVoiceError(error: ExpoSpeechRecognitionErrorCode): boolean {

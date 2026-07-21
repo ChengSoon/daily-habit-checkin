@@ -5,9 +5,11 @@ import {
   CompanionEventSchema,
   MemberPreferencesSchema,
   MemoryConfirmationSchema,
-  CompanionTtsRequestSchema
+  CompanionTtsRequestSchema,
+  CompanionAsrRequestSchema
 } from "./companionSchemas.js";
 import { createMimoTtsService, type MimoTtsService } from "./mimoTts.js";
+import { createCompanionAsrService, type CompanionAsrService } from "./companionAsr.js";
 import {
   CompanionEventInProgressError,
   createCompanionService,
@@ -21,6 +23,7 @@ import {
 type CompanionRouterOptions = {
   service?: CompanionService;
   tts?: MimoTtsService;
+  asr?: CompanionAsrService;
   onChange?: (spaceId: string, resource: string) => void;
 };
 
@@ -57,6 +60,7 @@ export function createCompanionRouter(options: CompanionRouterOptions = {}): Rou
   const router = Router();
   const service = options.service ?? createCompanionService();
   const tts = options.tts ?? createMimoTtsService();
+  const asr = options.asr ?? createCompanionAsrService();
   const notify = (spaceId: string) => options.onChange?.(spaceId, "companion");
   const notifyResource = (spaceId: string, resource: string) => options.onChange?.(spaceId, resource);
 
@@ -121,6 +125,30 @@ export function createCompanionRouter(options: CompanionRouterOptions = {}): Rou
       notify(request.spaceId!);
       response.json(result);
     } catch (error) {
+      sendError(response, error);
+    }
+  });
+
+
+  router.post("/asr", async (request, response) => {
+    try {
+      const input = CompanionAsrRequestSchema.parse(request.body);
+      const result = await asr.transcribe(input);
+      response.json(result);
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      if (code === "ASR_UNAVAILABLE") {
+        response.status(503).json({ error: "语音识别服务未配置" });
+        return;
+      }
+      if (code === "ASR_EMPTY_AUDIO" || code === "ASR_NO_SPEECH") {
+        response.status(400).json({ error: "没听清，请再说一次" });
+        return;
+      }
+      if (code === "ASR_TOO_LARGE") {
+        response.status(400).json({ error: "录音太长了，请说短一点" });
+        return;
+      }
       sendError(response, error);
     }
   });

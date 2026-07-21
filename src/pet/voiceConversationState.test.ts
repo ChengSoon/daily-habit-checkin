@@ -56,7 +56,8 @@ describe("voice conversation helpers", () => {
 
   it("区分可自动重试和需要用户处理的错误", () => {
     expect(voiceErrorMessage("not-allowed")).toContain("权限");
-    expect(voiceErrorMessage("service-not-allowed")).toContain("识别服务");
+    expect(voiceErrorMessage("service-not-allowed")).toContain("系统语音识别");
+    expect(voiceErrorMessage("service-not-allowed")).not.toContain("模拟器");
     expect(isRecoverableVoiceError("no-speech")).toBe(true);
     expect(isRecoverableVoiceError("not-allowed")).toBe(false);
   });
