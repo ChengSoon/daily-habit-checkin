@@ -1,5 +1,4 @@
 import * as Speech from "expo-speech";
-import { AppState, Platform } from "react-native";
 import { useCallback, useEffect, useReducer, useRef } from "react";
 import {
   initialVoiceConversationState,
@@ -9,14 +8,13 @@ import type { PcmPlayer } from "./pcmPlayer";
 import type { TtsStreamFn } from "./ttsClient";
 import { loadSpeechRecognitionPackage } from "./speechRecognition";
 import { useNativeSpeechEvents } from "./useNativeSpeechEvents";
-import { inspectSpeechRecognition } from "./speechRecognitionSupport";
 import { buildNativeSpeechStartOptions } from "./nativeSpeechStart";
-import { requestMicrophonePermission } from "./voiceRecorder";
 import { listenOnceWithCloudAsr } from "./cloudVoiceListen";
+import { prepareVoiceSession, USE_CLOUD_ASR } from "./prepareVoiceSession";
+import { useStopVoiceOnBackground } from "./useStopVoiceOnBackground";
 import { speakReplyText, stopSpeechPlayback } from "./voiceReplyPlayer";
 
 const RESTART_DELAY_MS = 850;
-const USE_CLOUD_ASR = Platform.OS === "android";
 type VoiceConversationOptions = {
   disabled: boolean;
   sendMessage: (text: string) => Promise<string | null>;
@@ -24,6 +22,7 @@ type VoiceConversationOptions = {
   createPlayer?: () => PcmPlayer;
 };
 export type VoiceConversationStartOptions = { initialTranscript?: string };
+
 export function usePetVoiceConversation({
   disabled,
   sendMessage,
@@ -171,6 +170,7 @@ export function usePetVoiceConversation({
   useEffect(() => {
     submitTranscriptRef.current = submitTranscript;
   }, [submitTranscript]);
+
   useNativeSpeechEvents({
     enabled: !USE_CLOUD_ASR,
     isActive: () => activeRef.current,
@@ -197,47 +197,42 @@ export function usePetVoiceConversation({
     }
   });
 
+  const failStart = useCallback((message: string) => {
+    activeRef.current = true;
+    processingRef.current = false;
+    dispatch({ type: "started" });
+    dispatch({ type: "failed", message });
+  }, []);
+
   const start = useCallback(
     async ({ initialTranscript }: VoiceConversationStartOptions = {}) => {
       if (disabled || activeRef.current) return;
-      activeRef.current = true;
-      processingRef.current = false;
-      androidServicePackageRef.current = undefined;
-      dispatch({ type: "started" });
-      await Speech.stop();
       try {
+        const prep = await prepareVoiceSession({
+          skipPermission: Boolean(initialTranscript?.trim())
+        });
+        if (!prep.ok) {
+          failStart(prep.message);
+          return;
+        }
+        if (disabled) return;
+        activeRef.current = true;
+        processingRef.current = false;
+        androidServicePackageRef.current = prep.androidServicePackage;
+        dispatch({ type: "started" });
+        await Speech.stop();
+        if (!activeRef.current) return;
         if (initialTranscript?.trim()) {
           await submitTranscript(initialTranscript.trim());
           return;
         }
-        if (USE_CLOUD_ASR) {
-          const granted = await requestMicrophonePermission();
-          if (!activeRef.current) return;
-          if (!granted) {
-            dispatch({ type: "failed", message: "需要麦克风权限才能继续" });
-            return;
-          }
-          await startCloudRecognition();
-          return;
-        }
-        const readiness = inspectSpeechRecognition();
-        if (!readiness.ok) {
-          dispatch({ type: "failed", message: readiness.message });
-          return;
-        }
-        androidServicePackageRef.current = readiness.androidServicePackage;
-        const permission = await readiness.module.requestPermissionsAsync();
-        if (!activeRef.current) return;
-        if (!permission.granted) {
-          dispatch({ type: "failed", message: "需要麦克风和语音识别权限才能继续" });
-          return;
-        }
-        startNativeRecognition();
+        if (USE_CLOUD_ASR) await startCloudRecognition();
+        else startNativeRecognition();
       } catch {
-        dispatch({ type: "failed", message: "启动语音识别失败，请稍后重试" });
+        failStart("启动语音识别失败，请稍后重试");
       }
     },
-    [disabled, startCloudRecognition, startNativeRecognition, submitTranscript]
+    [disabled, failStart, startCloudRecognition, startNativeRecognition, submitTranscript]
   );
 
   const stop = useCallback(() => {
@@ -256,12 +251,8 @@ export function usePetVoiceConversation({
     dispatch({ type: "stopped" });
   }, [abortCloudListen, clearRestartTimer]);
 
-  useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
-      if (nextState !== "active" && activeRef.current) stop();
-    });
-    return () => subscription.remove();
-  }, [stop]);
+  const isActive = useCallback(() => activeRef.current, []);
+  useStopVoiceOnBackground(stop, isActive);
 
   const interrupt = useCallback(() => {
     if (!activeRef.current) return;

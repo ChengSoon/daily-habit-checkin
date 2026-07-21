@@ -1,4 +1,5 @@
 import { File } from "expo-file-system";
+import { Alert, PermissionsAndroid, Platform } from "react-native";
 
 type AudioApi = typeof import("react-native-audio-api");
 
@@ -24,6 +25,8 @@ export type VoiceRecordOptions = {
   maxDurationMs?: number;
   silenceDurationMs?: number;
   minSpeechMs?: number;
+  /** RMS 人声门限，越小越灵敏。 */
+  speechThreshold?: number;
   signal?: AbortSignal;
 };
 
@@ -43,15 +46,67 @@ function bufferRms(samples: Float32Array): number {
   return Math.sqrt(sum / samples.length);
 }
 
-export async function requestMicrophonePermission(): Promise<boolean> {
-  const api = loadAudioApi();
-  if (!api) return false;
-  try {
-    const status = await api.AudioManager.requestRecordingPermissions();
-    return status === "Granted";
-  } catch {
-    return false;
+export type MicrophonePermissionResult = {
+  granted: boolean;
+  /** 系统不再弹窗（永久拒绝），需引导去设置 */
+  blocked?: boolean;
+};
+
+function requestAndroidMicPermission(): Promise<MicrophonePermissionResult> {
+  return new Promise((resolve) => {
+    // 全 Android：对话面板是 Modal 时，直接 request 系统授权框常被挡住或吞掉；
+    // 先用应用内 Alert 抢焦点，用户确认后再调系统授权。
+    Alert.alert("需要麦克风权限", "和卡卡语音对话需要使用麦克风。", [
+      { text: "取消", style: "cancel", onPress: () => resolve({ granted: false }) },
+      {
+        text: "去授权",
+        onPress: () => {
+          void PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO)
+            .then((status) => {
+              if (status === PermissionsAndroid.RESULTS.GRANTED) {
+                resolve({ granted: true });
+                return;
+              }
+              if (status === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+                resolve({ granted: false, blocked: true });
+                return;
+              }
+              resolve({ granted: false });
+            })
+            .catch(() => resolve({ granted: false }));
+        }
+      }
+    ]);
+  });
+}
+
+/** 全 Android 统一权限入口：已授权直接通过；未授权先应用确认再弹系统授权框。 */
+export async function ensureMicrophonePermission(): Promise<MicrophonePermissionResult> {
+  if (Platform.OS === "android") {
+    try {
+      if (await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.RECORD_AUDIO)) {
+        return { granted: true };
+      }
+      return await requestAndroidMicPermission();
+    } catch {
+      return { granted: false };
+    }
   }
+
+  const api = loadAudioApi();
+  if (!api) return { granted: false };
+  try {
+    const current = await api.AudioManager.checkRecordingPermissions();
+    if (current === "Granted") return { granted: true };
+    const status = await api.AudioManager.requestRecordingPermissions();
+    return { granted: status === "Granted" };
+  } catch {
+    return { granted: false };
+  }
+}
+
+export async function requestMicrophonePermission(): Promise<boolean> {
+  return (await ensureMicrophonePermission()).granted;
 }
 
 /** 录制一句用户语音：有声后静音自动结束，并返回 base64 m4a。 */
@@ -64,7 +119,7 @@ export async function recordUtterance(
   const maxDurationMs = options.maxDurationMs ?? 12_000;
   const silenceDurationMs = options.silenceDurationMs ?? 1_100;
   const minSpeechMs = options.minSpeechMs ?? 450;
-  const speechThreshold = 0.02;
+  const speechThreshold = options.speechThreshold ?? 0.02;
 
   const recorder = new api.AudioRecorder();
   const enabled = recorder.enableFileOutput({
@@ -103,7 +158,8 @@ export async function recordUtterance(
       cleanup();
       if (info.status === "error") return null;
       const path = info.paths[0];
-      if (!path || info.duration < minSpeechMs / 1000) return null;
+      // 超时结束但从未检测到有效人声时，不要当作一句有效语音上传。
+      if (!path || speechStartedAt === null || info.duration < minSpeechMs / 1000) return null;
       const uri = path.startsWith("file://") ? path : `file://${path}`;
       const audioBase64 = await new File(uri).base64();
       if (!audioBase64 || audioBase64.length < 32) return null;

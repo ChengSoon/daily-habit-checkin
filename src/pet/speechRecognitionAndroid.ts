@@ -21,7 +21,7 @@ export function pickAndroidSpeechService(services: string[]): string | undefined
 
 export function androidSpeechUnavailableMessage(services: string[]): string {
   if (services.length === 0) {
-    return "当前手机没有系统语音识别服务，已改用应用内识别时请确保网络畅通";
+    return "当前手机没有系统语音识别服务，已改用应用内识别，请确保网络畅通";
   }
   return "系统语音识别暂不可用，可改用应用内识别或检查网络后重试";
 }

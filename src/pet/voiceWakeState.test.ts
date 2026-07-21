@@ -17,6 +17,7 @@ describe("voice wake state", () => {
   it("支持常见识别变体并清理标点", () => {
     expect(commandAfterWakePhrase("咔咔：打开对话")).toBe("打开对话");
     expect(commandAfterWakePhrase("K A K A remind me tomorrow")).toBe("remind me tomorrow");
+    expect(commandAfterWakePhrase("咖咖帮我打开对话")).toBe("帮我打开对话");
   });
 
   it("限制监听音量并在停止时清空状态", () => {

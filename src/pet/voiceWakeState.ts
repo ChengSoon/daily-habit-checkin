@@ -49,7 +49,7 @@ export function voiceWakeReducer(
   }
 }
 
-const WAKE_PHRASE_PATTERN = /(?:卡\s*卡|咔\s*咔|喀\s*喀|k\s*a\s*k\s*a)/iu;
+const WAKE_PHRASE_PATTERN = /(?:卡\s*卡|咔\s*咔|喀\s*喀|咖\s*咖|卡\s*咔|咔\s*卡|k\s*a\s*k\s*a)/iu;
 
 /** 返回唤醒词后的指令；只有识别到唤醒词时才返回非 null。 */
 export function commandAfterWakePhrase(transcript: string): string | null {
@@ -65,7 +65,7 @@ export function commandAfterWakePhrase(transcript: string): string | null {
 export function voiceWakeErrorMessage(error: ExpoSpeechRecognitionErrorCode): string {
   if (error === "not-allowed") return "需要麦克风和语音识别权限才能唤醒卡卡";
   if (error === "service-not-allowed") {
-    return "当前手机没有可用的系统语音识别，可点卡卡开始对话";
+    return "当前手机没有可用的系统语音识别，可点卡卡开始对话，或检查网络后重试";
   }
   if (error === "language-not-supported") return "当前设备暂不支持中文语音唤醒";
   if (error === "network") return "语音唤醒网络暂时不可用，请检查网络后重试";
