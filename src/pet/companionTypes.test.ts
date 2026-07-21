@@ -5,6 +5,7 @@ import {
   createCompanionEvent,
   parseCompanionReply
 } from "./companionTypes";
+import { CompanionActionSchema } from "./companionActionTypes";
 
 describe("client companion contracts", () => {
   it("parses a valid shared companion reply", () => {
@@ -75,5 +76,29 @@ describe("client companion contracts", () => {
 
     expect(parsed.memoryProposal?.category).toBe("shared_goal");
     expect(parsed.memoryConfirmed).toBe(false);
+  });
+
+  it("accepts a pending whitelisted action and rejects arbitrary tools", () => {
+    const action = {
+      id: "action-1",
+      command: {
+        type: "complete_checkin",
+        arguments: { habitId: "habit-1", value: null }
+      },
+      summary: "为「散步」完成今天打卡",
+      status: "pending",
+      requestedBy: "account-1",
+      timezoneOffsetMinutes: -480,
+      expiresAt: "2026-07-19T12:15:00.000Z",
+      resultMessage: null
+    };
+
+    expect(CompanionActionSchema.parse(action)).toEqual(action);
+    expect(
+      CompanionActionSchema.safeParse({
+        ...action,
+        command: { type: "run_shell", arguments: { command: "rm -rf /" } }
+      }).success
+    ).toBe(false);
   });
 });

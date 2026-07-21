@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CompanionActionSchema } from "./companionActionTypes";
 
 export type CompanionEventPayloads = {
   app_returned: Record<string, never>;
@@ -77,6 +78,7 @@ export const CompanionMessageSchema = z.object({
   riskLevel: z.enum(["normal", "distress", "crisis"]),
   memoryProposal: MemoryProposalSchema.nullable(),
   memoryConfirmed: z.boolean(),
+  action: CompanionActionSchema.nullable().optional(),
   createdAt: z.string()
 });
 export const CompanionMemorySchema = MemoryProposalSchema.extend({
@@ -104,6 +106,7 @@ export const CompanionStateSchema = z.object({
 
 export type CompanionReply = z.infer<typeof CompanionReplySchema>;
 export type CompanionMessage = z.infer<typeof CompanionMessageSchema>;
+export type { CompanionAction } from "./companionActionTypes";
 export type CompanionMemory = z.infer<typeof CompanionMemorySchema>;
 export type CompanionState = z.infer<typeof CompanionStateSchema>;
 export type MemoryProposal = z.infer<typeof MemoryProposalSchema>;

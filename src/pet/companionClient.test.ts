@@ -25,7 +25,19 @@ describe("parseCompanionSse", () => {
       'data: {"delta":"我在"}\n\ndata: {"delta":"这里"}\n\ndata: [DONE]\n\ndata: {"del'
     );
 
-    expect(parsed).toEqual({ deltas: ["我在", "这里"], done: true, rest: 'data: {"del' });
+    expect(parsed).toEqual({ deltas: ["我在", "这里"], actions: [], done: true, rest: 'data: {"del' });
+  });
+
+  it("parses a validated action event alongside streamed text", () => {
+    const parsed = parseCompanionSse(
+      'data: {"delta":"要确认吗？"}\n\n' +
+        'event: action\ndata: {"action":{"id":"action-1","command":{"type":"complete_checkin","arguments":{"habitId":"habit-1","value":null}},"summary":"完成散步打卡","status":"pending","requestedBy":"account-1","timezoneOffsetMinutes":-480,"expiresAt":"2026-07-19T12:15:00.000Z","resultMessage":null}}\n\n' +
+        "data: [DONE]\n\n"
+    );
+
+    expect(parsed.deltas).toEqual(["要确认吗？"]);
+    expect(parsed.actions[0]?.id).toBe("action-1");
+    expect(parsed.done).toBe(true);
   });
 });
 
@@ -96,8 +108,7 @@ describe("companion client", () => {
 
     expect(stream).toHaveBeenCalledWith(
       { messageId: "message-1", message: "陪我聊聊", timezoneOffsetMinutes: -480 },
-      expect.any(Function),
-      undefined
+      expect.any(Function)
     );
     expect(deltas).toEqual(["回复"]);
   });
@@ -109,6 +120,26 @@ describe("companion client", () => {
     await client.clearMessages();
 
     expect(request).toHaveBeenCalledWith("/api/companion/messages", { method: "DELETE" });
+  });
+
+  it("confirms and cancels actions through scoped authenticated paths", async () => {
+    const action = {
+      id: "action-1",
+      command: { type: "complete_checkin", arguments: { habitId: "habit-1", value: null } },
+      summary: "完成散步打卡",
+      status: "succeeded",
+      requestedBy: "account-1",
+      timezoneOffsetMinutes: -480,
+      expiresAt: "2026-07-19T12:15:00.000Z",
+      resultMessage: "已经完成。"
+    };
+    const request = vi.fn(async () => ({ action, message: "已经完成。", resources: ["check_ins"] }));
+    const client = createCompanionClient({ request, stream: vi.fn() });
+
+    await expect(client.confirmAction("action-1")).resolves.toMatchObject({ message: "已经完成。" });
+    await expect(client.cancelAction("action-1")).resolves.toMatchObject({ message: "已经完成。" });
+    expect(request).toHaveBeenNthCalledWith(1, "/api/companion/actions/action-1/confirm", { method: "POST" });
+    expect(request).toHaveBeenNthCalledWith(2, "/api/companion/actions/action-1/cancel", { method: "POST" });
   });
 
   it("confirms a proposal with its source assistant message", async () => {

@@ -9,6 +9,7 @@ import {
   type MemoryProposal
 } from "./companionSchemas.js";
 import { createCompanionMessageRepository } from "./companionMessageRepository.js";
+import { createCompanionActionRepository } from "./companionActionRepository.js";
 
 export type { CompanionMessage } from "./companionMessageRepository.js";
 
@@ -54,9 +55,11 @@ export function createCompanionRepository(options: RepositoryOptions = {}) {
   const transact = options.transact ?? defaultTransaction;
   const createId = options.createId ?? randomUUID;
   const messages = createCompanionMessageRepository({ db, transact });
+  const actions = createCompanionActionRepository({ db, transact });
 
   return {
     ...messages,
+    actions,
     async claimEvent(
       spaceId: string,
       accountId: string,

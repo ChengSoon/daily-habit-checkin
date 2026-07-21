@@ -1,11 +1,13 @@
 import type { CompanionMessage, CompanionReply } from "./companionTypes";
+import type { CompanionAction } from "./companionActionTypes";
 
 export const CHAT_FAILURE_MESSAGE = "我暂时没接上话，但我还在这里。";
 
 export function assistantMessage(
   id: string,
   content: string,
-  riskLevel: CompanionMessage["riskLevel"]
+  riskLevel: CompanionMessage["riskLevel"],
+  action: CompanionAction | null = null
 ): CompanionMessage {
   return {
     id,
@@ -16,6 +18,7 @@ export function assistantMessage(
     riskLevel,
     memoryProposal: null,
     memoryConfirmed: false,
+    action,
     createdAt: new Date().toISOString()
   };
 }
@@ -34,6 +37,7 @@ export function userMessage(
     riskLevel: "normal",
     memoryProposal: null,
     memoryConfirmed: false,
+    action: null,
     createdAt: new Date().toISOString()
   };
 }

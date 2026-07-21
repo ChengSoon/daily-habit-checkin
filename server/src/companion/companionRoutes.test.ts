@@ -22,6 +22,8 @@ function serviceMock(): CompanionService {
       onDelta("这里。");
       return "我在这里。";
     }),
+    confirmAction: vi.fn(async () => ({ action: {} as never, message: "动作完成。", resources: [] })),
+    cancelAction: vi.fn(async () => ({ action: {} as never, message: "已取消。", resources: [] })),
     listMessages: vi.fn(async () => ({ items: [], nextCursor: null })),
     listMemories: vi.fn(async () => []),
     saveMemory: vi.fn(async (_spaceId, accountId, proposal) => ({

@@ -6,6 +6,7 @@ describe("companion schema", () => {
     for (const table of [
       "companion_events",
       "companion_messages",
+      "companion_actions",
       "companion_memories",
       "companion_space_state",
       "companion_member_state",

@@ -35,6 +35,10 @@ type PetChatPanelProps = {
   streamText: string;
   savingMemoryId: string | null;
   onConfirmMemory: (message: CompanionMessage) => void;
+  currentAccountId: string | null;
+  executingActionId: string | null;
+  onConfirmAction: (message: CompanionMessage) => void;
+  onCancelAction: (message: CompanionMessage) => void;
   voiceActive: boolean;
   voicePhase: VoiceConversationPhase;
   voiceTranscript: string;
@@ -60,6 +64,10 @@ export function PetChatPanel({
   streamText,
   savingMemoryId,
   onConfirmMemory,
+  currentAccountId,
+  executingActionId,
+  onConfirmAction,
+  onCancelAction,
   voiceActive,
   voicePhase,
   voiceTranscript,
@@ -226,6 +234,86 @@ export function PetChatPanel({
                           </AppText>
                         </Pressable>
                       )}
+                    </View>
+                  ) : null}
+                  {item.action ? (
+                    <View
+                      style={{
+                        borderTopWidth: 1,
+                        borderTopColor: mine ? colors.onPrimary : colors.line,
+                        marginTop: 7,
+                        paddingTop: 8,
+                        gap: 7
+                      }}
+                    >
+                      <AppText
+                        variant="caption"
+                        style={{ color: mine ? colors.onPrimary : colors.muted, fontWeight: "700" }}
+                      >
+                        {item.action.status === "pending"
+                          ? "等待你的确认"
+                          : item.action.status === "succeeded"
+                            ? "已执行"
+                            : item.action.status === "cancelled"
+                              ? "已取消"
+                              : item.action.status === "expired"
+                                ? "已过期"
+                                : "未完成"}
+                      </AppText>
+                      {item.action.status === "pending" &&
+                      item.action.requestedBy === currentAccountId ? (
+                        <View style={{ flexDirection: "row", gap: 8 }}>
+                          <Pressable
+                            onPress={() => onConfirmAction(item)}
+                            disabled={executingActionId === item.action.id}
+                            accessibilityRole="button"
+                            accessibilityLabel="确认执行卡卡动作"
+                            style={{
+                              flex: 1,
+                              backgroundColor: mine ? colors.onPrimary : colors.primary,
+                              borderRadius: 8,
+                              paddingVertical: 7,
+                              alignItems: "center"
+                            }}
+                          >
+                            <AppText
+                              variant="caption"
+                              style={{ color: mine ? colors.primary : colors.onPrimary, fontWeight: "800" }}
+                            >
+                              {executingActionId === item.action.id ? "处理中…" : "确认执行"}
+                            </AppText>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => onCancelAction(item)}
+                            disabled={executingActionId === item.action.id}
+                            accessibilityRole="button"
+                            accessibilityLabel="取消卡卡动作"
+                            style={{
+                              flex: 1,
+                              borderWidth: 1,
+                              borderColor: mine ? colors.onPrimary : colors.line,
+                              borderRadius: 8,
+                              paddingVertical: 7,
+                              alignItems: "center"
+                            }}
+                          >
+                            <AppText
+                              variant="caption"
+                              style={{ color: mine ? colors.onPrimary : colors.muted, fontWeight: "800" }}
+                            >
+                              取消
+                            </AppText>
+                          </Pressable>
+                        </View>
+                      ) : null}
+                      {item.action.resultMessage && item.action.status !== "pending" ? (
+                        <AppText
+                          variant="caption"
+                          style={{ color: mine ? colors.onPrimary : colors.muted, lineHeight: 18 }}
+                        >
+                          {item.action.resultMessage}
+                        </AppText>
+                      ) : null}
                     </View>
                   ) : null}
                 </View>

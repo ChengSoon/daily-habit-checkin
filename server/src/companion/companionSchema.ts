@@ -37,6 +37,25 @@ CREATE INDEX IF NOT EXISTS idx_companion_messages_recent
 CREATE INDEX IF NOT EXISTS idx_companion_messages_expiry
   ON companion_messages(expires_at);
 
+CREATE TABLE IF NOT EXISTS companion_actions (
+  id TEXT PRIMARY KEY,
+  space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
+  requested_by TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+  source_message_id TEXT NOT NULL REFERENCES companion_messages(id) ON DELETE CASCADE,
+  action_type TEXT NOT NULL,
+  arguments_json JSONB NOT NULL,
+  summary TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  result_message TEXT,
+  timezone_offset_minutes INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  expires_at TIMESTAMPTZ NOT NULL,
+  completed_at TIMESTAMPTZ,
+  UNIQUE (space_id, source_message_id)
+);
+CREATE INDEX IF NOT EXISTS idx_companion_actions_pending
+  ON companion_actions(space_id, status, expires_at);
+
 CREATE TABLE IF NOT EXISTS companion_memories (
   id TEXT PRIMARY KEY,
   space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,

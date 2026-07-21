@@ -1,6 +1,14 @@
 import OpenAI from "openai";
 import type { CompanionContext } from "./companionContext.js";
-import { buildCompanionChatPrompt, buildCompanionPrompt } from "./companionPrompt.js";
+import {
+  buildCompanionActionPrompt,
+  buildCompanionChatPrompt,
+  buildCompanionPrompt
+} from "./companionPrompt.js";
+import {
+  CompanionActionPlanSchema,
+  type CompanionActionPlan
+} from "./companionActionSchemas.js";
 import {
   CompanionReplySchema,
   type CompanionEvent,
@@ -20,8 +28,10 @@ export type CompanionOpenAiClient = {
 
 export type ModelCompanionInput = { event: CompanionEvent; context: CompanionContext };
 export type ModelChatInput = { context: CompanionContext; userText: string };
+export type ModelActionInput = { context: CompanionContext; userText: string };
 export interface CompanionModel {
   respond(input: ModelCompanionInput): Promise<CompanionReply>;
+  planAction?(input: ModelActionInput): Promise<CompanionActionPlan>;
   streamChat(input: ModelChatInput, onDelta: (text: string) => void): Promise<string>;
 }
 
@@ -133,6 +143,22 @@ export function createCompanionModel(options: CompanionModelOptions = {}): Compa
         throw new Error("模型返回的 eventId 与请求不一致");
       }
       return reply;
+    },
+
+    async planAction(input): Promise<CompanionActionPlan> {
+      const raw = await withTimeout(timeoutMs, (signal) =>
+        configuredClient().chat.completions.create(
+          {
+            model: configuredModel(),
+            temperature: 0.1,
+            stream: false,
+            response_format: { type: "json_object" },
+            messages: buildCompanionActionPrompt(input)
+          },
+          { signal }
+        )
+      );
+      return CompanionActionPlanSchema.parse(parseJson(messageContent(raw)));
     },
 
     async streamChat(input, onDelta) {

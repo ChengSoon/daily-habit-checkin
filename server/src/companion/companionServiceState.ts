@@ -3,7 +3,7 @@ import type { CompanionRepository } from "./companionRepository.js";
 import type { CompanionStateRepository } from "./companionStateRepository.js";
 
 export function createCompanionStateOperations(input: {
-  repository: CompanionRepository;
+  repository: Pick<CompanionRepository, "listMessagePage" | "listMemories" | "saveMemory" | "deleteMemory" | "clearMessages">;
   stateRepository: CompanionStateRepository;
 }) {
   const { repository, stateRepository } = input;

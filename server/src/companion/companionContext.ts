@@ -25,6 +25,12 @@ type SourceHabit = {
   createdAt: string;
   [key: string]: unknown;
 };
+type ManageableHabit = SourceHabit & {
+  isPaused: boolean;
+  reminderTime: string | null;
+  trackType: "check" | "numeric";
+  numericUnit: string | null;
+};
 type SourceCheckIn = {
   habitId: string;
   date: string;
@@ -36,6 +42,7 @@ type SourceCheckIn = {
 export type CompanionContextSource = {
   listMembers(spaceId: string): Promise<SourceMember[]>;
   listActiveHabits(spaceId: string): Promise<SourceHabit[]>;
+  listManageableHabits?(spaceId: string): Promise<ManageableHabit[]>;
   listCheckIns(spaceId: string, fromDate: string, toDate: string): Promise<SourceCheckIn[]>;
   listRecentMessages(spaceId: string, limit: number): Promise<CompanionMessage[]>;
   listMemories(spaceId: string): Promise<CompanionMemory[]>;
@@ -48,6 +55,16 @@ export type CompanionContext = {
   today: { dateKey: string; due: number; completed: number };
   lastSevenDays: { due: number; completed: number; completionRate: number };
   activeHabits: Array<{ id: string; name: string }>;
+  manageableHabits?: Array<{
+    id: string;
+    name: string;
+    isPaused: boolean;
+    frequency: HabitFrequency;
+    reminderTime: string | null;
+    trackType: "check" | "numeric";
+    numericUnit: string | null;
+    completedToday: boolean;
+  }>;
   recentMessages: Array<{ role: "user" | "assistant"; content: string; senderName: string | null }>;
   memories: Array<{ category: CompanionMemory["category"]; content: string }>;
   bond: BondState;
@@ -80,13 +97,14 @@ export async function buildCompanionContext(input: {
 }): Promise<CompanionContext> {
   const today = localDateKey(input.now, input.timezoneOffsetMinutes);
   const dateKeys = Array.from({ length: 7 }, (_, index) => shiftDateKey(today, index - 6));
-  const [members, habits, checkIns, messages, memories, bond] = await Promise.all([
+  const [members, habits, checkIns, messages, memories, bond, manageableHabits] = await Promise.all([
     input.source.listMembers(input.spaceId),
     input.source.listActiveHabits(input.spaceId),
     input.source.listCheckIns(input.spaceId, dateKeys[0], today),
     input.source.listRecentMessages(input.spaceId, 12),
     input.source.listMemories(input.spaceId),
-    input.source.getBondState(input.spaceId)
+    input.source.getBondState(input.spaceId),
+    input.source.listManageableHabits?.(input.spaceId) ?? Promise.resolve([])
   ]);
   const completed = new Set(
     checkIns
@@ -119,6 +137,16 @@ export async function buildCompanionContext(input: {
       completionRate: counts.due === 0 ? 0 : Math.round((counts.completed / counts.due) * 100)
     },
     activeHabits: habits.slice(0, 12).map((habit) => ({ id: habit.id, name: habit.name })),
+    manageableHabits: manageableHabits.slice(0, 24).map((habit) => ({
+      id: habit.id,
+      name: habit.name,
+      isPaused: habit.isPaused,
+      frequency: habit.frequency,
+      reminderTime: habit.reminderTime,
+      trackType: habit.trackType,
+      numericUnit: habit.numericUnit,
+      completedToday: completed.has(`${habit.id}:${today}`)
+    })),
     recentMessages: messages.slice(-12).map((message) => ({
       role: message.role,
       content: message.content,
@@ -141,7 +169,7 @@ function parseFrequency(raw: unknown): HabitFrequency {
 
 export function createSqlCompanionContextSource(options: {
   db?: CompanionDb;
-  repository?: CompanionRepository;
+  repository?: Pick<CompanionRepository, "listRecentMessages" | "listMemories">;
   stateRepository?: CompanionStateRepository;
 } = {}): CompanionContextSource {
   const db = options.db ?? (getPool() as CompanionDb);
@@ -171,6 +199,33 @@ export function createSqlCompanionContextSource(options: {
         name: row.name,
         frequency: parseFrequency(row.frequency_json),
         createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at)
+      }));
+    },
+    async listManageableHabits(spaceId) {
+      const rows = await db.query<{
+        id: string;
+        name: string;
+        frequency_json: string;
+        created_at: string | Date;
+        is_paused: boolean;
+        reminder_time: string | null;
+        track_type: string;
+        numeric_unit: string | null;
+      }>(
+        `SELECT id, name, frequency_json, created_at, is_paused, reminder_time,
+                track_type, numeric_unit
+           FROM habits WHERE space_id = $1 ORDER BY sort_order ASC, created_at ASC`,
+        [spaceId]
+      );
+      return rows.rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        frequency: parseFrequency(row.frequency_json),
+        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+        isPaused: row.is_paused,
+        reminderTime: row.reminder_time,
+        trackType: row.track_type === "numeric" ? "numeric" : "check",
+        numericUnit: row.numeric_unit
       }));
     },
     async listCheckIns(spaceId, fromDate, toDate) {

@@ -40,6 +40,7 @@ export function useCompanionEngine(options: EngineOptions) {
   const [input, setInput] = useState("");
   const [account, setAccount] = useState<Account | null>(null);
   const [savingMemoryId, setSavingMemoryId] = useState<string | null>(null);
+  const [executingActionId, setExecutingActionId] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
   const stateRef = useRef(state);
   const accountRef = useRef(account);
@@ -205,6 +206,7 @@ export function useCompanionEngine(options: EngineOptions) {
       const reply = await companionClient.chat(
         { messageId, message: text, timezoneOffsetMinutes: new Date().getTimezoneOffset() },
         (delta) => dispatch({ type: "chat_delta", requestId, delta }),
+        undefined,
         controller.signal
       );
       if (controller.signal.aborted || accountRef.current?.spaceId !== currentAccount.spaceId) {
@@ -213,11 +215,11 @@ export function useCompanionEngine(options: EngineOptions) {
       dispatch({
         type: "chat_succeeded",
         requestId,
-        message: assistantMessage(createId("pet-a"), reply, "normal")
+        message: assistantMessage(createId("pet-a"), reply.text, "normal", reply.action)
       });
-      say(reply.slice(0, 40) + (reply.length > 40 ? "…" : ""), "happy", 3600);
+      say(reply.text.slice(0, 40) + (reply.text.length > 40 ? "…" : ""), "happy", 3600);
       void reloadMessages(currentAccount.spaceId);
-      return reply;
+      return reply.text;
     } catch {
       if (!controller.signal.aborted) {
         dispatch({
@@ -259,6 +261,46 @@ export function useCompanionEngine(options: EngineOptions) {
     [reloadMessages, savingMemoryId, say]
   );
 
+  const confirmAction = useCallback(
+    async (message: CompanionMessage) => {
+      const action = message.action;
+      const currentAccount = accountRef.current;
+      if (!action || action.status !== "pending" || !currentAccount || executingActionId) return;
+      setExecutingActionId(action.id);
+      try {
+        const result = await companionClient.confirmAction(action.id);
+        if (accountRef.current?.spaceId !== currentAccount.spaceId) return;
+        await reloadMessages(currentAccount.spaceId);
+        say(result.message, result.action.status === "succeeded" ? "happy" : "sad", 4200);
+      } catch {
+        say("这次动作没完成，稍后可以再试。", "sad", 4200);
+      } finally {
+        setExecutingActionId(null);
+      }
+    },
+    [executingActionId, reloadMessages, say]
+  );
+
+  const cancelAction = useCallback(
+    async (message: CompanionMessage) => {
+      const action = message.action;
+      const currentAccount = accountRef.current;
+      if (!action || action.status !== "pending" || !currentAccount || executingActionId) return;
+      setExecutingActionId(action.id);
+      try {
+        const result = await companionClient.cancelAction(action.id);
+        if (accountRef.current?.spaceId !== currentAccount.spaceId) return;
+        await reloadMessages(currentAccount.spaceId);
+        say(result.message, "idle", 3200);
+      } catch {
+        say("这次没能取消，稍后再试。", "sad", 3600);
+      } finally {
+        setExecutingActionId(null);
+      }
+    },
+    [executingActionId, reloadMessages, say]
+  );
+
   const startNewConversation = useCallback(async (): Promise<boolean> => {
     const currentAccount = accountRef.current;
     if (!currentAccount || stateRef.current.busy || clearingRef.current) return false;
@@ -290,9 +332,12 @@ export function useCompanionEngine(options: EngineOptions) {
     input,
     setInput,
     savingMemoryId,
+    executingActionId,
     clearing,
     sendChat,
     confirmMemory,
+    confirmAction,
+    cancelAction,
     startNewConversation,
     emit,
     reloadMessages

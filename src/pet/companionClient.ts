@@ -12,17 +12,20 @@ import {
   type MemberPreferences,
   type MemoryProposal
 } from "./companionTypes";
+import { CompanionActionSchema, type CompanionAction } from "./companionActionTypes";
 
 type RequestOptions = { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown };
 type RequestFn = (path: string, options?: RequestOptions) => Promise<unknown>;
 type StreamFn = (
   body: CompanionChatInput,
   onDelta: (value: string) => void,
+  onAction?: (action: CompanionAction) => void,
   signal?: AbortSignal
-) => Promise<string>;
+) => Promise<{ text: string; action: CompanionAction | null } | string>;
 
 export function parseCompanionSse(input: string): {
   deltas: string[];
+  actions: CompanionAction[];
   done: boolean;
   rest: string;
 } {
@@ -30,8 +33,14 @@ export function parseCompanionSse(input: string): {
   const blocks = normalized.split("\n\n");
   const rest = blocks.pop() ?? "";
   const deltas: string[] = [];
+  const actions: CompanionAction[] = [];
   let done = false;
   for (const block of blocks) {
+    const event = block
+      .split("\n")
+      .find((line) => line.startsWith("event:"))
+      ?.slice(6)
+      .trim();
     const data = block
       .split("\n")
       .filter((line) => line.startsWith("data:"))
@@ -42,21 +51,29 @@ export function parseCompanionSse(input: string): {
       continue;
     }
     if (!data) continue;
+    if (event === "error") {
+      throw new SyncError("卡卡回复中断，请重试");
+    }
     try {
-      const delta = (JSON.parse(data) as { delta?: unknown }).delta;
-      if (typeof delta === "string") deltas.push(delta);
+      const parsed = JSON.parse(data) as { delta?: unknown; action?: unknown };
+      if (event === "action") {
+        actions.push(CompanionActionSchema.parse(parsed.action));
+      } else if (typeof parsed.delta === "string") {
+        deltas.push(parsed.delta);
+      }
     } catch {
-      throw new SyncError("卡卡的回复格式不正确");
+      throw new SyncError(event === "action" ? "卡卡的动作格式不正确" : "卡卡的回复格式不正确");
     }
   }
-  return { deltas, done, rest };
+  return { deltas, actions, done, rest };
 }
 
 async function streamCompanionChat(
   body: CompanionChatInput,
   onDelta: (value: string) => void,
+  onAction?: (action: CompanionAction) => void,
   signal?: AbortSignal
-): Promise<string> {
+): Promise<{ text: string; action: CompanionAction | null }> {
   const baseUrl = getApiBaseUrl();
   const token = await getAuthToken();
   if (!baseUrl) throw new SyncError("应用未正确配置后端地址");
@@ -67,6 +84,7 @@ async function streamCompanionChat(
     let consumed = 0;
     let pending = "";
     let full = "";
+    let action: CompanionAction | null = null;
     let settled = false;
     const fail = (error: Error) => {
       if (settled) return;
@@ -82,6 +100,10 @@ async function streamCompanionChat(
       for (const delta of parsed.deltas) {
         full += delta;
         onDelta(delta);
+      }
+      for (const nextAction of parsed.actions) {
+        action = nextAction;
+        onAction?.(nextAction);
       }
     };
     xhr.open("POST", `${baseUrl}/api/companion/chat`);
@@ -106,7 +128,7 @@ async function streamCompanionChat(
         return;
       }
       settled = true;
-      resolve(full);
+      resolve({ text: full, action });
     };
     signal?.addEventListener(
       "abort",
@@ -132,8 +154,18 @@ export function createCompanionClient(options: {
         await request("/api/companion/respond", { method: "POST", body: { event } })
       );
     },
-    chat: (input: CompanionChatInput, onDelta: (value: string) => void, signal?: AbortSignal) =>
-      stream(input, onDelta, signal),
+    chat: async (
+      input: CompanionChatInput,
+      onDelta: (value: string) => void,
+      onAction?: (action: CompanionAction) => void,
+      signal?: AbortSignal
+    ) => {
+      const result =
+        onAction || signal
+          ? await stream(input, onDelta, onAction, signal)
+          : await stream(input, onDelta);
+      return typeof result === "string" ? { text: result, action: null } : result;
+    },
     async listMessages(cursor?: string | null) {
       const suffix = cursor ? `?limit=30&cursor=${encodeURIComponent(cursor)}` : "?limit=30";
       const value = (await request(`/api/companion/messages${suffix}`)) as {
@@ -169,6 +201,30 @@ export function createCompanionClient(options: {
       return CompanionStateSchema.parse(
         await request("/api/companion/state", { method: "PUT", body: preferences })
       );
+    },
+    async confirmAction(actionId: string) {
+      const value = (await request(`/api/companion/actions/${encodeURIComponent(actionId)}/confirm`, {
+        method: "POST"
+      })) as { action?: unknown; message?: unknown; resources?: unknown };
+      return {
+        action: CompanionActionSchema.parse(value.action),
+        message: typeof value.message === "string" ? value.message : "动作处理完成。",
+        resources: Array.isArray(value.resources)
+          ? value.resources.filter((item): item is string => typeof item === "string")
+          : []
+      };
+    },
+    async cancelAction(actionId: string) {
+      const value = (await request(`/api/companion/actions/${encodeURIComponent(actionId)}/cancel`, {
+        method: "POST"
+      })) as { action?: unknown; message?: unknown; resources?: unknown };
+      return {
+        action: CompanionActionSchema.parse(value.action),
+        message: typeof value.message === "string" ? value.message : "已取消。",
+        resources: Array.isArray(value.resources)
+          ? value.resources.filter((item): item is string => typeof item === "string")
+          : []
+      };
     }
   };
 }

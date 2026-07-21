@@ -35,6 +35,18 @@ import {
   type CompanionStateRepository
 } from "./companionStateRepository.js";
 import { createCompanionStateOperations } from "./companionServiceState.js";
+import {
+  CompanionActionForbiddenError,
+  CompanionActionNotFoundError
+} from "./companionActionRepository.js";
+import {
+  refreshAdventureAfterAction,
+  executeCompanionAction
+} from "./companionActionService.js";
+import {
+  CompanionActionSchema,
+  type CompanionAction
+} from "./companionActionSchemas.js";
 
 type ContextInput = {
   spaceId: string;
@@ -51,7 +63,7 @@ export class CompanionEventInProgressError extends Error {
 }
 
 type ServiceOptions = {
-  repository?: CompanionRepository;
+  repository?: Omit<CompanionRepository, "actions"> & { actions?: CompanionRepository["actions"] };
   stateRepository?: CompanionStateRepository;
   model?: CompanionModel;
   resolveModel?: ResolveCompanionModel;
@@ -157,6 +169,10 @@ function applyRisk(reply: CompanionReply, deterministic: CompanionRiskLevel): Co
   return riskLevel === "crisis" ? crisisReply(reply.eventId) : { ...reply, riskLevel };
 }
 
+function mayRequestAction(message: string): boolean {
+  return /(打卡|完成|新建|创建|添加|习惯|提醒|改到|改成|频率|暂停|恢复|继续)/.test(message);
+}
+
 export function createCompanionService(options: ServiceOptions = {}) {
   const repository = options.repository ?? createCompanionRepository();
   const stateRepository = options.stateRepository ?? createCompanionStateRepository();
@@ -234,11 +250,13 @@ export function createCompanionService(options: ServiceOptions = {}) {
 
     async chat(
       request: { spaceId: string; accountId: string; input: CompanionChatRequest },
-      onDelta: (text: string) => void
+      onDelta: (text: string) => void,
+      onAction?: (action: CompanionAction) => void
     ): Promise<string> {
       const input = CompanionChatRequestSchema.parse(request.input);
       const riskLevel = classifyRisk(input.message);
       let assistantText: string;
+      let pendingAction: CompanionAction | null = null;
       if (riskLevel === "crisis") {
         assistantText = crisisSupportMessage();
         onDelta(assistantText);
@@ -254,10 +272,73 @@ export function createCompanionService(options: ServiceOptions = {}) {
         try {
           const resolved = await resolveModel(request.spaceId);
           modelSource = resolved.source;
-          assistantText = await resolved.model.streamChat({ context, userText: input.message }, (chunk) => {
-            emitted = true;
-            onDelta(chunk);
-          });
+          if (mayRequestAction(input.message) && resolved.model.planAction) {
+            const plan = await resolved.model.planAction({ context, userText: input.message });
+            if (plan.decision === "propose_action" && plan.action) {
+              const assistantMessageId = createId();
+              const expiresAt = new Date(now().getTime() + 15 * 60_000).toISOString();
+              pendingAction = CompanionActionSchema.parse({
+                id: createId(),
+                command: plan.action,
+                summary: plan.message,
+                status: "pending",
+                requestedBy: request.accountId,
+                timezoneOffsetMinutes: input.timezoneOffsetMinutes,
+                expiresAt,
+                resultMessage: null
+              });
+              assistantText = plan.message;
+              onDelta(assistantText);
+              await repository.appendExchange(request.spaceId, request.accountId, {
+                userMessageId: input.messageId,
+                userText: input.message,
+                assistantMessageId,
+                assistantText,
+                riskLevel,
+                memoryProposal: memoryProposalFromExplicitRequest(input.message),
+                action: {
+                  id: pendingAction.id,
+                  command: pendingAction.command,
+                  summary: pendingAction.summary,
+                  expiresAt: pendingAction.expiresAt,
+                  timezoneOffsetMinutes: input.timezoneOffsetMinutes
+                }
+              });
+              onAction?.(pendingAction);
+              return assistantText;
+            }
+            if (plan.decision === "clarify") {
+              assistantText = plan.message;
+              onDelta(assistantText);
+              await repository.appendExchange(request.spaceId, request.accountId, {
+                userMessageId: input.messageId,
+                userText: input.message,
+                assistantMessageId: createId(),
+                assistantText,
+                riskLevel,
+                memoryProposal: memoryProposalFromExplicitRequest(input.message)
+              });
+              return assistantText;
+            }
+            assistantText = plan.message;
+            onDelta(assistantText);
+            await repository.appendExchange(request.spaceId, request.accountId, {
+              userMessageId: input.messageId,
+              userText: input.message,
+              assistantMessageId: createId(),
+              assistantText,
+              riskLevel,
+              memoryProposal: memoryProposalFromExplicitRequest(input.message)
+            });
+            return assistantText;
+          }
+          assistantText = await resolved.model.streamChat(
+            { context, userText: input.message },
+            (chunk) => {
+              emitted = true;
+              onDelta(chunk);
+            }
+          );
         } catch (error) {
           logCompanionModelFailure(error, "chat", modelSource);
           if (emitted) throw new Error("陪伴回复中断");
@@ -274,6 +355,61 @@ export function createCompanionService(options: ServiceOptions = {}) {
         memoryProposal: memoryProposalFromExplicitRequest(input.message)
       });
       return assistantText;
+    },
+
+    async confirmAction(spaceId: string, accountId: string, actionId: string) {
+      const actions = repository.actions;
+      if (!actions) throw new Error("动作服务未配置");
+      const result = await actions.withLockedAction(
+        spaceId,
+        accountId,
+        actionId,
+        async (client, action) => {
+          if (action.status === "succeeded" || action.status === "failed" || action.status === "cancelled" || action.status === "expired") {
+            return { action, message: action.resultMessage ?? "这个动作已经处理过了。", resources: [] };
+          }
+          if (new Date(action.expiresAt).getTime() <= now().getTime()) {
+            const message = "这个动作已经过期，请重新告诉我想做什么。";
+            await actions.updateStatus(client, spaceId, action.id, "expired", message);
+            return { action: { ...action, status: "expired", resultMessage: message }, message, resources: [] };
+          }
+          try {
+            const execution = await executeCompanionAction({
+              client,
+              spaceId,
+              accountId,
+              command: action.command,
+              now: now(),
+              timezoneOffsetMinutes: action.timezoneOffsetMinutes
+            });
+            await actions.updateStatus(client, spaceId, action.id, "succeeded", execution.message);
+            return { action: { ...action, status: "succeeded", resultMessage: execution.message }, ...execution };
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "这个动作暂时没完成。";
+            await actions.updateStatus(client, spaceId, action.id, "failed", message);
+            return { action: { ...action, status: "failed", resultMessage: message }, message, resources: [] };
+          }
+        }
+      );
+      return { ...result, resources: await refreshAdventureAfterAction(spaceId, result.resources) };
+    },
+
+    async cancelAction(spaceId: string, accountId: string, actionId: string) {
+      const actions = repository.actions;
+      if (!actions) throw new Error("动作服务未配置");
+      return actions.withLockedAction(spaceId, accountId, actionId, async (client, action) => {
+        if (action.status !== "pending") {
+          return { action, message: action.resultMessage ?? "这个动作已经处理过了。", resources: [] };
+        }
+        if (new Date(action.expiresAt).getTime() <= now().getTime()) {
+          const message = "这个动作已经过期，没有执行。";
+          await actions.updateStatus(client, spaceId, action.id, "expired", message);
+          return { action: { ...action, status: "expired", resultMessage: message }, message, resources: [] };
+        }
+        const message = "好的，我没有执行这个动作。";
+        await actions.updateStatus(client, spaceId, action.id, "cancelled", message);
+        return { action: { ...action, status: "cancelled", resultMessage: message }, message, resources: [] };
+      });
     },
 
     ...createCompanionStateOperations({ repository, stateRepository })

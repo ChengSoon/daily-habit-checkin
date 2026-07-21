@@ -140,6 +140,32 @@ describe("companion repository", () => {
     );
   });
 
+  it("stores a pending action with the assistant message in the same transaction", async () => {
+    const { db, queries } = fakeDb([result([]), result([]), result([])]);
+    const repository = createCompanionRepository({ db, transact: async (run) => run(db) });
+
+    await repository.appendExchange("space-1", "account-1", {
+      userMessageId: "user-1",
+      userText: "帮我完成散步打卡",
+      assistantMessageId: "assistant-1",
+      assistantText: "要为散步完成今天的打卡吗？",
+      riskLevel: "normal",
+      memoryProposal: null,
+      action: {
+        id: "action-1",
+        command: { type: "complete_checkin", arguments: { habitId: "habit-1", value: null } },
+        summary: "为散步完成今天打卡",
+        expiresAt: "2026-07-19T12:15:00.000Z",
+        timezoneOffsetMinutes: -480
+      }
+    });
+
+    expect(queries).toHaveLength(3);
+    expect(queries[2].text).toContain("INSERT INTO companion_actions");
+    expect(queries[2].values).toContain("space-1");
+    expect(queries[2].values).toContain("action-1");
+  });
+
   it("persists a proactive assistant message with its event identity", async () => {
     const { db, queries } = fakeDb([result([])]);
     const repository = createCompanionRepository({ db, transact: async (run) => run(db) });

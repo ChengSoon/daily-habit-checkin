@@ -84,6 +84,7 @@ function dependencies() {
       intent: "encourage",
       riskLevel: "normal"
     })),
+    planAction: vi.fn(),
     streamChat: vi.fn()
   };
   const buildContext = vi.fn(async () => context);
@@ -272,6 +273,59 @@ describe("companion service chat and shared state", () => {
         memoryProposal: null
       })
     );
+  });
+
+  it("persists an explicit action proposal and emits it without executing", async () => {
+    const deps = dependencies();
+    deps.model.planAction.mockResolvedValue({
+      decision: "propose_action",
+      message: "要为散步完成今天的打卡吗？",
+      action: { type: "complete_checkin", arguments: { habitId: "habit-1", value: null } }
+    });
+    const service = createCompanionService({ ...deps, createId: (() => {
+      let index = 0;
+      return () => `generated-${++index}`;
+    })() });
+    const actions: unknown[] = [];
+    const deltas: string[] = [];
+
+    await expect(
+      service.chat(
+        {
+          spaceId: "space-1",
+          accountId: "account-1",
+          input: { messageId: "user-1", message: "帮我完成散步打卡", timezoneOffsetMinutes: -480 }
+        },
+        (delta) => deltas.push(delta),
+        (action) => actions.push(action)
+      )
+    ).resolves.toBe("要为散步完成今天的打卡吗？");
+    expect(deltas).toEqual(["要为散步完成今天的打卡吗？"]);
+    expect(actions).toHaveLength(1);
+    expect(deps.model.streamChat).not.toHaveBeenCalled();
+    expect(deps.repository.appendExchange).toHaveBeenCalledWith(
+      "space-1",
+      "account-1",
+      expect.objectContaining({ action: expect.objectContaining({ command: expect.objectContaining({ type: "complete_checkin" }) }) })
+    );
+  });
+
+  it("does not send action-like chat messages to a second model call", async () => {
+    const deps = dependencies();
+    deps.model.planAction.mockResolvedValue({ decision: "chat", message: "可以，我们先聊聊这个习惯。" });
+    const service = createCompanionService({ ...deps, createId: () => "assistant-1" });
+
+    await expect(
+      service.chat(
+        {
+          spaceId: "space-1",
+          accountId: "account-1",
+          input: { messageId: "user-1", message: "我想聊聊我的习惯", timezoneOffsetMinutes: -480 }
+        },
+        () => undefined
+      )
+    ).resolves.toBe("可以，我们先聊聊这个习惯。");
+    expect(deps.model.streamChat).not.toHaveBeenCalled();
   });
   it("persists a memory proposal for an explicit remember request", async () => {
     const deps = dependencies();

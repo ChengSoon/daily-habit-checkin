@@ -1,4 +1,10 @@
 import { MemoryConfirmationSchema, type CompanionRiskLevel, type MemoryProposal } from "./companionSchemas.js";
+import {
+  CompanionActionCommandSchema,
+  CompanionActionSchema,
+  type CompanionAction,
+  type CompanionActionCommand
+} from "./companionActionSchemas.js";
 import type { CompanionDb } from "./companionRepository.js";
 
 type TransactionRunner = <T>(run: (client: CompanionDb) => Promise<T>) => Promise<T>;
@@ -12,6 +18,15 @@ type MessageRow = {
   memory_proposal_json?: unknown;
   memory_confirmed?: boolean;
   created_at: string | Date;
+  action_id?: string | null;
+  action_type?: string | null;
+  action_arguments_json?: unknown;
+  action_summary?: string | null;
+  action_status?: string | null;
+  action_requested_by?: string | null;
+  action_timezone_offset_minutes?: number | null;
+  action_expires_at?: string | Date | null;
+  action_result_message?: string | null;
 };
 
 export type CompanionMessage = {
@@ -24,6 +39,7 @@ export type CompanionMessage = {
   memoryProposal: MemoryProposal | null;
   memoryConfirmed: boolean;
   createdAt: string;
+  action?: CompanionAction | null;
 };
 
 function timestamp(value: unknown): string {
@@ -45,6 +61,7 @@ function proposal(value: unknown): MemoryProposal | null {
 }
 
 function mapMessage(row: MessageRow): CompanionMessage {
+  const action = parseAction(row);
   return {
     id: row.id,
     role: row.role,
@@ -54,8 +71,38 @@ function mapMessage(row: MessageRow): CompanionMessage {
     riskLevel: row.risk_level,
     memoryProposal: proposal(row.memory_proposal_json),
     memoryConfirmed: row.memory_confirmed === true,
-    createdAt: timestamp(row.created_at)
+    createdAt: timestamp(row.created_at),
+    action
   };
+}
+
+function parseAction(row: MessageRow): CompanionAction | null {
+  if (!row.action_id || !row.action_type || !row.action_status || !row.action_requested_by || !row.action_expires_at) {
+    return null;
+  }
+  let rawArguments = row.action_arguments_json;
+  if (typeof rawArguments === "string") {
+    try {
+      rawArguments = JSON.parse(rawArguments);
+    } catch {
+      return null;
+    }
+  }
+  const command = CompanionActionCommandSchema.safeParse({
+    type: row.action_type,
+    arguments: rawArguments
+  });
+  const parsed = CompanionActionSchema.safeParse({
+    id: row.action_id,
+    command: command.success ? command.data : null,
+    summary: row.action_summary,
+    status: row.action_status,
+    requestedBy: row.action_requested_by,
+    timezoneOffsetMinutes: row.action_timezone_offset_minutes ?? 0,
+    expiresAt: timestamp(row.action_expires_at),
+    resultMessage: row.action_result_message ?? null
+  });
+  return parsed.success ? parsed.data : null;
 }
 
 const MESSAGE_SELECT = `SELECT m.id, m.role, m.content, m.sender_account_id,
@@ -63,9 +110,16 @@ const MESSAGE_SELECT = `SELECT m.id, m.role, m.content, m.sender_account_id,
   EXISTS (
     SELECT 1 FROM companion_memories cm
     WHERE cm.space_id = m.space_id AND cm.source_message_id = m.id
-  ) AS memory_confirmed
+  ) AS memory_confirmed,
+  ca.id AS action_id, ca.action_type, ca.arguments_json AS action_arguments_json,
+  ca.summary AS action_summary, ca.status AS action_status,
+  ca.requested_by AS action_requested_by,
+  ca.timezone_offset_minutes AS action_timezone_offset_minutes,
+  ca.expires_at AS action_expires_at,
+  ca.result_message AS action_result_message
   FROM companion_messages m
-  LEFT JOIN accounts a ON a.id = m.sender_account_id AND a.space_id = m.space_id`;
+  LEFT JOIN accounts a ON a.id = m.sender_account_id AND a.space_id = m.space_id
+  LEFT JOIN companion_actions ca ON ca.source_message_id = m.id AND ca.space_id = m.space_id`;
 
 export function createCompanionMessageRepository(input: {
   db: CompanionDb;
@@ -113,6 +167,13 @@ export function createCompanionMessageRepository(input: {
         assistantText: string;
         riskLevel: CompanionRiskLevel;
         memoryProposal: MemoryProposal | null;
+        action?: {
+          id: string;
+          command: CompanionActionCommand;
+          summary: string;
+          expiresAt: string;
+          timezoneOffsetMinutes: number;
+        };
       }
     ): Promise<void> {
       // 同一事务里默认 now() 常得到相同时间戳；排序时会把用户消息排到助手后面。
@@ -146,6 +207,25 @@ export function createCompanionMessageRepository(input: {
             assistantCreatedAt.toISOString()
           ]
         );
+        if (exchange.action) {
+          await client.query(
+            `INSERT INTO companion_actions
+               (id, space_id, requested_by, source_message_id, action_type,
+                arguments_json, summary, timezone_offset_minutes, expires_at)
+             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)`,
+            [
+              exchange.action.id,
+              spaceId,
+              accountId,
+              exchange.assistantMessageId,
+              exchange.action.command.type,
+              JSON.stringify(exchange.action.command.arguments),
+              exchange.action.summary,
+              exchange.action.timezoneOffsetMinutes,
+              exchange.action.expiresAt
+            ]
+          );
+        }
       });
     },
 

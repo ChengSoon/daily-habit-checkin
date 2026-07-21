@@ -163,4 +163,37 @@ describe("companion model", () => {
     const messages = calls[0].messages as Array<{ role: string; content: string }>;
     expect(messages.filter((message) => message.content === "陪我聊聊")).toHaveLength(1);
   });
+
+  it("plans a validated app action without exposing arbitrary tools", async () => {
+    const calls: Record<string, unknown>[] = [];
+    const client = clientWith(async (body) => {
+      calls.push(body);
+      return {
+        choices: [
+          {
+            message: {
+              content: JSON.stringify({
+                decision: "propose_action",
+                message: "要为散步完成今天的打卡吗？",
+                action: {
+                  type: "complete_checkin",
+                  arguments: { habitId: "habit-1", value: null }
+                }
+              })
+            }
+          }
+        ]
+      };
+    });
+    const model = createCompanionModel({ client, model: "test-model" });
+
+    await expect(model.planAction?.({ context, userText: "帮我完成散步打卡" })).resolves.toMatchObject({
+      decision: "propose_action"
+    });
+    expect(calls[0]).toMatchObject({
+      model: "test-model",
+      response_format: { type: "json_object" },
+      stream: false
+    });
+  });
 });

@@ -285,6 +285,10 @@ export function GlobalPet() {
         streamText={engine.streamText}
         savingMemoryId={engine.savingMemoryId}
         onConfirmMemory={(message) => void engine.confirmMemory(message)}
+        currentAccountId={engine.account?.id ?? null}
+        executingActionId={engine.executingActionId}
+        onConfirmAction={(message) => void engine.confirmAction(message)}
+        onCancelAction={(message) => void engine.cancelAction(message)}
         voiceActive={voice.active}
         voicePhase={voice.phase}
         voiceTranscript={voice.transcript}

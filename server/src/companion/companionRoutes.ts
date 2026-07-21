@@ -13,6 +13,10 @@ import {
   createCompanionService,
   type CompanionService
 } from "./companionService.js";
+import {
+  CompanionActionForbiddenError,
+  CompanionActionNotFoundError
+} from "./companionActionRepository.js";
 
 type CompanionRouterOptions = {
   service?: CompanionService;
@@ -37,6 +41,14 @@ function sendError(response: Response, error: unknown): void {
     response.status(409).json({ error: "这次互动正在处理，请稍候" });
     return;
   }
+  if (error instanceof CompanionActionNotFoundError) {
+    response.status(404).json({ error: error instanceof Error ? error.message : "动作不存在" });
+    return;
+  }
+  if (error instanceof CompanionActionForbiddenError) {
+    response.status(403).json({ error: error instanceof Error ? error.message : "无权确认这个动作" });
+    return;
+  }
   console.warn("companion request failed", error);
   response.status(503).json({ error: "卡卡暂时没接上话，请稍后再试" });
 }
@@ -46,6 +58,7 @@ export function createCompanionRouter(options: CompanionRouterOptions = {}): Rou
   const service = options.service ?? createCompanionService();
   const tts = options.tts ?? createMimoTtsService();
   const notify = (spaceId: string) => options.onChange?.(spaceId, "companion");
+  const notifyResource = (spaceId: string, resource: string) => options.onChange?.(spaceId, resource);
 
   router.post("/respond", async (request, response) => {
     try {
@@ -74,7 +87,8 @@ export function createCompanionRouter(options: CompanionRouterOptions = {}): Rou
       started = true;
       await service.chat(
         { spaceId: request.spaceId!, accountId: request.accountId!, input },
-        (delta) => response.write(`data: ${JSON.stringify({ delta })}\n\n`)
+        (delta) => response.write(`data: ${JSON.stringify({ delta })}\n\n`),
+        (action) => response.write(`event: action\ndata: ${JSON.stringify({ action })}\n\n`)
       );
       response.write("data: [DONE]\n\n");
       response.end();
@@ -87,6 +101,27 @@ export function createCompanionRouter(options: CompanionRouterOptions = {}): Rou
       console.warn("companion stream failed", error);
       response.write(`event: error\ndata: ${JSON.stringify({ error: "回复中断，请重试" })}\n\n`);
       response.end();
+    }
+  });
+
+  router.post("/actions/:id/confirm", async (request, response) => {
+    try {
+      const result = await service.confirmAction(request.spaceId!, request.accountId!, request.params.id);
+      for (const resource of result.resources) notifyResource(request.spaceId!, resource);
+      notify(request.spaceId!);
+      response.json(result);
+    } catch (error) {
+      sendError(response, error);
+    }
+  });
+
+  router.post("/actions/:id/cancel", async (request, response) => {
+    try {
+      const result = await service.cancelAction(request.spaceId!, request.accountId!, request.params.id);
+      notify(request.spaceId!);
+      response.json(result);
+    } catch (error) {
+      sendError(response, error);
     }
   });
 

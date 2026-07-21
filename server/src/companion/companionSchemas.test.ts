@@ -6,6 +6,10 @@ import {
   MemberPreferencesSchema,
   MemoryConfirmationSchema
 } from "./companionSchemas.js";
+import {
+  CompanionActionCommandSchema,
+  CompanionActionPlanSchema
+} from "./companionActionSchemas.js";
 
 const occurredAt = "2026-07-19T12:00:00.000Z";
 const timezoneOffsetMinutes = -480;
@@ -154,6 +158,57 @@ describe("companion API input schemas", () => {
     ).toBe(true);
     expect(
       MemberPreferencesSchema.safeParse({ petVisible: true, proactiveMode: "frequent" }).success
+    ).toBe(false);
+  });
+});
+
+describe("companion action schemas", () => {
+  it("accepts only the four confirmed app action families", () => {
+    expect(
+      CompanionActionCommandSchema.safeParse({
+        type: "complete_checkin",
+        arguments: { habitId: "habit-1", value: null }
+      }).success
+    ).toBe(true);
+    expect(
+      CompanionActionCommandSchema.safeParse({
+        type: "delete_habit",
+        arguments: { habitId: "habit-1" }
+      }).success
+    ).toBe(false);
+  });
+
+  it("requires a confirmation proposal to contain one validated action", () => {
+    expect(
+      CompanionActionPlanSchema.safeParse({
+        decision: "propose_action",
+        message: "要为散步完成今天的打卡吗？",
+        action: {
+          type: "complete_checkin",
+          arguments: { habitId: "habit-1", value: null }
+        }
+      }).success
+    ).toBe(true);
+    expect(
+      CompanionActionPlanSchema.safeParse({
+        decision: "propose_action",
+        message: "我来处理。"
+      }).success
+    ).toBe(false);
+  });
+
+  it("rejects malformed reminders and empty updates", () => {
+    expect(
+      CompanionActionCommandSchema.safeParse({
+        type: "update_habit",
+        arguments: { habitId: "habit-1", reminderTime: "25:90" }
+      }).success
+    ).toBe(false);
+    expect(
+      CompanionActionCommandSchema.safeParse({
+        type: "update_habit",
+        arguments: { habitId: "habit-1" }
+      }).success
     ).toBe(false);
   });
 });
