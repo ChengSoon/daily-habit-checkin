@@ -8,6 +8,7 @@ import { getDatabase, initializeDatabase } from "../db/database";
 
 const AUTH_TOKEN_KEY = "authToken";
 const ACCOUNT_KEY = "account";
+const VOICE_WAKE_ENABLED_KEY = "voiceWakeEnabled";
 const authTokenListeners = new Set<() => void>();
 
 function notifyAuthTokenChanged(): void {
@@ -77,4 +78,12 @@ export async function getStoredAccount<T>(): Promise<T | null> {
   } catch {
     return null;
   }
+}
+
+export async function getVoiceWakeEnabled(): Promise<boolean> {
+  return (await getLocal(VOICE_WAKE_ENABLED_KEY)) === "true";
+}
+
+export async function saveVoiceWakeEnabled(enabled: boolean): Promise<void> {
+  await setLocal(VOICE_WAKE_ENABLED_KEY, String(enabled));
 }

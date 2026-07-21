@@ -11,17 +11,19 @@ import { MoodCheckInSheet } from "./MoodCheckInSheet";
 import { PetChatPanel } from "./PetChatPanel";
 import { usePet } from "./PetContext";
 import {
-  animationForQuickAction,
   feedbackForQuickAction,
   initialPetInteractionState,
   petInteractionReducer,
   type PetQuickAction,
   type RequestedQuickAction
 } from "./petInteractionState";
-import type { PetAnimationState } from "./types";
+import { usePetActionPlayer } from "./petActions";
+import { usePetRest } from "./petRestState";
 import { useCompanionEngine } from "./useCompanionEngine";
 import { usePetVoiceConversation } from "./usePetVoiceConversation";
+import { usePetVoiceWake } from "./usePetVoiceWake";
 import { chatClearConfirmation } from "./companionSettingsModel";
+import { getVoiceWakeEnabled, saveVoiceWakeEnabled } from "../sync/localSettings";
 
 const QUICK_ACTION_PENDING_HOLD_MS = 4200;
 const QUICK_ACTION_FALLBACK_HOLD_MS = 3600;
@@ -36,14 +38,26 @@ export function GlobalPet() {
   const insets = useSafeAreaInsets();
   const pathname = usePathname();
   const pet = usePet();
+  const clearPetBubble = pet.clearBubble;
   const [interaction, interactionDispatch] = useReducer(
     petInteractionReducer,
     initialPetInteractionState
   );
-  const [actionAnimation, setActionAnimation] = useState<PetAnimationState | null>(null);
   const [moodBusy, setMoodBusy] = useState(false);
-  const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [wakeEnabled, setWakeEnabled] = useState(false);
   const pettingIndex = useRef(0);
+  const wakeErrorRef = useRef<string | null>(null);
+  const {
+    animation: actionAnimation,
+    play: playAction,
+    stop: stopAction
+  } = usePetActionPlayer();
+  const {
+    state: restState,
+    animation: restAnimation,
+    markActivity: markPetActivity
+  } = usePetRest();
+  const onAiTab = pathname === "/ai" || pathname?.endsWith("/ai");
   const engine = useCompanionEngine({
     panelOpen: pet.panelOpen,
     bubbleDismissedAt: pet.bubbleDismissedAt,
@@ -55,16 +69,24 @@ export function GlobalPet() {
     disabled: engine.busy || engine.clearing || engine.loading,
     sendMessage: engine.sendChat
   });
+  const voiceWake = usePetVoiceWake({
+    enabled:
+      wakeEnabled &&
+      pet.visible &&
+      !onAiTab &&
+      !pet.panelOpen &&
+      !engine.busy &&
+      !engine.clearing &&
+      !engine.loading,
+    onWake: (command) => {
+      interactionDispatch({ type: "dismissed" });
+      pet.openPanel();
+      void voice.start({ initialTranscript: command || undefined });
+    }
+  });
   const emitCompanionEvent = engine.emit;
   const subscribeCompanionEvents = pet.subscribeCompanionEvents;
   const listRef = useRef<FlatList<CompanionMessage>>(null);
-
-  useEffect(
-    () => () => {
-      if (actionTimer.current) clearTimeout(actionTimer.current);
-    },
-    []
-  );
 
   useEffect(() => {
     if (!pet.panelOpen) return;
@@ -72,21 +94,58 @@ export function GlobalPet() {
   }, [engine.messages.length, engine.streamText, pet.panelOpen]);
 
   useEffect(() => {
-    if (pet.panelOpen) interactionDispatch({ type: "dismissed" });
-  }, [pet.panelOpen]);
+    if (!pet.panelOpen) return;
+    stopAction();
+    interactionDispatch({ type: "dismissed" });
+  }, [pet.panelOpen, stopAction]);
+
+  useEffect(() => {
+    if (restState === "awake") return;
+    stopAction();
+    clearPetBubble();
+    interactionDispatch({ type: "dismissed" });
+  }, [clearPetBubble, restState, stopAction]);
 
   useEffect(
     () => subscribeCompanionEvents((event) => void emitCompanionEvent(event)),
     [emitCompanionEvent, subscribeCompanionEvents]
   );
 
+  useEffect(() => {
+    void getVoiceWakeEnabled().then(setWakeEnabled).catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    if (!voiceWake.errorMessage) {
+      wakeErrorRef.current = null;
+      return;
+    }
+    if (voiceWake.errorMessage === wakeErrorRef.current) return;
+    wakeErrorRef.current = voiceWake.errorMessage;
+    pet.say(voiceWake.errorMessage, "waiting", 4600);
+  }, [pet, voiceWake.errorMessage]);
+
   function pulse(action: RequestedQuickAction) {
-    if (actionTimer.current) clearTimeout(actionTimer.current);
-    setActionAnimation(animationForQuickAction(action));
-    actionTimer.current = setTimeout(() => setActionAnimation(null), 1800);
+    playAction(action === "reflection" ? "curious" : "celebrate");
   }
 
   function selectQuickAction(action: PetQuickAction) {
+    if (markPetActivity()) return;
+    if (action === "voice_wake") {
+      interactionDispatch({ type: "request_selected" });
+      const nextEnabled = !wakeEnabled;
+      setWakeEnabled(nextEnabled);
+      void saveVoiceWakeEnabled(nextEnabled).catch(() => {
+        setWakeEnabled(!nextEnabled);
+        pet.say("语音唤醒设置没有保存，请稍后再试。", "waiting", 4200);
+      });
+      pet.say(
+        nextEnabled ? "语音唤醒已开启，说“卡卡”就能叫我。" : "语音唤醒已关闭。",
+        nextEnabled ? "happy" : "waiting",
+        4200
+      );
+      return;
+    }
     if (action === "chat") {
       interactionDispatch({ type: "chat_selected" });
       pet.openPanel();
@@ -94,6 +153,12 @@ export function GlobalPet() {
     }
     if (action === "mood") {
       interactionDispatch({ type: "mood_selected" });
+      return;
+    }
+    if (action === "play") {
+      interactionDispatch({ type: "request_selected" });
+      playAction("playful");
+      pet.say("来，和我动一动。", "happy", 3000);
       return;
     }
     if (action === "breathing") {
@@ -119,13 +184,24 @@ export function GlobalPet() {
   }
 
   function petKaka() {
+    if (wakeSleepingPet()) return;
     interactionDispatch({ type: "pet_long_pressed" });
-    if (actionTimer.current) clearTimeout(actionTimer.current);
-    setActionAnimation("waving");
-    actionTimer.current = setTimeout(() => setActionAnimation(null), 1800);
+    playAction("petting");
     const message = PETTING_REACTIONS[pettingIndex.current % PETTING_REACTIONS.length];
     pettingIndex.current += 1;
     pet.say(message, "happy", 3800);
+  }
+
+  function wakeSleepingPet(): boolean {
+    if (!markPetActivity()) return false;
+    stopAction();
+    interactionDispatch({ type: "dismissed" });
+    return true;
+  }
+
+  function tapKaka() {
+    if (wakeSleepingPet()) return;
+    interactionDispatch({ type: "pet_tapped" });
   }
 
   async function submitMood(score: 1 | 2 | 3 | 4 | 5, note: string) {
@@ -163,7 +239,6 @@ export function GlobalPet() {
   }
 
   // AI 页已有完整对话，隐藏浮宠避免双入口；面板打开时仍显示
-  const onAiTab = pathname === "/ai" || pathname?.endsWith("/ai");
   if (!pet.visible || (onAiTab && !pet.panelOpen)) {
     return null;
   }
@@ -179,12 +254,19 @@ export function GlobalPet() {
           bottomInset={bottom}
           topInset={insets.top}
           onClearBubble={pet.clearBubble}
-          onPress={() => interactionDispatch({ type: "pet_tapped" })}
+          onPress={tapKaka}
           onLongPress={petKaka}
+          wakeEnabled={wakeEnabled}
+          wakeActive={voiceWake.active}
           quickActionsOpen={interaction.quickActionsOpen}
           actionAnimation={actionAnimation}
+          restAnimation={restAnimation}
           onQuickAction={selectQuickAction}
-          onDragStart={() => interactionDispatch({ type: "drag_started" })}
+          onDragStart={() => {
+            stopAction();
+            markPetActivity();
+            interactionDispatch({ type: "drag_started" });
+          }}
         />
       ) : null}
 

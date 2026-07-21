@@ -4,8 +4,10 @@ import {
   CompanionChatRequestSchema,
   CompanionEventSchema,
   MemberPreferencesSchema,
-  MemoryConfirmationSchema
+  MemoryConfirmationSchema,
+  CompanionTtsRequestSchema
 } from "./companionSchemas.js";
+import { createMimoTtsService, type MimoTtsService } from "./mimoTts.js";
 import {
   CompanionEventInProgressError,
   createCompanionService,
@@ -14,6 +16,7 @@ import {
 
 type CompanionRouterOptions = {
   service?: CompanionService;
+  tts?: MimoTtsService;
   onChange?: (spaceId: string, resource: string) => void;
 };
 
@@ -41,6 +44,7 @@ function sendError(response: Response, error: unknown): void {
 export function createCompanionRouter(options: CompanionRouterOptions = {}): Router {
   const router = Router();
   const service = options.service ?? createCompanionService();
+  const tts = options.tts ?? createMimoTtsService();
   const notify = (spaceId: string) => options.onChange?.(spaceId, "companion");
 
   router.post("/respond", async (request, response) => {
@@ -83,6 +87,46 @@ export function createCompanionRouter(options: CompanionRouterOptions = {}): Rou
       console.warn("companion stream failed", error);
       response.write(`event: error\ndata: ${JSON.stringify({ error: "回复中断，请重试" })}\n\n`);
       response.end();
+    }
+  });
+
+  router.post("/tts", async (request, response) => {
+    let started = false;
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    request.once("aborted", abort);
+    response.once("close", () => {
+      if (!response.writableEnded) controller.abort();
+    });
+    try {
+      const input = CompanionTtsRequestSchema.parse(request.body);
+      response.status(200);
+      response.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+      response.setHeader("Cache-Control", "no-cache, no-transform");
+      response.setHeader("Connection", "keep-alive");
+      response.flushHeaders?.();
+      started = true;
+      await tts.stream(input, (chunk) => {
+        response.write(`event: audio\ndata: ${JSON.stringify(chunk)}\n\n`);
+      }, controller.signal);
+      if (!response.writableEnded) {
+        response.write("event: done\ndata: {}\n\n");
+        response.end();
+      }
+    } catch (error) {
+      if (controller.signal.aborted) {
+        if (!response.writableEnded) response.end();
+        return;
+      }
+      if (!started) {
+        sendError(response, error);
+        return;
+      }
+      console.warn("companion tts stream failed", error instanceof Error ? error.message : "unknown");
+      response.write("event: error\ndata: {\"code\":\"tts_unavailable\",\"message\":\"语音服务暂时不可用\"}\n\n");
+      response.end();
+    } finally {
+      request.removeListener("aborted", abort);
     }
   });
 

@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import type { PetMood } from "./types";
 import {
   PET_ANIMATIONS,
+  animationFrameSequence,
   animationForMood,
   clampPetOffset,
   frameAtElapsed,
+  motionStateForGesture,
   motionStateForDelta
 } from "./petAnimation";
 
@@ -47,11 +49,18 @@ describe("frameAtElapsed", () => {
   it("按当前帧持续时间推进并在周期末回到首帧", () => {
     expect(frameAtElapsed("idle", 0)).toBe(0);
     expect(frameAtElapsed("idle", 279)).toBe(0);
-    expect(frameAtElapsed("idle", 280)).toBe(1);
-    expect(frameAtElapsed("idle", 389)).toBe(1);
-    expect(frameAtElapsed("idle", 390)).toBe(2);
-    expect(frameAtElapsed("idle", 1099)).toBe(5);
-    expect(frameAtElapsed("idle", 1100)).toBe(0);
+    expect(frameAtElapsed("idle", 799)).toBe(0);
+    expect(frameAtElapsed("idle", 800)).toBe(1);
+    expect(frameAtElapsed("idle", 920)).toBe(2);
+    expect(frameAtElapsed("idle", 3110)).toBe(0);
+  });
+
+  it("让叙事动作自然收势，不从末帧跳回首帧", () => {
+    expect(animationFrameSequence("review")).toEqual([0, 1, 2, 3, 4, 5, 4, 3, 2, 1]);
+    expect(animationFrameSequence("failed", true)).toEqual([7, 6, 5, 4, 3, 2, 1, 0]);
+    expect(frameAtElapsed("review", 1139)).toBe(5);
+    expect(frameAtElapsed("review", 1790)).toBe(0);
+    expect(frameAtElapsed("jumping", 1000)).toBe(4);
   });
 
   it("减少动态效果时始终返回首帧", () => {
@@ -64,6 +73,18 @@ describe("motionStateForDelta", () => {
     expect(motionStateForDelta(1)).toBeNull();
     expect(motionStateForDelta(5)).toBe("running-right");
     expect(motionStateForDelta(-5)).toBe("running-left");
+  });
+});
+
+describe("motionStateForGesture", () => {
+  it("把明显的上下拖动映射为跳跃和等待", () => {
+    expect(motionStateForGesture(4, -24)).toBe("jumping");
+    expect(motionStateForGesture(-3, 24)).toBe("waiting");
+  });
+
+  it("保留横向拖动的方向步态", () => {
+    expect(motionStateForGesture(28, 3)).toBe("running-right");
+    expect(motionStateForGesture(-28, 3)).toBe("running-left");
   });
 });
 

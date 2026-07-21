@@ -44,6 +44,14 @@
     "plugins": [
       "expo-router",
       [
+        "react-native-audio-api",
+        {
+          "iosBackgroundMode": false,
+          "androidPermissions": [],
+          "androidForegroundService": false
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

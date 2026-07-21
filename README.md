@@ -85,6 +85,11 @@ DATABASE_URL=postgres://habit:<password>@localhost:5432/habit
 JWT_SECRET=<强随机字符串>
 OPENAI_API_KEY=<你的 OpenAI 或兼容服务 Key>
 OPENAI_MODEL=<模型名>
+MIMO_API_KEY=<小米 MiMo API Key，用于卡卡流式语音>
+# 可选：默认 https://api.xiaomimimo.com/v1 / mimo-v2.5-tts / 冰糖
+MIMO_TTS_BASE_URL=https://api.xiaomimimo.com/v1
+MIMO_TTS_MODEL=mimo-v2.5-tts
+MIMO_TTS_VOICE=冰糖
 API_KEY=<可选，生产环境建议必填>
 RATE_LIMIT_MAX=60
 

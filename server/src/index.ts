@@ -23,7 +23,7 @@ app.use(cors());
 // 图片以 base64 存入数据库，放宽请求体上限以容纳压缩后的图片
 app.use(express.json({ limit: "8mb" }));
 
-// 每个来源默认 1 分钟 10 次，防止刷爆 OpenAI 额度
+// 每个来源默认 1 分钟 10 次，防止刷爆模型额度
 const rateLimit = createRateLimiter({
   windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60_000),
   max: Number(process.env.RATE_LIMIT_MAX ?? 10)

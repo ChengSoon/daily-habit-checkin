@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCompanionClient, parseCompanionSse } from "./companionClient";
+import { parseCompanionTtsSse } from "./ttsClient";
 import { createCompanionEvent } from "./companionTypes";
 
 vi.mock("../sync/apiClient", () => {
@@ -25,6 +26,30 @@ describe("parseCompanionSse", () => {
     );
 
     expect(parsed).toEqual({ deltas: ["我在", "这里"], done: true, rest: 'data: {"del' });
+  });
+});
+
+describe("parseCompanionTtsSse", () => {
+  it("parses PCM chunks and the done event", () => {
+    expect(
+      parseCompanionTtsSse(
+        'event: audio\ndata: {"data":"AAE=","sampleRate":24000,"channels":1,"encoding":"pcm_s16le"}\n\n' +
+          "event: done\ndata: {}\n\n"
+      )
+    ).toEqual({
+      chunks: [{ data: "AAE=", sampleRate: 24000, channels: 1, encoding: "pcm_s16le" }],
+      done: true,
+      error: null,
+      rest: ""
+    });
+  });
+
+  it("rejects incompatible PCM metadata", () => {
+    expect(() =>
+      parseCompanionTtsSse(
+        'event: audio\ndata: {"data":"AAE=","sampleRate":16000,"channels":1,"encoding":"pcm_s16le"}\n\n'
+      )
+    ).toThrow("语音格式");
   });
 });
 

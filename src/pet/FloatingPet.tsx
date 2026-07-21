@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import {
   Animated,
@@ -10,12 +11,13 @@ import {
 } from "react-native";
 import { AppText } from "../ui/Controls";
 import { useTheme } from "../ui/ThemeContext";
-import { clampPetOffset, motionStateForDelta, PET_ATLAS } from "./petAnimation";
+import { clampPetOffset, motionStateForGesture, PET_ATLAS } from "./petAnimation";
 import { PET_NAME } from "./petIdentity";
 import { PetSprite } from "./PetSprite";
 import { PetQuickActions } from "./PetQuickActions";
 import type { PetQuickAction } from "./petInteractionState";
-import type { PetAnimationState, PetMood, PetTravelState } from "./types";
+import type { PetRestAnimation } from "./petRestState";
+import type { PetAnimationState, PetMood } from "./types";
 
 const PET_SIZE = 92;
 const PET_HEIGHT = (PET_SIZE * PET_ATLAS.cellHeight) / PET_ATLAS.cellWidth;
@@ -34,8 +36,11 @@ type FloatingPetProps = {
   onClearBubble: () => void;
   onPress: () => void;
   onLongPress: () => void;
+  wakeEnabled: boolean;
+  wakeActive: boolean;
   quickActionsOpen: boolean;
   actionAnimation: PetAnimationState | null;
+  restAnimation: PetRestAnimation | null;
   onQuickAction: (action: PetQuickAction) => void;
   onDragStart: () => void;
 };
@@ -68,7 +73,7 @@ function createPetPanResponder(args: {
   resting: PetOffset;
   bounds: PetBounds;
   setResting: (value: PetOffset) => void;
-  setTravel: (value: PetTravelState | null) => void;
+  setTravel: (value: PetAnimationState | null) => void;
   setBubbleOnLeft: (value: boolean) => void;
   onDragStart: () => void;
 }): PanResponderInstance {
@@ -86,9 +91,13 @@ function createPetPanResponder(args: {
     onPanResponderGrant: args.onDragStart,
     onPanResponderMove: (_, gesture) => {
       const next = offsetForGesture(args.resting, gesture, args.bounds);
-      const direction =
-        motionStateForDelta(gesture.vx, 0.01) ?? motionStateForDelta(gesture.dx, 1);
-      if (direction) args.setTravel(direction);
+      const gestureState = motionStateForGesture(
+        gesture.dx,
+        gesture.dy,
+        gesture.vx,
+        gesture.vy
+      );
+      if (gestureState) args.setTravel(gestureState);
       args.position.setValue(next);
       args.setBubbleOnLeft(bubbleIsOnLeft(next, args.bounds));
     },
@@ -101,7 +110,7 @@ function createPetPanResponder(args: {
 function usePetDrag(bounds: PetBounds, onDragStart: () => void) {
   const [position] = useState(() => new Animated.ValueXY());
   const [resting, setResting] = useState<PetOffset>({ x: 0, y: 0 });
-  const [travel, setTravel] = useState<PetTravelState | null>(null);
+  const [travel, setTravel] = useState<PetAnimationState | null>(null);
   const [bubbleOnLeft, setBubbleOnLeft] = useState(false);
 
   useEffect(() => {
@@ -164,6 +173,7 @@ function PetBubble({ text, onLeft, maxWidth, onClose }: PetBubbleProps) {
 }
 
 export function FloatingPet(props: FloatingPetProps) {
+  const { colors } = useTheme();
   const window = useWindowDimensions();
   const bounds = useMemo<PetBounds>(
     () => ({
@@ -208,7 +218,11 @@ export function FloatingPet(props: FloatingPetProps) {
           ...(drag.bubbleOnLeft ? { left: 0 } : { right: 0 })
         }}
       >
-        <PetQuickActions visible={props.quickActionsOpen} onAction={props.onQuickAction} />
+        <PetQuickActions
+          visible={props.quickActionsOpen}
+          onAction={props.onQuickAction}
+          wakeEnabled={props.wakeEnabled}
+        />
       </View>
       <Pressable
         onPress={props.onPress}
@@ -226,11 +240,40 @@ export function FloatingPet(props: FloatingPetProps) {
         <View pointerEvents="none">
           <PetSprite
             mood={props.mood}
-            stateOverride={drag.travel ?? props.actionAnimation ?? (props.quickActionsOpen ? "jumping" : null)}
+            stateOverride={
+              props.restAnimation?.state ??
+              drag.travel ??
+              props.actionAnimation ??
+              (props.quickActionsOpen ? "jumping" : null)
+            }
+            reversed={props.restAnimation?.reversed}
             size={PET_SIZE}
           />
         </View>
       </Pressable>
+      {props.wakeActive ? (
+        <View
+          accessible
+          accessibilityRole="image"
+          accessibilityLabel="语音唤醒正在监听"
+          pointerEvents="none"
+          style={{
+            position: "absolute",
+            top: -4,
+            right: -4,
+            width: 26,
+            height: 26,
+            borderRadius: 13,
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.successSurface,
+            borderWidth: 1,
+            borderColor: colors.success
+          }}
+        >
+          <Ionicons name="mic" size={14} color={colors.candyMintInk} />
+        </View>
+      ) : null}
     </Animated.View>
   );
 }

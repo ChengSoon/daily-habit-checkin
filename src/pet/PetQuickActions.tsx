@@ -7,10 +7,12 @@ type IconName = keyof typeof Ionicons.glyphMap;
 
 export function PetQuickActions({
   visible,
-  onAction
+  onAction,
+  wakeEnabled
 }: {
   visible: boolean;
   onAction: (action: PetQuickAction) => void;
+  wakeEnabled: boolean;
 }) {
   const { colors } = useTheme();
   if (!visible) return null;
@@ -37,6 +39,13 @@ export function PetQuickActions({
       color: colors.candySkyInk
     },
     {
+      action: "play",
+      icon: "game-controller-outline",
+      label: "和我玩一会儿",
+      background: colors.partnerSurface,
+      color: colors.partnerInk
+    },
+    {
       action: "encouragement",
       icon: "sparkles-outline",
       label: "给我一点动力",
@@ -56,6 +65,13 @@ export function PetQuickActions({
       label: "陪我呼吸",
       background: colors.successSurface,
       color: colors.candyMintInk
+    },
+    {
+      action: "voice_wake",
+      icon: wakeEnabled ? "mic" : "mic-off",
+      label: wakeEnabled ? "语音唤醒 · 开" : "语音唤醒 · 关",
+      background: wakeEnabled ? colors.successSurface : colors.surfaceMuted,
+      color: wakeEnabled ? colors.candyMintInk : colors.muted
     }
   ];
 

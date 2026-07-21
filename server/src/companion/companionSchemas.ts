@@ -118,6 +118,12 @@ export const CompanionChatRequestSchema = z
   })
   .strict();
 
+export const CompanionTtsRequestSchema = z
+  .object({
+    text: z.string().trim().min(1).max(800)
+  })
+  .strict();
+
 export const MemberPreferencesSchema = z
   .object({
     petVisible: z.boolean(),
@@ -130,5 +136,6 @@ export type CompanionReply = z.infer<typeof CompanionReplySchema>;
 export type MemoryProposal = z.infer<typeof MemoryProposalSchema>;
 export type MemoryConfirmation = z.infer<typeof MemoryConfirmationSchema>;
 export type CompanionChatRequest = z.infer<typeof CompanionChatRequestSchema>;
+export type CompanionTtsRequest = z.infer<typeof CompanionTtsRequestSchema>;
 export type MemberPreferences = z.infer<typeof MemberPreferencesSchema>;
 export type CompanionRiskLevel = CompanionReply["riskLevel"];

@@ -60,6 +60,19 @@ function serviceMock(): CompanionService {
   };
 }
 
+function ttsMock() {
+  return {
+    stream: vi.fn(async (_input, onAudio) => {
+      onAudio({
+        data: "AAE=",
+        sampleRate: 24000,
+        channels: 1,
+        encoding: "pcm_s16le"
+      });
+    })
+  };
+}
+
 let server: Server | null = null;
 
 afterEach(() => {
@@ -68,7 +81,7 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-async function start(service = serviceMock()) {
+async function start(service = serviceMock(), tts = ttsMock()) {
   const onChange = vi.fn();
   const app = express();
   app.use(express.json());
@@ -83,14 +96,14 @@ async function start(service = serviceMock()) {
       request.accountId = "account-1";
       next();
     },
-    createCompanionRouter({ service, onChange })
+    createCompanionRouter({ service, tts, onChange })
   );
   await new Promise<void>((resolve) => {
     server = app.listen(0, () => resolve());
   });
   const address = server!.address();
   if (!address || typeof address === "string") throw new Error("测试服务监听失败");
-  return { baseUrl: `http://127.0.0.1:${address.port}/api/companion`, service, onChange };
+  return { baseUrl: `http://127.0.0.1:${address.port}/api/companion`, service, tts, onChange };
 }
 
 const event = {
@@ -155,6 +168,27 @@ describe("companion routes", () => {
     expect(body).toContain('data: {"delta":"这里。"}');
     expect(body).toContain("data: [DONE]");
     expect(onChange).toHaveBeenCalledWith("space-1", "companion");
+  });
+
+  it("streams normalized PCM audio events", async () => {
+    const tts = ttsMock();
+    const { baseUrl } = await start(serviceMock(), tts);
+    const response = await fetch(`${baseUrl}/tts`, {
+      method: "POST",
+      headers: headers(),
+      body: JSON.stringify({ text: "陪我说句话" })
+    });
+    const body = await response.text();
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toContain("text/event-stream");
+    expect(body).toContain('event: audio\ndata: {"data":"AAE=","sampleRate":24000,"channels":1,"encoding":"pcm_s16le"}');
+    expect(body).toContain("event: done\ndata: {}");
+    expect(tts.stream).toHaveBeenCalledWith(
+      { text: "陪我说句话" },
+      expect.any(Function),
+      expect.any(AbortSignal)
+    );
   });
 
   it("exposes space-scoped messages, memories, and member state", async () => {

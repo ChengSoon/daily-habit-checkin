@@ -3,16 +3,21 @@ import type { PetAnimationState } from "./types";
 export type PetQuickAction =
   | "chat"
   | "mood"
+  | "play"
   | "encouragement"
   | "reflection"
-  | "breathing";
+  | "breathing"
+  | "voice_wake";
 export type PetInteractionState = {
   quickActionsOpen: boolean;
   moodSheetOpen: boolean;
   breathingOpen: boolean;
 };
 
-export type RequestedQuickAction = Extract<PetQuickAction, "encouragement" | "reflection">;
+export type RequestedQuickAction = Extract<
+  PetQuickAction,
+  "play" | "encouragement" | "reflection"
+>;
 
 export type QuickActionFeedback = {
   pending: string;
