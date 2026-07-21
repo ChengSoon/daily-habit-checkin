@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { AppState } from "react-native";
 import { listAllCheckIns } from "../checkins/checkinRepository";
-import { getAppSettings } from "../settings/settingsRepository";
 import { getCurrentAccount, type Account } from "../sync/authService";
 import { subscribeAuthTokenChanges } from "../sync/localSettings";
 import { subscribeSyncInvalidations } from "../sync/syncInvalidation";
 import { createId } from "../utils/id";
 import { companionClient } from "./companionClient";
+import { assistantMessage, CHAT_FAILURE_MESSAGE, replyMood, userMessage } from "./companionChatMessages";
+import { loadCompanionBootstrap } from "./companionBootstrap";
 import {
   canStartChat,
   companionEngineReducer,
@@ -33,24 +34,6 @@ type EngineOptions = {
   setVisible: (visible: boolean) => void;
 };
 
-function assistantMessage(id: string, content: string, riskLevel: CompanionMessage["riskLevel"]): CompanionMessage {
-  return {
-    id,
-    role: "assistant",
-    content,
-    senderAccountId: null,
-    senderName: null,
-    riskLevel,
-    memoryProposal: null,
-    memoryConfirmed: false,
-    createdAt: new Date().toISOString()
-  };
-}
-
-function moodForReply(reply: CompanionReply): PetMood {
-  return reply.mood;
-}
-
 export function useCompanionEngine(options: EngineOptions) {
   const { bubbleDismissedAt, notifyThinking, panelOpen, say, setVisible } = options;
   const [state, dispatch] = useReducer(companionEngineReducer, initialCompanionEngineState);
@@ -62,9 +45,7 @@ export function useCompanionEngine(options: EngineOptions) {
   const accountRef = useRef(account);
   const inputRef = useRef(input);
   const panelOpenRef = useRef(panelOpen);
-  const quietHoursRef = useRef<
-    { isEnabled: boolean; start: string; end: string } | undefined
-  >(undefined);
+  const quietHoursRef = useRef<{ isEnabled: boolean; start: string; end: string } | undefined>(undefined);
   const chatController = useRef<AbortController | null>(null);
   const eventController = useRef<AbortController | null>(null);
   const clearingRef = useRef(false);
@@ -120,7 +101,7 @@ export function useCompanionEngine(options: EngineOptions) {
         ) {
           return reply;
         }
-        say(reply.message, moodForReply(reply), 5200);
+        say(reply.message, replyMood(reply), 5200);
         return reply;
       } catch {
         if (controller.signal.aborted) return null;
@@ -147,19 +128,9 @@ export function useCompanionEngine(options: EngineOptions) {
     setAccount(nextAccount);
     dispatch({ type: "space_changed", spaceId: nextAccount?.spaceId ?? null });
     if (!nextAccount) return;
-    const [settings, companionState, checkIns] = await Promise.all([
-      getAppSettings().catch(() => null),
-      companionClient.getState().catch(() => null),
-      listAllCheckIns().catch(() => null)
-    ]);
+    const { quietHours, companionState, checkIns } = await loadCompanionBootstrap();
     if (accountRef.current?.id !== nextAccount.id) return;
-    quietHoursRef.current = settings
-      ? {
-          isEnabled: settings.isQuietHoursEnabled,
-          start: settings.quietHoursStart,
-          end: settings.quietHoursEnd
-        }
-      : undefined;
+    quietHoursRef.current = quietHours;
     if (companionState) setVisible(companionState.member.petVisible);
     if (checkIns) checkInEventTracker.current.seed(checkIns);
     await reloadMessages(nextAccount.spaceId);
@@ -218,24 +189,14 @@ export function useCompanionEngine(options: EngineOptions) {
     }
   }, [panelOpen, reloadMessages]);
 
-  const sendChat = useCallback(async () => {
-    const text = inputRef.current.trim();
+  const sendChat = useCallback(async (message?: string): Promise<string | null> => {
+    const text = message?.trim() || inputRef.current.trim();
     const currentAccount = accountRef.current;
-    if (!text || !currentAccount || !canStartChat(stateRef.current)) return;
+    if (!text || !currentAccount || !canStartChat(stateRef.current)) return null;
     const messageId = createId("pet-u");
     const requestId = createId("pet-r");
-    const userMessage: CompanionMessage = {
-      id: messageId,
-      role: "user",
-      content: text,
-      senderAccountId: currentAccount.id,
-      senderName: currentAccount.displayName,
-      riskLevel: "normal",
-      memoryProposal: null,
-      memoryConfirmed: false,
-      createdAt: new Date().toISOString()
-    };
-    dispatch({ type: "chat_started", requestId, message: userMessage });
+    const userMessageEntry = userMessage(messageId, text, currentAccount);
+    dispatch({ type: "chat_started", requestId, message: userMessageEntry });
     setInput("");
     notifyThinking(true);
     const controller = new AbortController();
@@ -246,7 +207,9 @@ export function useCompanionEngine(options: EngineOptions) {
         (delta) => dispatch({ type: "chat_delta", requestId, delta }),
         controller.signal
       );
-      if (controller.signal.aborted || accountRef.current?.spaceId !== currentAccount.spaceId) return;
+      if (controller.signal.aborted || accountRef.current?.spaceId !== currentAccount.spaceId) {
+        return null;
+      }
       dispatch({
         type: "chat_succeeded",
         requestId,
@@ -254,14 +217,17 @@ export function useCompanionEngine(options: EngineOptions) {
       });
       say(reply.slice(0, 40) + (reply.length > 40 ? "…" : ""), "happy", 3600);
       void reloadMessages(currentAccount.spaceId);
+      return reply;
     } catch {
       if (!controller.signal.aborted) {
         dispatch({
           type: "chat_failed",
           requestId,
-          message: assistantMessage(createId("pet-e"), "我暂时没接上话，但我还在这里。", "normal")
+          message: assistantMessage(createId("pet-e"), CHAT_FAILURE_MESSAGE, "normal")
         });
+        return CHAT_FAILURE_MESSAGE;
       }
+      return null;
     } finally {
       notifyThinking(false);
       if (chatController.current === controller) chatController.current = null;

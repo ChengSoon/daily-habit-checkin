@@ -6,7 +6,6 @@ import {
   Modal,
   Platform,
   Pressable,
-  TextInput,
   View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,7 +15,10 @@ import { useTheme } from "../ui/ThemeContext";
 import type { CompanionMessage } from "./companionTypes";
 import { memoryActionForMessage } from "./companionMemoryView";
 import { PET_NAME } from "./petIdentity";
+import { PetChatComposer } from "./PetChatComposer";
 import { PetSprite } from "./PetSprite";
+import { PetVoiceConversation } from "./PetVoiceConversation";
+import type { VoiceConversationPhase } from "./voiceConversationState";
 
 type PetChatPanelProps = {
   visible: boolean;
@@ -33,6 +35,14 @@ type PetChatPanelProps = {
   streamText: string;
   savingMemoryId: string | null;
   onConfirmMemory: (message: CompanionMessage) => void;
+  voiceActive: boolean;
+  voicePhase: VoiceConversationPhase;
+  voiceTranscript: string;
+  voiceErrorMessage: string | null;
+  voiceVolume: number;
+  onStartVoice: () => void;
+  onInterruptVoice: () => void;
+  onStopVoice: () => void;
 };
 
 export function PetChatPanel({
@@ -49,7 +59,15 @@ export function PetChatPanel({
   loading,
   streamText,
   savingMemoryId,
-  onConfirmMemory
+  onConfirmMemory,
+  voiceActive,
+  voicePhase,
+  voiceTranscript,
+  voiceErrorMessage,
+  voiceVolume,
+  onStartVoice,
+  onInterruptVoice,
+  onStopVoice
 }: PetChatPanelProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -91,7 +109,7 @@ export function PetChatPanel({
             </View>
             <Pressable
               onPress={onNewConversation}
-              disabled={busy || clearing || loading}
+              disabled={busy || clearing || loading || voiceActive}
               hitSlop={10}
               accessibilityRole="button"
               accessibilityLabel="开启新对话"
@@ -100,7 +118,7 @@ export function PetChatPanel({
               <Ionicons
                 name="create-outline"
                 size={20}
-                color={busy || clearing || loading ? colors.line : colors.muted}
+                color={busy || clearing || loading || voiceActive ? colors.line : colors.muted}
               />
             </Pressable>
             <Pressable
@@ -113,6 +131,17 @@ export function PetChatPanel({
             </Pressable>
           </View>
 
+          {voiceActive ? (
+            <PetVoiceConversation
+              phase={voicePhase}
+              transcript={voiceTranscript}
+              errorMessage={voiceErrorMessage}
+              volume={voiceVolume}
+              onInterrupt={onInterruptVoice}
+              onStop={onStopVoice}
+            />
+          ) : (
+            <>
           <FlatList
             ref={listRef}
             data={messages}
@@ -226,51 +255,16 @@ export function PetChatPanel({
             }
           />
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              paddingHorizontal: 16,
-              paddingTop: 8
-            }}
-          >
-            <TextInput
-              value={input}
-              onChangeText={onChangeInput}
-              placeholder="跟卡卡说点什么…"
-              placeholderTextColor={colors.faint}
-              editable={!busy && !clearing}
-              onSubmitEditing={onSend}
-              style={{
-                flex: 1,
-                minHeight: 42,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: colors.line,
-                backgroundColor: colors.inputBackground,
-                paddingHorizontal: 12,
-                color: colors.ink,
-                fontWeight: "600"
-              }}
-            />
-            <Pressable
-              onPress={onSend}
-              disabled={busy || !input.trim()}
-              accessibilityRole="button"
-              accessibilityLabel="发送消息"
-              style={{
-                width: 42,
-                height: 42,
-                borderRadius: 14,
-                alignItems: "center",
-                justifyContent: "center",
-                backgroundColor: busy || !input.trim() ? colors.line : colors.partner
-              }}
-            >
-              <Ionicons name="send" size={18} color={colors.onPartner} />
-            </Pressable>
-          </View>
+              <PetChatComposer
+                input={input}
+                busy={busy}
+                clearing={clearing}
+                onChangeInput={onChangeInput}
+                onSend={onSend}
+                onStartVoice={onStartVoice}
+              />
+            </>
+          )}
         </View>
       </KeyboardAvoidingView>
     </Modal>

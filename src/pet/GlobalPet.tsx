@@ -4,6 +4,7 @@ import { Alert, FlatList } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { createId } from "../utils/id";
 import type { CompanionMessage } from "./companionTypes";
+import { BreathingSheet } from "./BreathingSheet";
 import { createCompanionEvent } from "./companionTypes";
 import { FloatingPet } from "./FloatingPet";
 import { MoodCheckInSheet } from "./MoodCheckInSheet";
@@ -19,10 +20,16 @@ import {
 } from "./petInteractionState";
 import type { PetAnimationState } from "./types";
 import { useCompanionEngine } from "./useCompanionEngine";
+import { usePetVoiceConversation } from "./usePetVoiceConversation";
 import { chatClearConfirmation } from "./companionSettingsModel";
 
 const QUICK_ACTION_PENDING_HOLD_MS = 4200;
 const QUICK_ACTION_FALLBACK_HOLD_MS = 3600;
+const PETTING_REACTIONS = [
+  "嘿嘿，收到你的摸摸啦。",
+  "再摸一下，我就要开心得跳起来啦。",
+  "嗯，我也在这里陪着你。"
+] as const;
 
 /** 全局浮层：右下角宠物 + 气泡 + 对话面板。 */
 export function GlobalPet() {
@@ -36,12 +43,17 @@ export function GlobalPet() {
   const [actionAnimation, setActionAnimation] = useState<PetAnimationState | null>(null);
   const [moodBusy, setMoodBusy] = useState(false);
   const actionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pettingIndex = useRef(0);
   const engine = useCompanionEngine({
     panelOpen: pet.panelOpen,
     bubbleDismissedAt: pet.bubbleDismissedAt,
     say: pet.say,
     notifyThinking: pet.notifyThinking,
     setVisible: pet.setVisible
+  });
+  const voice = usePetVoiceConversation({
+    disabled: engine.busy || engine.clearing || engine.loading,
+    sendMessage: engine.sendChat
   });
   const emitCompanionEvent = engine.emit;
   const subscribeCompanionEvents = pet.subscribeCompanionEvents;
@@ -84,6 +96,11 @@ export function GlobalPet() {
       interactionDispatch({ type: "mood_selected" });
       return;
     }
+    if (action === "breathing") {
+      interactionDispatch({ type: "breathing_selected" });
+      pet.say("跟着我的节奏，慢一点就好。", "waiting", 3200);
+      return;
+    }
     interactionDispatch({ type: "request_selected" });
     pulse(action);
     const feedback = feedbackForQuickAction(action);
@@ -99,6 +116,16 @@ export function GlobalPet() {
       .catch(() => {
         pet.say(feedback.quiet, "waiting", QUICK_ACTION_FALLBACK_HOLD_MS);
       });
+  }
+
+  function petKaka() {
+    interactionDispatch({ type: "pet_long_pressed" });
+    if (actionTimer.current) clearTimeout(actionTimer.current);
+    setActionAnimation("waving");
+    actionTimer.current = setTimeout(() => setActionAnimation(null), 1800);
+    const message = PETTING_REACTIONS[pettingIndex.current % PETTING_REACTIONS.length];
+    pettingIndex.current += 1;
+    pet.say(message, "happy", 3800);
   }
 
   async function submitMood(score: 1 | 2 | 3 | 4 | 5, note: string) {
@@ -130,6 +157,11 @@ export function GlobalPet() {
     ]);
   }
 
+  function closeChatPanel() {
+    voice.stop();
+    pet.closePanel();
+  }
+
   // AI 页已有完整对话，隐藏浮宠避免双入口；面板打开时仍显示
   const onAiTab = pathname === "/ai" || pathname?.endsWith("/ai");
   if (!pet.visible || (onAiTab && !pet.panelOpen)) {
@@ -148,6 +180,7 @@ export function GlobalPet() {
           topInset={insets.top}
           onClearBubble={pet.clearBubble}
           onPress={() => interactionDispatch({ type: "pet_tapped" })}
+          onLongPress={petKaka}
           quickActionsOpen={interaction.quickActionsOpen}
           actionAnimation={actionAnimation}
           onQuickAction={selectQuickAction}
@@ -157,7 +190,7 @@ export function GlobalPet() {
 
       <PetChatPanel
         visible={pet.panelOpen}
-        onClose={pet.closePanel}
+        onClose={closeChatPanel}
         messages={engine.messages}
         listRef={listRef}
         input={engine.input}
@@ -170,6 +203,14 @@ export function GlobalPet() {
         streamText={engine.streamText}
         savingMemoryId={engine.savingMemoryId}
         onConfirmMemory={(message) => void engine.confirmMemory(message)}
+        voiceActive={voice.active}
+        voicePhase={voice.phase}
+        voiceTranscript={voice.transcript}
+        voiceErrorMessage={voice.errorMessage}
+        voiceVolume={voice.volume}
+        onStartVoice={() => void voice.start()}
+        onInterruptVoice={voice.interrupt}
+        onStopVoice={voice.stop}
       />
       {interaction.moodSheetOpen ? (
         <MoodCheckInSheet
@@ -177,6 +218,13 @@ export function GlobalPet() {
           busy={moodBusy}
           onClose={() => interactionDispatch({ type: "dismissed" })}
           onSubmit={(score, note) => void submitMood(score, note)}
+        />
+      ) : null}
+      {interaction.breathingOpen ? (
+        <BreathingSheet
+          visible
+          onClose={() => interactionDispatch({ type: "dismissed" })}
+          onComplete={() => pet.say("做得很好，呼吸慢下来了。", "happy", 4200)}
         />
       ) : null}
     </>

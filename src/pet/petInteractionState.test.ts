@@ -21,8 +21,27 @@ describe("pet interaction state", () => {
       { type: "mood_selected" }
     );
 
-    expect(mood).toEqual({ quickActionsOpen: false, moodSheetOpen: true });
+    expect(mood).toEqual({
+      quickActionsOpen: false,
+      moodSheetOpen: true,
+      breathingOpen: false
+    });
     expect(petInteractionReducer(mood, { type: "dismissed" })).toEqual(
+      initialPetInteractionState
+    );
+  });
+
+  it("opens a breathing session and resets overlays after petting", () => {
+    const breathing = petInteractionReducer(initialPetInteractionState, {
+      type: "breathing_selected"
+    });
+
+    expect(breathing).toEqual({
+      quickActionsOpen: false,
+      moodSheetOpen: false,
+      breathingOpen: true
+    });
+    expect(petInteractionReducer(breathing, { type: "pet_long_pressed" })).toEqual(
       initialPetInteractionState
     );
   });

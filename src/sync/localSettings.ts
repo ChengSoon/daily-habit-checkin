@@ -1,4 +1,4 @@
-import { getDatabase } from "../db/database";
+import { getDatabase, initializeDatabase } from "../db/database";
 
 /**
  * 本地专用设置，永不参与云同步。
@@ -24,6 +24,7 @@ export function subscribeAuthTokenChanges(listener: () => void): () => void {
 }
 
 async function getLocal(key: string): Promise<string | null> {
+  await initializeDatabase();
   const db = getDatabase();
   const row = await db.getFirstAsync<{ value: string }>(
     "SELECT value FROM local_settings WHERE key = ?",
@@ -33,6 +34,7 @@ async function getLocal(key: string): Promise<string | null> {
 }
 
 async function setLocal(key: string, value: string | null): Promise<void> {
+  await initializeDatabase();
   const db = getDatabase();
   if (value === null) {
     await db.runAsync("DELETE FROM local_settings WHERE key = ?", [key]);

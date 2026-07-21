@@ -20,7 +20,7 @@ import type { PetAnimationState, PetMood, PetTravelState } from "./types";
 const PET_SIZE = 92;
 const PET_HEIGHT = (PET_SIZE * PET_ATLAS.cellHeight) / PET_ATLAS.cellWidth;
 const HORIZONTAL_MARGIN = 14;
-const BUBBLE_RESERVED_HEIGHT = 104;
+const BUBBLE_RESERVED_HEIGHT = 176;
 const DRAG_THRESHOLD = 4;
 
 type PetOffset = { x: number; y: number };
@@ -33,6 +33,7 @@ type FloatingPetProps = {
   topInset: number;
   onClearBubble: () => void;
   onPress: () => void;
+  onLongPress: () => void;
   quickActionsOpen: boolean;
   actionAnimation: PetAnimationState | null;
   onQuickAction: (action: PetQuickAction) => void;
@@ -211,8 +212,11 @@ export function FloatingPet(props: FloatingPetProps) {
       </View>
       <Pressable
         onPress={props.onPress}
+        onLongPress={props.onLongPress}
+        delayLongPress={480}
         accessibilityRole="button"
         accessibilityLabel={"打开" + PET_NAME + "对话"}
+        accessibilityHint="点按打开互动菜单，长按摸摸卡卡"
         style={({ pressed }) => ({
           width: PET_SIZE,
           height: PET_HEIGHT,

@@ -1,7 +1,16 @@
 import type { PetAnimationState } from "./types";
 
-export type PetQuickAction = "chat" | "mood" | "encouragement" | "reflection";
-export type PetInteractionState = { quickActionsOpen: boolean; moodSheetOpen: boolean };
+export type PetQuickAction =
+  | "chat"
+  | "mood"
+  | "encouragement"
+  | "reflection"
+  | "breathing";
+export type PetInteractionState = {
+  quickActionsOpen: boolean;
+  moodSheetOpen: boolean;
+  breathingOpen: boolean;
+};
 
 export type RequestedQuickAction = Extract<PetQuickAction, "encouragement" | "reflection">;
 
@@ -12,23 +21,31 @@ export type QuickActionFeedback = {
 
 export const initialPetInteractionState: PetInteractionState = {
   quickActionsOpen: false,
-  moodSheetOpen: false
+  moodSheetOpen: false,
+  breathingOpen: false
 };
 
 type PetInteractionAction =
   | { type: "pet_tapped" }
   | { type: "drag_started" | "dismissed" | "chat_selected" | "request_selected" }
-  | { type: "mood_selected" };
+  | { type: "pet_long_pressed" | "mood_selected" | "breathing_selected" };
 
 export function petInteractionReducer(
   state: PetInteractionState,
   action: PetInteractionAction
 ): PetInteractionState {
   if (action.type === "pet_tapped") {
-    return { quickActionsOpen: !state.quickActionsOpen, moodSheetOpen: false };
+    return {
+      quickActionsOpen: !state.quickActionsOpen,
+      moodSheetOpen: false,
+      breathingOpen: false
+    };
   }
   if (action.type === "mood_selected") {
-    return { quickActionsOpen: false, moodSheetOpen: true };
+    return { quickActionsOpen: false, moodSheetOpen: true, breathingOpen: false };
+  }
+  if (action.type === "breathing_selected") {
+    return { quickActionsOpen: false, moodSheetOpen: false, breathingOpen: true };
   }
   return initialPetInteractionState;
 }

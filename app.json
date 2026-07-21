@@ -51,6 +51,18 @@
           }
         }
       ],
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "允许每日打卡使用麦克风，和卡卡进行语音对话。",
+          "speechRecognitionPermission": "允许每日打卡识别你的语音，转换为与卡卡的对话内容。",
+          "androidSpeechServicePackages": [
+            "com.google.android.googlequicksearchbox",
+            "com.google.android.as"
+          ]
+        }
+      ],
+      "./plugins/with-utf8-pod-exec",
       "expo-sqlite",
       "expo-notifications",
       [

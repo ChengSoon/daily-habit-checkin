@@ -2,6 +2,7 @@ import * as SQLite from "expo-sqlite";
 import { runMigrations } from "./migrations";
 
 let database: SQLite.SQLiteDatabase | null = null;
+let migrationPromise: Promise<void> | null = null;
 
 export function getDatabase(): SQLite.SQLiteDatabase {
   if (!database) {
@@ -12,10 +13,17 @@ export function getDatabase(): SQLite.SQLiteDatabase {
 }
 
 export async function initializeDatabase(): Promise<void> {
-  await runMigrations(getDatabase());
+  if (!migrationPromise) {
+    migrationPromise = runMigrations(getDatabase()).catch((error) => {
+      migrationPromise = null;
+      throw error;
+    });
+  }
+  await migrationPromise;
 }
 
 export async function resetDatabaseForTests(): Promise<void> {
+  await initializeDatabase();
   const db = getDatabase();
   await db.execAsync(`
     DELETE FROM admin_settings;
