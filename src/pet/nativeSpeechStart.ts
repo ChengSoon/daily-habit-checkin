@@ -1,6 +1,9 @@
+import type { ExpoSpeechRecognitionOptions } from "expo-speech-recognition";
 import { androidSpeechStartOptions } from "./speechRecognitionAndroid";
 
-export function buildNativeSpeechStartOptions(androidServicePackage?: string) {
+export function buildNativeSpeechStartOptions(
+  androidServicePackage?: string
+): ExpoSpeechRecognitionOptions {
   return {
     lang: "zh-CN",
     interimResults: true,
@@ -12,11 +15,11 @@ export function buildNativeSpeechStartOptions(androidServicePackage?: string) {
       EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS: 1200,
       EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS: 700
     },
-    iosTaskHint: "dictation" as const,
+    iosTaskHint: "dictation",
     iosCategory: {
-      category: "playAndRecord" as const,
-      categoryOptions: ["defaultToSpeaker", "allowBluetooth"] as const,
-      mode: "voiceChat" as const
+      category: "playAndRecord",
+      categoryOptions: ["defaultToSpeaker", "allowBluetooth"],
+      mode: "voiceChat"
     },
     iosVoiceProcessingEnabled: true,
     volumeChangeEventOptions: { enabled: true, intervalMillis: 120 },

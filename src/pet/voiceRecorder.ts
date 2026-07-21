@@ -55,7 +55,9 @@ export async function requestMicrophonePermission(): Promise<boolean> {
 }
 
 /** 录制一句用户语音：有声后静音自动结束，并返回 base64 m4a。 */
-export async function recordUtterance(options: VoiceRecordOptions = {}): Promise<VoiceRecordResult | null> {
+export async function recordUtterance(
+  options: VoiceRecordOptions = {}
+): Promise<VoiceRecordResult | null> {
   const api = loadAudioApi();
   if (!api) throw new Error("RECORDER_UNAVAILABLE");
 
@@ -81,7 +83,7 @@ export async function recordUtterance(options: VoiceRecordOptions = {}): Promise
   let speechStartedAt: number | null = null;
   let lastSpeechAt: number | null = null;
   let startedAt = 0;
-  let stopPromise: Promise<VoiceRecordResult | null> | null = null;
+  let finishing = false;
 
   const cleanup = () => {
     try {
@@ -99,6 +101,7 @@ export async function recordUtterance(options: VoiceRecordOptions = {}): Promise
     try {
       const info = await recorder.stop();
       cleanup();
+      if (info.status === "error") return null;
       const path = info.paths[0];
       if (!path || info.duration < minSpeechMs / 1000) return null;
       const uri = path.startsWith("file://") ? path : `file://${path}`;
@@ -118,12 +121,9 @@ export async function recordUtterance(options: VoiceRecordOptions = {}): Promise
 
   return await new Promise<VoiceRecordResult | null>((resolve, reject) => {
     const onAbort = () => {
-      if (settled) return;
-      settled = true;
-      void recorder.stop().finally(() => {
-        cleanup();
-        resolve(null);
-      });
+      if (settled || finishing) return;
+      finishing = true;
+      void finish().then(resolve, reject);
     };
     options.signal?.addEventListener("abort", onAbort, { once: true });
 
@@ -134,6 +134,12 @@ export async function recordUtterance(options: VoiceRecordOptions = {}): Promise
       reject(new Error("RECORDER_ERROR"));
     });
 
+    const maybeStop = () => {
+      if (settled || finishing) return;
+      finishing = true;
+      void finish().then(resolve, reject);
+    };
+
     recorder.onAudioReady(
       {
         sampleRate: 16_000,
@@ -141,7 +147,7 @@ export async function recordUtterance(options: VoiceRecordOptions = {}): Promise
         channelCount: 1
       },
       ({ buffer }) => {
-        if (settled) return;
+        if (settled || finishing) return;
         const samples = buffer.getChannelData(0);
         const rms = bufferRms(samples);
         options.onVolume?.(rmsToVolume(rms));
@@ -156,9 +162,9 @@ export async function recordUtterance(options: VoiceRecordOptions = {}): Promise
           now - speechStartedAt >= minSpeechMs &&
           now - lastSpeechAt >= silenceDurationMs
         ) {
-          stopPromise ??= finish().then(resolve, reject);
-        } else if (now - startedAt >= maxDurationMs) {
-          stopPromise ??= finish().then(resolve, reject);
+          maybeStop();
+        } else if (startedAt > 0 && now - startedAt >= maxDurationMs) {
+          maybeStop();
         }
       }
     );
