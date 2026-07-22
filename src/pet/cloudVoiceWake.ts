@@ -1,5 +1,10 @@
 import { commandAfterWakePhrase } from "./voiceWakeState";
-import { listenOnceWithCloudAsr, type CloudListenOptions } from "./cloudVoiceListen";
+import { listenOnceWithCloudAsr } from "./cloudVoiceListen";
+import type { CloudListenOptions } from "./cloudVoiceListenTypes";
+import { CLOUD_WAKE_RECORD_OPTIONS } from "./cloudVoiceRecordOptions";
+
+export type { CloudListenOptions } from "./cloudVoiceListenTypes";
+export { CLOUD_WAKE_RECORD_OPTIONS } from "./cloudVoiceRecordOptions";
 
 export type CloudWakeHandlers = {
   active: () => boolean;
@@ -8,14 +13,6 @@ export type CloudWakeHandlers = {
   onWake: (command: string) => void;
   onNoMatch: () => void;
   onError: (message: string) => void;
-};
-
-/** 唤醒录音更短静音、更灵敏，减少“说完还要等很久才再听”。 */
-export const CLOUD_WAKE_RECORD_OPTIONS: CloudListenOptions = {
-  maxDurationMs: 8_000,
-  silenceDurationMs: 650,
-  minSpeechMs: 280,
-  speechThreshold: 0.014
 };
 
 /** 一轮应用内唤醒识别：听到“卡卡”后回调 onWake，否则 onNoMatch。 */

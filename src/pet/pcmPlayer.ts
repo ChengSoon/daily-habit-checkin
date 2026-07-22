@@ -1,3 +1,4 @@
+import { activateCompanionAudioPlayback } from "./audioPlaybackSession";
 import type { TtsAudioChunk } from "./ttsClient";
 
 type AudioApi = typeof import("react-native-audio-api");
@@ -54,6 +55,9 @@ class AudioApiPcmPlayer implements PcmPlayer {
     const generation = ++this.generation;
     const api = loadAudioApi();
     if (!api) throw new Error("当前 App 没有包含原生音频模块");
+    // 录音刚结束后立刻播 TTS，先抢媒体焦点，避免部分 Android 无声。
+    await activateCompanionAudioPlayback();
+    if (generation !== this.generation) throw new Error("PCM 播放器已停止");
     const context = new api.AudioContext({ sampleRate: 24000 });
     const source = context.createBufferQueueSource({ pitchCorrection: false });
     source.connect(context.destination);

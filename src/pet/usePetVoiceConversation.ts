@@ -10,6 +10,7 @@ import { loadSpeechRecognitionPackage } from "./speechRecognition";
 import { useNativeSpeechEvents } from "./useNativeSpeechEvents";
 import { buildNativeSpeechStartOptions } from "./nativeSpeechStart";
 import { listenOnceWithCloudAsr } from "./cloudVoiceListen";
+import { CLOUD_CONVERSATION_RECORD_OPTIONS } from "./cloudVoiceRecordOptions";
 import { prepareVoiceSession, USE_CLOUD_ASR } from "./prepareVoiceSession";
 import { useStopVoiceOnBackground } from "./useStopVoiceOnBackground";
 import { speakReplyText, stopSpeechPlayback } from "./voiceReplyPlayer";
@@ -88,26 +89,30 @@ export function usePetVoiceConversation({
     abortCloudListen();
     const controller = new AbortController();
     cloudAbortRef.current = controller;
-    await listenOnceWithCloudAsr(controller.signal, {
-      active: () => activeRef.current,
-      processing: () => processingRef.current,
-      onListening: () => dispatch({ type: "listening" }),
-      onVolume: (volume) => dispatch({ type: "volume_changed", volume }),
-      onNoSpeech: () => {
-        dispatch({ type: "failed", message: "我没听清，再说一次吧" });
-        scheduleRestartRef.current();
+    await listenOnceWithCloudAsr(
+      controller.signal,
+      {
+        active: () => activeRef.current,
+        processing: () => processingRef.current,
+        onListening: () => dispatch({ type: "listening" }),
+        onVolume: (volume) => dispatch({ type: "volume_changed", volume }),
+        onNoSpeech: () => {
+          dispatch({ type: "failed", message: "我没听清，再说一次吧" });
+          scheduleRestartRef.current();
+        },
+        onRecognizing: () => {
+          processingRef.current = true;
+          dispatch({ type: "thinking", transcript: "正在听懂你…" });
+        },
+        onTranscript: async (text) => submitTranscriptRef.current(text),
+        onError: (message) => {
+          processingRef.current = false;
+          dispatch({ type: "failed", message });
+          scheduleRestartRef.current();
+        }
       },
-      onRecognizing: () => {
-        processingRef.current = true;
-        dispatch({ type: "thinking", transcript: "正在听懂你…" });
-      },
-      onTranscript: async (text) => submitTranscriptRef.current(text),
-      onError: (message) => {
-        processingRef.current = false;
-        dispatch({ type: "failed", message });
-        scheduleRestartRef.current();
-      }
-    });
+      CLOUD_CONVERSATION_RECORD_OPTIONS
+    );
     if (cloudAbortRef.current === controller) cloudAbortRef.current = null;
   }, [abortCloudListen, clearRestartTimer]);
 

@@ -1,6 +1,10 @@
 import { SyncError } from "../sync/apiClient";
 import { transcribeCompanionAudio } from "./asrClient";
-import { recordUtterance, type VoiceRecordOptions } from "./voiceRecorder";
+import { recordUtterance } from "./voiceRecorder";
+import type { CloudListenOptions } from "./cloudVoiceListenTypes";
+
+export type { CloudListenOptions } from "./cloudVoiceListenTypes";
+export { CLOUD_CONVERSATION_RECORD_OPTIONS } from "./cloudVoiceRecordOptions";
 
 export type CloudListenHandlers = {
   active: () => boolean;
@@ -12,11 +16,6 @@ export type CloudListenHandlers = {
   onTranscript: (text: string) => Promise<void>;
   onError: (message: string) => void;
 };
-
-export type CloudListenOptions = Pick<
-  VoiceRecordOptions,
-  "maxDurationMs" | "silenceDurationMs" | "minSpeechMs" | "speechThreshold"
->;
 
 /** 一轮应用内录音识别：不依赖系统 Google 语音服务。 */
 export async function listenOnceWithCloudAsr(

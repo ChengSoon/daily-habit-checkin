@@ -117,9 +117,10 @@ export async function recordUtterance(
   if (!api) throw new Error("RECORDER_UNAVAILABLE");
 
   const maxDurationMs = options.maxDurationMs ?? 12_000;
-  const silenceDurationMs = options.silenceDurationMs ?? 1_100;
-  const minSpeechMs = options.minSpeechMs ?? 450;
-  const speechThreshold = options.speechThreshold ?? 0.02;
+  // 默认更短静音，降低“说完后还要干等”的体感延迟。
+  const silenceDurationMs = options.silenceDurationMs ?? 750;
+  const minSpeechMs = options.minSpeechMs ?? 350;
+  const speechThreshold = options.speechThreshold ?? 0.018;
 
   const recorder = new api.AudioRecorder();
   const enabled = recorder.enableFileOutput({

@@ -54,6 +54,26 @@ describe("voice conversation helpers", () => {
     );
   });
 
+  it("不朗读动作旁白、用户问题和回复标签", () => {
+    expect(textForSpeech("（卡卡歪了歪头）你今天想先做什么？")).toBe(
+      "你今天想先做什么？"
+    );
+    expect(
+      textForSpeech("动作描述：卡卡轻轻拍了拍鳍\n用户问题：今天好累\n回复：那就先歇会儿。")
+    ).toBe("那就先歇会儿。");
+    expect(
+      textForSpeech("动作描述：卡卡点点头。用户问题：能陪我吗？回复：当然，我在。")
+    ).toBe("当然，我在。");
+    expect(textForSpeech("*轻轻挥了挥鳍* 卡卡：我在。")).toBe("我在。");
+    expect(textForSpeech("<think>需要先安慰用户</think>先歇会儿。")).toBe("先歇会儿。");
+  });
+
+  it("保留回复中有实际含义的普通括号内容", () => {
+    expect(textForSpeech("先读一会儿（10 分钟）就好。")).toBe(
+      "先读一会儿（10 分钟）就好。"
+    );
+  });
+
   it("区分可自动重试和需要用户处理的错误", () => {
     expect(voiceErrorMessage("not-allowed")).toContain("权限");
     expect(voiceErrorMessage("service-not-allowed")).toContain("系统语音识别");

@@ -77,10 +77,34 @@ export function isRecoverableVoiceError(error: ExpoSpeechRecognitionErrorCode): 
   return error === "no-speech" || error === "speech-timeout" || error === "network" || error === "busy";
 }
 
+const STAGE_DIRECTION_CUES =
+  /动作|旁白|神态|语气|卡卡|小海豹|眨眼|歪头|摇头|点头|挥|拍鳍|抬头|低头|凑近|蹭|抱|叹气|看着|想了想|沉默|停顿|轻声|温柔地说|开心地说/;
+const META_LINE_PREFIX = /^(?:动作描述|动作|旁白|神态|语气|用户问题|问题|思考过程|内部思考)\s*[:：]\s*/;
+const REPLY_PREFIX = /^(?:卡卡(?:回复)?|回复|回答)\s*[:：]\s*/;
+const INLINE_REPLY_PREFIX = /(?:卡卡(?:回复)?|回复|回答)\s*[:：]\s*/;
+
+function stripStageDirection(match: string, content: string): string {
+  return STAGE_DIRECTION_CUES.test(content) ? " " : match;
+}
+
+function stripSpeechMetaLine(line: string): string {
+  const trimmed = line.trim();
+  if (!META_LINE_PREFIX.test(trimmed)) return trimmed.replace(REPLY_PREFIX, "");
+  const replyMarker = INLINE_REPLY_PREFIX.exec(trimmed);
+  return replyMarker ? trimmed.slice(replyMarker.index + replyMarker[0].length) : "";
+}
+
 export function textForSpeech(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, " 我把代码放在屏幕上了。 ")
+    .replace(/<think>[\s\S]*?<\/think>/gi, " ")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[（(【[]([^（）()【】\[\]\n]{1,80})[）)】\]]/g, stripStageDirection)
+    .replace(/\*{1,2}([^*\n]{1,60})\*{1,2}/g, stripStageDirection)
+    .split(/\r?\n/)
+    .map(stripSpeechMetaLine)
+    .filter(Boolean)
+    .join(" ")
     .replace(/[*_#>`~-]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();

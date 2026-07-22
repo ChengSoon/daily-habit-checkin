@@ -5,15 +5,18 @@ describe("companion prompt", () => {
   it("owns identity, shared visibility, and emotional safety on the server", () => {
     expect(COMPANION_SYSTEM_PROMPT).toContain("卡卡");
     expect(COMPANION_SYSTEM_PROMPT).toContain("双方可见");
-    expect(COMPANION_SYSTEM_PROMPT).toContain("最多追问一个问题");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("一次最多问一个问题");
     expect(COMPANION_SYSTEM_PROMPT).toContain("不得制造情感依赖");
     expect(COMPANION_SYSTEM_PROMPT).toContain("JSON");
   });
 
   it("asks for chatty spoken replies instead of counseling templates", () => {
-    expect(COMPANION_SYSTEM_PROMPT).toContain("不是咨询师");
-    expect(COMPANION_SYSTEM_PROMPT).toContain("禁止「观察事实 → 表达理解 → 给小行动」");
-    expect(COMPANION_SYSTEM_PROMPT).toContain("像微信里熟识的朋友");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("不是心理咨询");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("禁止先堆气氛、形容词或自我介绍");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("硬性回复格式");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("总字数尽量不超过 60 字");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("不得复述用户的问题");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("动作描述：");
     expect(COMPANION_SYSTEM_PROMPT).not.toContain("表达顺序通常是：观察事实、表达理解、给出可选的小行动");
   });
 

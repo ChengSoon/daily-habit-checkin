@@ -1,4 +1,5 @@
 import * as Speech from "expo-speech";
+import { prepareCompanionAudioPlayback } from "./audioPlaybackSession";
 import type { PcmPlayer } from "./pcmPlayer";
 import type { TtsAudioChunk, TtsStreamFn } from "./ttsClient";
 
@@ -10,10 +11,12 @@ export class TtsPlaybackError extends Error {
 }
 
 export function speakWithSystemSpeech(text: string, onFinished: () => void): void {
+  prepareCompanionAudioPlayback();
   Speech.speak(text, {
     language: "zh-CN",
     pitch: 1.04,
     rate: 0.96,
+    volume: 1,
     onDone: onFinished,
     onStopped: onFinished,
     onError: onFinished
