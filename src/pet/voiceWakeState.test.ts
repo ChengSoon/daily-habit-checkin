@@ -4,7 +4,8 @@ import {
   initialVoiceWakeState,
   isRecoverableVoiceWakeError,
   voiceWakeErrorMessage,
-  voiceWakeReducer
+  voiceWakeReducer,
+  wakeAcknowledgePhrase
 } from "./voiceWakeState";
 
 describe("voice wake state", () => {
@@ -12,6 +13,12 @@ describe("voice wake state", () => {
     expect(commandAfterWakePhrase("卡卡，帮我安排今天的打卡")).toBe("帮我安排今天的打卡");
     expect(commandAfterWakePhrase("请叫卡卡")).toBe("");
     expect(commandAfterWakePhrase("提醒我喝水")).toBeNull();
+  });
+
+  it("只喊名字时给出本地短应答", () => {
+    expect(wakeAcknowledgePhrase(0)).toBe("我在");
+    expect(wakeAcknowledgePhrase(1)).toBe("在呢");
+    expect(["我在", "在呢", "嗯，我在", "来啦"]).toContain(wakeAcknowledgePhrase());
   });
 
   it("支持常见识别变体并清理标点", () => {

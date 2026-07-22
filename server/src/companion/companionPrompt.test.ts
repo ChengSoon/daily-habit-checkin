@@ -10,6 +10,13 @@ describe("companion prompt", () => {
     expect(COMPANION_SYSTEM_PROMPT).toContain("JSON");
   });
 
+  it("asks for chatty spoken replies instead of counseling templates", () => {
+    expect(COMPANION_SYSTEM_PROMPT).toContain("不是咨询师");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("禁止「观察事实 → 表达理解 → 给小行动」");
+    expect(COMPANION_SYSTEM_PROMPT).toContain("像微信里熟识的朋友");
+    expect(COMPANION_SYSTEM_PROMPT).not.toContain("表达顺序通常是：观察事实、表达理解、给出可选的小行动");
+  });
+
   it("lists the exact reply enums and optional object shapes", () => {
     expect(COMPANION_SYSTEM_PROMPT).toContain(
       "mood 必须是 idle|happy|thinking|waiting|sad|wave"

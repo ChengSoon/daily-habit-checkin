@@ -22,6 +22,7 @@ import { usePetRest } from "./petRestState";
 import { useCompanionEngine } from "./useCompanionEngine";
 import { usePetVoiceConversation } from "./usePetVoiceConversation";
 import { usePetVoiceWake } from "./usePetVoiceWake";
+import { wakeAcknowledgePhrase } from "./voiceWakeState";
 import { chatClearConfirmation } from "./companionSettingsModel";
 import { getVoiceWakeEnabled, saveVoiceWakeEnabled } from "../sync/localSettings";
 
@@ -66,7 +67,8 @@ export function GlobalPet() {
     setVisible: pet.setVisible
   });
   const voice = usePetVoiceConversation({
-    disabled: engine.busy || engine.clearing || engine.loading,
+    // 历史消息加载中不应禁用语音，否则唤醒开面板后 start 会半路静默退出。
+    disabled: engine.busy || engine.clearing,
     sendMessage: engine.sendChat
   });
   const voiceWake = usePetVoiceWake({
@@ -76,12 +78,18 @@ export function GlobalPet() {
       !onAiTab &&
       !pet.panelOpen &&
       !engine.busy &&
-      !engine.clearing &&
-      !engine.loading,
+      !engine.clearing,
     onWake: (command) => {
       interactionDispatch({ type: "dismissed" });
       pet.openPanel();
-      void voice.start({ initialTranscript: command || undefined });
+      const trimmed = command.trim();
+      if (trimmed) {
+        void voice.start({ initialTranscript: trimmed });
+        return;
+      }
+      const greeting = wakeAcknowledgePhrase();
+      pet.say(greeting, "wave", 2800);
+      void voice.start({ wakeGreeting: greeting });
     }
   });
   const emitCompanionEvent = engine.emit;

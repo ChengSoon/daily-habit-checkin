@@ -21,7 +21,11 @@ type VoiceConversationOptions = {
   streamTts?: TtsStreamFn;
   createPlayer?: () => PcmPlayer;
 };
-export type VoiceConversationStartOptions = { initialTranscript?: string };
+export type VoiceConversationStartOptions = {
+  initialTranscript?: string;
+  /** 只喊唤醒词时先本地应答再进入收听，不请求模型。 */
+  wakeGreeting?: string;
+};
 
 export function usePetVoiceConversation({
   disabled,
@@ -205,17 +209,25 @@ export function usePetVoiceConversation({
   }, []);
 
   const start = useCallback(
-    async ({ initialTranscript }: VoiceConversationStartOptions = {}) => {
-      if (disabled || activeRef.current) return;
+    async ({ initialTranscript, wakeGreeting }: VoiceConversationStartOptions = {}) => {
+      if (activeRef.current) return;
+      if (disabled) {
+        failStart("卡卡正忙，稍后再叫我一声");
+        return;
+      }
       try {
+        // 从唤醒词交接而来时权限已批过；加载消息不应阻断会话启动。
         const prep = await prepareVoiceSession({
-          skipPermission: Boolean(initialTranscript?.trim())
+          skipPermission: Boolean(initialTranscript?.trim() || wakeGreeting?.trim())
         });
         if (!prep.ok) {
           failStart(prep.message);
           return;
         }
-        if (disabled) return;
+        if (disabled) {
+          failStart("卡卡正忙，稍后再叫我一声");
+          return;
+        }
         activeRef.current = true;
         processingRef.current = false;
         androidServicePackageRef.current = prep.androidServicePackage;
@@ -226,13 +238,25 @@ export function usePetVoiceConversation({
           await submitTranscript(initialTranscript.trim());
           return;
         }
+        if (wakeGreeting?.trim()) {
+          processingRef.current = true;
+          speakReply(wakeGreeting.trim());
+          return;
+        }
         if (USE_CLOUD_ASR) await startCloudRecognition();
         else startNativeRecognition();
       } catch {
         failStart("启动语音识别失败，请稍后重试");
       }
     },
-    [disabled, failStart, startCloudRecognition, startNativeRecognition, submitTranscript]
+    [
+      disabled,
+      failStart,
+      speakReply,
+      startCloudRecognition,
+      startNativeRecognition,
+      submitTranscript
+    ]
   );
 
   const stop = useCallback(() => {

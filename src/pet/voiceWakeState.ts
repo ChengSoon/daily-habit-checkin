@@ -62,6 +62,14 @@ export function commandAfterWakePhrase(transcript: string): string | null {
     .trim();
 }
 
+
+const WAKE_ACK_PHRASES = ["我在", "在呢", "嗯，我在", "来啦"] as const;
+
+/** 只喊名字时的短应答，本地生成，不走模型。 */
+export function wakeAcknowledgePhrase(seed: number = Date.now()): string {
+  return WAKE_ACK_PHRASES[Math.abs(seed) % WAKE_ACK_PHRASES.length]!;
+}
+
 export function voiceWakeErrorMessage(error: ExpoSpeechRecognitionErrorCode): string {
   if (error === "not-allowed") return "需要麦克风和语音识别权限才能唤醒卡卡";
   if (error === "service-not-allowed") {
