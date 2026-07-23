@@ -34,6 +34,69 @@ export default function AdminAdventureClaimsScreen() {
   );
 }
 
+function ClaimCard({ claim, busyId, onFulfill, onCancel }: {
+  claim: AdventureClaim;
+  busyId: string | null;
+  onFulfill: (id: string) => void;
+  onCancel: (id: string) => void;
+}) {
+  const busy = busyId === claim.id;
+  return <Card elevated={false} style={{ gap: 10, padding: 13 }}>
+    <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+      <View style={{ flex: 1, gap: 4 }}>
+        <AppText variant="bodyStrong">{claim.chapterTitle}</AppText>
+        <AppText variant="caption" tone="muted">{claim.badgeName} · {new Date(claim.claimedAt).toLocaleString()}</AppText>
+      </View>
+      <Badge label={statusLabel(claim.fulfillmentStatus)} tone={statusTone(claim.fulfillmentStatus)} />
+    </View>
+    <View style={{ flexDirection: "row", gap: 8 }}>
+      <AppButton title={busy ? "处理中…" : "确认兑现"} onPress={() => onFulfill(claim.id)}
+        disabled={busy} style={{ flex: 1 }} />
+      <AppButton title="取消" variant="danger" onPress={() => onCancel(claim.id)}
+        disabled={busy} style={{ flex: 1 }} />
+    </View>
+  </Card>;
+}
+
+function ClaimHistory({ claims }: { claims: AdventureClaim[] }) {
+  if (claims.length === 0) return null;
+  return <>
+    <AppText variant="section">历史记录</AppText>
+    {claims.map((claim) => <Card key={claim.id} elevated={false} style={{ gap: 10, padding: 13 }}>
+      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+        <AppText variant="bodyStrong">{claim.chapterTitle}</AppText>
+        <Badge label={statusLabel(claim.fulfillmentStatus)} tone={statusTone(claim.fulfillmentStatus)} />
+      </View>
+      <AppText variant="caption" tone="muted">{claim.badgeName} · {new Date(claim.claimedAt).toLocaleString()}</AppText>
+    </Card>)}
+  </>;
+}
+
+function ClaimsView({ pending, others, busyId, fulfill, cancel, message, error }: {
+  pending: AdventureClaim[];
+  others: AdventureClaim[];
+  busyId: string | null;
+  fulfill: (id: string) => void;
+  cancel: (id: string) => void;
+  message: string | null;
+  error: string | null;
+}) {
+  return <Screen>
+    <View style={{ gap: 4 }}>
+      <AppText variant="display">章节兑现</AppText>
+      <AppText variant="body" tone="muted">处理徽章现实惊喜的兑现状态</AppText>
+    </View>
+    <HelperText>现实惊喜领取后在此确认兑现。取消不会回退章节解锁，仅标记状态。</HelperText>
+    {message ? <HelperText tone="success">{message}</HelperText> : null}
+    {error ? <HelperText tone="danger">{error}</HelperText> : null}
+    <AppText variant="section">待兑现（{pending.length}）</AppText>
+    {pending.length === 0 ? <EmptyState title="暂无待兑现" body="章节设为「现实惊喜」并被领取后，会出现在这里。" />
+      : pending.map((claim) => <ClaimCard key={claim.id} claim={claim} busyId={busyId}
+        onFulfill={fulfill} onCancel={cancel} />)}
+    <ClaimHistory claims={others} />
+  </Screen>;
+}
+
 function AdminAdventureClaimsContent() {
   const [claims, setClaims] = useState<AdventureClaim[]>([]);
   const [message, setMessage] = useState<string | null>(null);
@@ -46,35 +109,23 @@ function AdminAdventureClaimsContent() {
 
   const { status, errorMessage, reload } = useSyncScreen(load);
 
-  async function fulfill(id: string) {
+  async function mutate(id: string, action: () => Promise<unknown>, success: string) {
     setBusyId(id);
     setMessage(null);
     setError(null);
     try {
-      await fulfillAdventureClaim(id);
-      setMessage("已确认兑现");
+      await action();
+      setMessage(success);
       await reload();
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "确认失败");
+      setError(caught instanceof Error ? caught.message : "操作失败");
     } finally {
       setBusyId(null);
     }
   }
 
-  async function cancel(id: string) {
-    setBusyId(id);
-    setMessage(null);
-    setError(null);
-    try {
-      await cancelAdventureClaim(id);
-      setMessage("已取消兑现");
-      await reload();
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "取消失败");
-    } finally {
-      setBusyId(null);
-    }
-  }
+  const fulfill = (id: string) => void mutate(id, () => fulfillAdventureClaim(id), "已确认兑现");
+  const cancel = (id: string) => void mutate(id, () => cancelAdventureClaim(id), "已取消兑现");
 
   if (status !== "ready") {
     return <SyncFallback status={status} errorMessage={errorMessage} onRetry={reload} />;
@@ -83,68 +134,6 @@ function AdminAdventureClaimsContent() {
   const pending = claims.filter((claim) => claim.fulfillmentStatus === "pending");
   const others = claims.filter((claim) => claim.fulfillmentStatus !== "pending");
 
-  return (
-    <Screen>
-      <View style={{ gap: 4 }}>
-        <AppText variant="display">章节兑现</AppText>
-        <AppText variant="body" tone="muted">
-          处理徽章现实惊喜的兑现状态
-        </AppText>
-      </View>
-      <HelperText>现实惊喜领取后在此确认兑现。取消不会回退章节解锁，仅标记状态。</HelperText>
-      {message ? <HelperText tone="success">{message}</HelperText> : null}
-      {error ? <HelperText tone="danger">{error}</HelperText> : null}
-
-      <AppText variant="section">待兑现（{pending.length}）</AppText>
-      {pending.length === 0 ? (
-        <EmptyState title="暂无待兑现" body="章节设为「现实惊喜」并被领取后，会出现在这里。" />
-      ) : (
-        pending.map((claim) => (
-          <Card key={claim.id} elevated={false} style={{ gap: 10, padding: 13 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-              <View style={{ flex: 1, gap: 4 }}>
-                <AppText variant="bodyStrong">{claim.chapterTitle}</AppText>
-                <AppText variant="caption" tone="muted">
-                  {claim.badgeName} · {new Date(claim.claimedAt).toLocaleString()}
-                </AppText>
-              </View>
-              <Badge label={statusLabel(claim.fulfillmentStatus)} tone={statusTone(claim.fulfillmentStatus)} />
-            </View>
-            <View style={{ flexDirection: "row", gap: 8 }}>
-              <AppButton
-                title={busyId === claim.id ? "处理中…" : "确认兑现"}
-                onPress={() => void fulfill(claim.id)}
-                disabled={busyId === claim.id}
-                style={{ flex: 1 }}
-              />
-              <AppButton
-                title="取消"
-                variant="danger"
-                onPress={() => void cancel(claim.id)}
-                disabled={busyId === claim.id}
-                style={{ flex: 1 }}
-              />
-            </View>
-          </Card>
-        ))
-      )}
-
-      {others.length > 0 ? (
-        <>
-          <AppText variant="section">历史记录</AppText>
-          {others.map((claim) => (
-            <Card key={claim.id} elevated={false} style={{ gap: 10, padding: 13 }}>
-              <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                <AppText variant="bodyStrong">{claim.chapterTitle}</AppText>
-                <Badge label={statusLabel(claim.fulfillmentStatus)} tone={statusTone(claim.fulfillmentStatus)} />
-              </View>
-              <AppText variant="caption" tone="muted">
-                {claim.badgeName} · {new Date(claim.claimedAt).toLocaleString()}
-              </AppText>
-            </Card>
-          ))}
-        </>
-      ) : null}
-    </Screen>
-  );
+  return <ClaimsView pending={pending} others={others} busyId={busyId}
+    fulfill={fulfill} cancel={cancel} message={message} error={error} />;
 }

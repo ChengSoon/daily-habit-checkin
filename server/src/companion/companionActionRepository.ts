@@ -67,61 +67,62 @@ function mapAction(row: ActionRow): CompanionAction | null {
   return action.success ? action.data : null;
 }
 
-export function createCompanionActionRepository(input: {
-  db: CompanionDb;
-  transact: TransactionRunner;
+type RepositoryInput = { db: CompanionDb; transact: TransactionRunner };
+
+async function withLockedAction<T>(input: RepositoryInput, options: {
+  spaceId: string;
+  accountId: string;
+  actionId: string;
+  run: (client: CompanionDb, action: CompanionAction) => Promise<T>;
+}): Promise<T> {
+  return input.transact(async (client) => {
+    const result = await client.query<ActionRow>(
+      `SELECT id, action_type, arguments_json, summary, status, requested_by,
+              timezone_offset_minutes, expires_at, result_message
+         FROM companion_actions WHERE id = $1 AND space_id = $2 FOR UPDATE`,
+      [options.actionId, options.spaceId]
+    );
+    if (result.rows.length === 0) throw new CompanionActionNotFoundError();
+    const action = mapAction(result.rows[0]);
+    if (!action) throw new Error("动作数据格式不正确");
+    if (action.requestedBy !== options.accountId) throw new CompanionActionForbiddenError();
+    return options.run(client, action);
+  });
+}
+
+async function updateStatus(options: {
+  client: CompanionDb;
+  spaceId: string;
+  actionId: string;
+  status: CompanionAction["status"];
+  resultMessage: string | null;
 }) {
+  await options.client.query(
+    `UPDATE companion_actions SET status = $3, result_message = $4,
+            completed_at = CASE WHEN $3 IN ('succeeded', 'failed', 'cancelled', 'expired')
+                                THEN now() ELSE completed_at END
+       WHERE id = $1 AND space_id = $2`,
+    [options.actionId, options.spaceId, options.status, options.resultMessage]
+  );
+}
+
+async function listPending(db: CompanionDb, spaceId: string): Promise<CompanionAction[]> {
+  const result = await db.query<ActionRow>(
+    `SELECT id, action_type, arguments_json, summary, status, requested_by,
+            timezone_offset_minutes, expires_at, result_message
+       FROM companion_actions
+      WHERE space_id = $1 AND status = 'pending' AND expires_at > now()
+      ORDER BY created_at ASC`,
+    [spaceId]
+  );
+  return result.rows.map(mapAction).filter((action): action is CompanionAction => Boolean(action));
+}
+
+export function createCompanionActionRepository(input: RepositoryInput) {
   return {
-    async withLockedAction<T>(
-      spaceId: string,
-      accountId: string,
-      actionId: string,
-      run: (client: CompanionDb, action: CompanionAction) => Promise<T>
-    ): Promise<T> {
-      return input.transact(async (client) => {
-        const result = await client.query<ActionRow>(
-          `SELECT id, action_type, arguments_json, summary, status, requested_by,
-                  timezone_offset_minutes, expires_at, result_message
-             FROM companion_actions
-            WHERE id = $1 AND space_id = $2
-            FOR UPDATE`,
-          [actionId, spaceId]
-        );
-        if (result.rows.length === 0) throw new CompanionActionNotFoundError();
-        const action = mapAction(result.rows[0]);
-        if (!action) throw new Error("动作数据格式不正确");
-        if (action.requestedBy !== accountId) throw new CompanionActionForbiddenError();
-        return run(client, action);
-      });
-    },
-
-    async updateStatus(
-      client: CompanionDb,
-      spaceId: string,
-      actionId: string,
-      status: CompanionAction["status"],
-      resultMessage: string | null
-    ): Promise<void> {
-      await client.query(
-        `UPDATE companion_actions SET status = $3, result_message = $4,
-                completed_at = CASE WHEN $3 IN ('succeeded', 'failed', 'cancelled', 'expired')
-                                    THEN now() ELSE completed_at END
-           WHERE id = $1 AND space_id = $2`,
-        [actionId, spaceId, status, resultMessage]
-      );
-    },
-
-    async listPending(spaceId: string): Promise<CompanionAction[]> {
-      const result = await input.db.query<ActionRow>(
-        `SELECT id, action_type, arguments_json, summary, status, requested_by,
-                timezone_offset_minutes, expires_at, result_message
-           FROM companion_actions
-          WHERE space_id = $1 AND status = 'pending' AND expires_at > now()
-          ORDER BY created_at ASC`,
-        [spaceId]
-      );
-      return result.rows.map(mapAction).filter((action): action is CompanionAction => Boolean(action));
-    }
+    withLockedAction: <T>(options: Parameters<typeof withLockedAction<T>>[1]) => withLockedAction(input, options),
+    updateStatus,
+    listPending: (spaceId: string) => listPending(input.db, spaceId)
   };
 }
 

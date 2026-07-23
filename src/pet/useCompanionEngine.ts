@@ -34,6 +34,10 @@ type EngineOptions = {
   setVisible: (visible: boolean) => void;
 };
 
+type ChatSendOptions = {
+  onDelta?: (delta: string) => void;
+};
+
 export function useCompanionEngine(options: EngineOptions) {
   const { bubbleDismissedAt, notifyThinking, panelOpen, say, setVisible } = options;
   const [state, dispatch] = useReducer(companionEngineReducer, initialCompanionEngineState);
@@ -136,7 +140,7 @@ export function useCompanionEngine(options: EngineOptions) {
     if (checkIns) checkInEventTracker.current.seed(checkIns);
     await reloadMessages(nextAccount.spaceId);
     if (accountRef.current?.id !== nextAccount.id) return;
-    void emitRef.current(createCompanionEvent(createId("pet-return"), "app_returned", {}));
+    void emitRef.current(createCompanionEvent({ id: createId("pet-return"), type: "app_returned", payload: {} }));
   }, [reloadMessages, setVisible]);
 
   useEffect(() => {
@@ -165,7 +169,7 @@ export function useCompanionEngine(options: EngineOptions) {
       const currentAccount = accountRef.current;
       if (nextState !== "active" || !currentAccount) return;
       void reloadMessages(currentAccount.spaceId);
-      void emitRef.current(createCompanionEvent(createId("pet-return"), "app_returned", {}));
+      void emitRef.current(createCompanionEvent({ id: createId("pet-return"), type: "app_returned", payload: {} }));
     });
     const unsubscribe = subscribeSyncInvalidations((event) => {
       const currentAccount = accountRef.current;
@@ -190,7 +194,7 @@ export function useCompanionEngine(options: EngineOptions) {
     }
   }, [panelOpen, reloadMessages]);
 
-  const sendChat = useCallback(async (message?: string): Promise<string | null> => {
+  const sendChat = useCallback(async (message?: string, options?: ChatSendOptions): Promise<string | null> => {
     const text = message?.trim() || inputRef.current.trim();
     const currentAccount = accountRef.current;
     if (!text || !currentAccount || !canStartChat(stateRef.current)) return null;
@@ -205,9 +209,13 @@ export function useCompanionEngine(options: EngineOptions) {
     try {
       const reply = await companionClient.chat(
         { messageId, message: text, timezoneOffsetMinutes: new Date().getTimezoneOffset() },
-        (delta) => dispatch({ type: "chat_delta", requestId, delta }),
-        undefined,
-        controller.signal
+        {
+          onDelta: (delta) => {
+            dispatch({ type: "chat_delta", requestId, delta });
+            options?.onDelta?.(delta);
+          },
+          signal: controller.signal
+        }
       );
       if (controller.signal.aborted || accountRef.current?.spaceId !== currentAccount.spaceId) {
         return null;
@@ -215,7 +223,7 @@ export function useCompanionEngine(options: EngineOptions) {
       dispatch({
         type: "chat_succeeded",
         requestId,
-        message: assistantMessage(createId("pet-a"), reply.text, "normal", reply.action)
+        message: assistantMessage({ id: createId("pet-a"), content: reply.text, riskLevel: "normal", action: reply.action })
       });
       say(reply.text.slice(0, 40) + (reply.text.length > 40 ? "…" : ""), "happy", 3600);
       void reloadMessages(currentAccount.spaceId);
@@ -225,7 +233,7 @@ export function useCompanionEngine(options: EngineOptions) {
         dispatch({
           type: "chat_failed",
           requestId,
-          message: assistantMessage(createId("pet-e"), CHAT_FAILURE_MESSAGE, "normal")
+          message: assistantMessage({ id: createId("pet-e"), content: CHAT_FAILURE_MESSAGE, riskLevel: "normal" })
         });
         return CHAT_FAILURE_MESSAGE;
       }

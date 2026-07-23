@@ -84,7 +84,7 @@ export function buildHabitReminderPlans(input: {
 
     return dateKeys.flatMap((dateKey) => {
       const date = dateAtReminderTime(dateKey, habit.reminderTime ?? "");
-      if (!shouldScheduleDate(habit, dateKey, date, today, now, input.completedHabitIds)) {
+      if (!shouldScheduleDate({ habit, dateKey, date, today, now, completedHabitIds: input.completedHabitIds })) {
         return [];
       }
       return [{ habit, date, dateKey }];
@@ -121,14 +121,15 @@ function getHorizonDateKeys(today: string, horizonDays = REMINDER_HORIZON_DAYS):
   return Array.from({ length: days }, (_, index) => addDays(today, index));
 }
 
-function shouldScheduleDate(
-  habit: Habit,
-  dateKey: string,
-  date: Date,
-  today: string,
-  now: Date,
-  completedHabitIds: Set<string>
-): boolean {
+function shouldScheduleDate(input: {
+  habit: Habit;
+  dateKey: string;
+  date: Date;
+  today: string;
+  now: Date;
+  completedHabitIds: Set<string>;
+}): boolean {
+  const { habit, dateKey, date, today, now, completedHabitIds } = input;
   if (date <= now || dateKey < habit.createdAt.slice(0, 10)) {
     return false;
   }

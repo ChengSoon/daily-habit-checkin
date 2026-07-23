@@ -22,7 +22,7 @@ export function extractDeltaContent(data: string): string | null {
   }
 
   let json: {
-    choices?: Array<{ delta?: { content?: string | null }; message?: { content?: string | null } }>;
+    choices?: { delta?: { content?: string | null }; message?: { content?: string | null } }[];
     content?: string;
     error?: { message?: string } | string;
   };

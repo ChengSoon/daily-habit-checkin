@@ -34,9 +34,16 @@ export function createRateLimiter(options?: { windowMs?: number; max?: number })
   const windowMs = options?.windowMs ?? 60_000;
   const max = options?.max ?? Number(process.env.RATE_LIMIT_MAX ?? 20);
   const buckets = new Map<string, WindowState>();
+  let requestCount = 0;
 
   return function rateLimit(request: Request, response: Response, next: NextFunction): void {
     const now = Date.now();
+    requestCount += 1;
+    if (requestCount % 256 === 0) {
+      for (const [bucketKey, bucket] of buckets) {
+        if (now >= bucket.resetAt) buckets.delete(bucketKey);
+      }
+    }
     const key = request.ip ?? request.socket.remoteAddress ?? "unknown";
     const state = buckets.get(key);
 

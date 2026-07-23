@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { resetSyncBackend } from "../../test/fakes/syncBackend";
-import { applyXpTransactions, getWallet } from "../xp/xpRepository";
+import { resetSyncBackend, seedSyncWallet } from "../../test/fakes/syncBackend";
+import { getWallet } from "../xp/xpRepository";
 import { createReward, getRewardById, listRewards } from "./rewardRepository";
 import { cancelRedemption, fulfillRedemption, redeemReward } from "./rewardService";
 
@@ -10,19 +10,7 @@ describe("reward service", () => {
   });
 
   it("redeems a real-world reward as pending fulfillment", async () => {
-    await applyXpTransactions([
-      {
-        uniqueKey: "seed",
-        amount: 500,
-        type: "earn",
-        reason: "checkin",
-        habitId: null,
-        checkInId: null,
-        rewardId: null,
-        redemptionId: null,
-        dateKey: null
-      }
-    ]);
+    seedSyncWallet(500);
     const reward = await createReward({
       title: "奶茶一杯",
       description: "周末兑现",
@@ -41,19 +29,7 @@ describe("reward service", () => {
   });
 
   it("redeems a virtual reward as pending fulfillment", async () => {
-    await applyXpTransactions([
-      {
-        uniqueKey: "seed",
-        amount: 500,
-        type: "earn",
-        reason: "checkin",
-        habitId: null,
-        checkInId: null,
-        rewardId: null,
-        redemptionId: null,
-        dateKey: null
-      }
-    ]);
+    seedSyncWallet(500);
     const reward = await createReward({
       title: "粉色主题",
       description: "解锁新的主题色",
@@ -86,19 +62,7 @@ describe("reward service", () => {
   });
 
   it("fulfills and cancels pending redemptions", async () => {
-    await applyXpTransactions([
-      {
-        uniqueKey: "seed",
-        amount: 500,
-        type: "earn",
-        reason: "checkin",
-        habitId: null,
-        checkInId: null,
-        rewardId: null,
-        redemptionId: null,
-        dateKey: null
-      }
-    ]);
+    seedSyncWallet(500);
     const reward = await createReward({
       title: "电影夜",
       description: null,

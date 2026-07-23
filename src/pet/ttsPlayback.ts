@@ -33,17 +33,17 @@ export async function streamTtsIntoPlayer(options: {
   let receivedAudio = false;
   try {
     await options.player.start();
-    await options.streamTts(
-      options.text,
-      (chunk: TtsAudioChunk) => {
+    await options.streamTts({
+      text: options.text,
+      onAudio: (chunk: TtsAudioChunk) => {
         if (!receivedAudio) {
           receivedAudio = true;
           options.onAudioStarted();
         }
         options.player.enqueue(chunk);
       },
-      options.signal
-    );
+      signal: options.signal
+    });
     if (!receivedAudio) throw new TtsPlaybackError("TTS 没有返回音频", false);
     await options.player.finish();
   } catch (error) {

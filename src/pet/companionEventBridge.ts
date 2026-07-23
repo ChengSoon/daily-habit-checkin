@@ -34,17 +34,17 @@ function checkInEventId(checkInId: string, type: CompanionEvent["type"]): string
 export function createCheckInCompletedEvent(
   input: CompletedCheckInInput
 ): CompanionEventOf<"checkin_completed"> {
-  return createCompanionEvent(
-    checkInEventId(input.checkInId, "checkin_completed"),
-    "checkin_completed",
-    {
+  return createCompanionEvent({
+    id: checkInEventId(input.checkInId, "checkin_completed"),
+    type: "checkin_completed",
+    payload: {
       habitId: input.habitId,
       streak: input.streak,
       allDone: input.allDone,
       milestoneDays: input.milestoneDays
     },
-    input.occurredAt
-  );
+    occurredAt: input.occurredAt
+  });
 }
 
 export function seedSeenCheckInIds(checkIns: CheckIn[]): Set<string> {
@@ -72,12 +72,12 @@ export function reconcilePartnerCheckIns(input: PartnerReconciliationInput): {
     )
     .map((checkIn) => {
       const occurredAt = new Date(checkIn.createdAt);
-      return createCompanionEvent(
-        checkInEventId(checkIn.id, "partner_progress"),
-        "partner_progress",
-        { checkInId: checkIn.id, habitId: checkIn.habitId },
+      return createCompanionEvent({
+        id: checkInEventId(checkIn.id, "partner_progress"),
+        type: "partner_progress",
+        payload: { checkInId: checkIn.id, habitId: checkIn.habitId },
         occurredAt
-      );
+      });
     });
 
   return { seenCheckInIds, events };

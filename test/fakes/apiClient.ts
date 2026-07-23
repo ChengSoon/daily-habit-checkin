@@ -40,3 +40,7 @@ export function getApiBaseUrl(): string | null {
 export function getR2PublicBase(): string | null {
   return "http://r2.test.local";
 }
+
+export async function getAuthorizationHeaders(): Promise<Record<string, string>> {
+  return { Authorization: "Bearer test-token" };
+}

@@ -3,6 +3,7 @@ import { getPlanForHabit } from "../ai/habitPlanRepository";
 import { listHabits } from "../habits/habitRepository";
 import { listRedemptions, listRewards } from "../rewards/rewardRepository";
 import { getAppSettings } from "../settings/settingsRepository";
+import type { AppSettings } from "../settings/settingsRepository";
 import { getWallet, listXpTransactions } from "../xp/xpRepository";
 
 export type ExportBundle = {
@@ -22,10 +23,15 @@ export type ExportBundle = {
   };
 };
 
+export function sanitizeSettingsForExport(settings: AppSettings): Omit<AppSettings, "aiApiKey"> {
+  const { aiApiKey: _secret, ...safeSettings } = settings;
+  return safeSettings;
+}
+
 export async function buildExportBundle(): Promise<ExportBundle> {
   const habits = await listHabits();
   const checkIns = await listAllCheckIns();
-  const settings = await getAppSettings();
+  const settings = sanitizeSettingsForExport(await getAppSettings());
   const plans = (await Promise.all(habits.map((habit) => getPlanForHabit(habit.id)))).filter(
     (plan) => plan !== null
   );

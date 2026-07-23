@@ -24,7 +24,7 @@ describe("streamTtsIntoPlayer", () => {
     await streamTtsIntoPlayer({
       text: "你好",
       player,
-      streamTts: async (_text, onAudio) => {
+      streamTts: async ({ onAudio }) => {
         onAudio({ data: "AAE=", sampleRate: 24000, channels: 1, encoding: "pcm_s16le" });
         onAudio({ data: "AgM=", sampleRate: 24000, channels: 1, encoding: "pcm_s16le" });
       },
@@ -44,7 +44,7 @@ describe("streamTtsIntoPlayer", () => {
       streamTtsIntoPlayer({
         text: "你好",
         player,
-        streamTts: async () => undefined,
+      streamTts: async () => undefined,
         signal: new AbortController().signal,
         onAudioStarted: () => undefined
       })

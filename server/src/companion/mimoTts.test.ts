@@ -19,11 +19,16 @@ describe("MiMo TTS provider", () => {
         }
       });
       expect(init?.headers).toMatchObject({ "api-key": "mimo-secret" });
-      expect(JSON.parse(String(init?.body))).toMatchObject({
+      const requestBody = JSON.parse(String(init?.body)) as {
+        messages: Array<{ content: string }>;
+      };
+      expect(requestBody).toMatchObject({
         model: "mimo-v2.5-tts",
         audio: { format: "pcm16", voice: "冰糖" },
         stream: true
       });
+      expect(requestBody.messages[0]?.content).toContain("面对面聊日常");
+      expect(requestBody.messages[1]?.content).toBe("(自然聊天，松弛，温柔)你好");
       return new Response(body, { status: 200 });
     });
     const service = createMimoTtsService({ fetch: fetchMock, apiKey: "mimo-secret" });

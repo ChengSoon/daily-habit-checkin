@@ -8,17 +8,12 @@ const quietHours = { isEnabled: true, start: "22:00", end: "08:00" };
 function input(type: "app_returned" | "mood_checkin" | "checkin_completed") {
   let event: CompanionEvent;
   if (type === "mood_checkin") {
-    event = createCompanionEvent("event-1", type, { score: 2, note: "有点累" }, now, -480);
+    event = createCompanionEvent({ id: "event-1", type, payload: { score: 2, note: "有点累" }, occurredAt: now, timezoneOffsetMinutes: -480 });
   } else if (type === "checkin_completed") {
-    event = createCompanionEvent(
-      "event-1",
-      type,
-      { habitId: "habit-1", streak: 2, allDone: false, milestoneDays: null },
-      now,
-      -480
-    );
+    event = createCompanionEvent({ id: "event-1", type, payload: { habitId: "habit-1", streak: 2,
+      allDone: false, milestoneDays: null }, occurredAt: now, timezoneOffsetMinutes: -480 });
   } else {
-    event = createCompanionEvent("event-1", type, {}, now, -480);
+    event = createCompanionEvent({ id: "event-1", type, payload: {}, occurredAt: now, timezoneOffsetMinutes: -480 });
   }
   return {
     event,

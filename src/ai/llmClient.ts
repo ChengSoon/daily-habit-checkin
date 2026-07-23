@@ -1,6 +1,7 @@
 import { assertLlmReady, resolveAiConfig, type ResolvedAiConfig } from "./llmConfig";
-import { extractDeltaContent, parseSseDataLines } from "./sse";
 import { AIPlanPreview, AIPlanRequest } from "./types";
+import { commandAuthorizationHeaders } from "../sync/commandClient";
+import { consumeSseResponse, streamViaXhr } from "./llmStreamTransport";
 
 export type LlmChatMessage = {
   role: "system" | "user" | "assistant";
@@ -12,7 +13,7 @@ export type StreamHandlers = {
 };
 
 type ChatCompletionResponse = {
-  choices?: Array<{ message?: { content?: string | null } }>;
+  choices?: { message?: { content?: string | null } }[];
   error?: { message?: string };
 };
 
@@ -36,7 +37,25 @@ function parsePlanPreview(raw: unknown): AIPlanPreview {
   }
   const data = raw as Record<string, unknown>;
   const durationDays = data.durationDays === 21 ? 21 : 7;
-  const dailyActionsRaw = Array.isArray(data.dailyActions) ? data.dailyActions : [];
+  const dailyActions = normalizeDailyActions(data.dailyActions, durationDays);
+
+  const track = data.recommendedTrackType === "numeric" ? "numeric" : "check";
+  const reminder = validReminderTime(data.recommendedReminderTime);
+  return {
+    habitName: String(data.habitName ?? "新习惯").slice(0, 32),
+    description: String(data.description ?? "温和可执行的小目标").slice(0, 120),
+    durationDays,
+    dailyActions,
+    recommendedReminderTime: reminder,
+    recommendedTrackType: track,
+    numericUnit: track === "numeric" ? String(data.numericUnit ?? "次").slice(0, 12) : null,
+    fallbackAdvice: String(data.fallbackAdvice ?? "如果某天状态不好，只做最小一步也算完成。").slice(0, 120),
+    safetyNote: data.safetyNote == null || data.safetyNote === "" ? null : String(data.safetyNote).slice(0, 120)
+  };
+}
+
+function normalizeDailyActions(raw: unknown, durationDays: 7 | 21) {
+  const dailyActionsRaw = Array.isArray(raw) ? raw : [];
   const dailyActions = dailyActionsRaw
     .map((item, index) => {
       const row = item as Record<string, unknown>;
@@ -62,27 +81,11 @@ function parsePlanPreview(raw: unknown): AIPlanPreview {
     });
   }
 
-  const track = data.recommendedTrackType === "numeric" ? "numeric" : "check";
-  const reminder =
-    typeof data.recommendedReminderTime === "string" &&
-    /^([01]\d|2[0-3]):([0-5]\d)$/.test(data.recommendedReminderTime)
-      ? data.recommendedReminderTime
-      : "21:30";
+  return dailyActions.map((item, index) => ({ ...item, day: index + 1 }));
+}
 
-  return {
-    habitName: String(data.habitName ?? "新习惯").slice(0, 32),
-    description: String(data.description ?? "温和可执行的小目标").slice(0, 120),
-    durationDays,
-    dailyActions: dailyActions.map((item, index) => ({ ...item, day: index + 1 })),
-    recommendedReminderTime: reminder,
-    recommendedTrackType: track,
-    numericUnit: track === "numeric" ? String(data.numericUnit ?? "次").slice(0, 12) : null,
-    fallbackAdvice: String(data.fallbackAdvice ?? "如果某天状态不好，只做最小一步也算完成。").slice(0, 120),
-    safetyNote:
-      data.safetyNote == null || data.safetyNote === ""
-        ? null
-        : String(data.safetyNote).slice(0, 120)
-  };
+function validReminderTime(raw: unknown): string {
+  return typeof raw === "string" && /^([01]\d|2[0-3]):([0-5]\d)$/.test(raw) ? raw : "21:30";
 }
 
 async function postChatCompletions(
@@ -117,258 +120,90 @@ async function postChatCompletions(
   return content;
 }
 
-async function readErrorMessage(response: Response): Promise<string> {
-  try {
-    const payload = (await response.json()) as { error?: string | { message?: string } };
-    if (typeof payload.error === "string") return payload.error;
-    if (payload.error && typeof payload.error === "object" && payload.error.message) {
-      return payload.error.message;
-    }
-  } catch {
-    // ignore
-  }
-  return `模型请求失败（HTTP ${response.status}）`;
-}
-
-/** 消费 fetch body / XHR 文本为 SSE 增量。 */
-async function consumeSseResponse(
-  response: Response,
-  onDelta: (chunk: string) => void
-): Promise<string> {
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response));
-  }
-
-  let full = "";
-  let pending = "";
-
-  const handleChunk = (text: string) => {
-    pending += text;
-    const { events, rest } = parseSseDataLines(pending);
-    pending = rest;
-    for (const event of events) {
-      const delta = extractDeltaContent(event);
-      if (delta) {
-        full += delta;
-        onDelta(delta);
-      }
-    }
-  };
-
-  const body = response.body as
-    | { getReader?: () => ReadableStreamDefaultReader<Uint8Array> }
-    | null
-    | undefined;
-
-  if (body && typeof body.getReader === "function") {
-    const reader = body.getReader();
-    const decoder = new TextDecoder("utf-8");
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      handleChunk(decoder.decode(value, { stream: true }));
-    }
-    handleChunk(decoder.decode());
-  } else {
-    // 部分 RN 环境无 stream reader：退化为整包文本（仍尽量按 SSE 解析）
-    const text = await response.text();
-    handleChunk(text.endsWith("\n\n") ? text : `${text}\n\n`);
-  }
-
-  if (pending.trim()) {
-    const maybe = extractDeltaContent(pending.replace(/^data:\s*/i, "").trim());
-    if (maybe) {
-      full += maybe;
-      onDelta(maybe);
-    }
-  }
-
-  if (!full.trim()) {
-    throw new Error("模型返回为空，请检查模型名或中转服务是否可用");
-  }
-  return full;
-}
-
-/**
- * React Native 对 fetch stream 支持不一，用 XHR + onprogress 做 SSE 流式兜底。
- */
-function streamViaXhr(
-  url: string,
-  headers: Record<string, string>,
-  body: unknown,
-  onDelta: (chunk: string) => void
-): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    let lastIndex = 0;
-    let pending = "";
-    let full = "";
-    let settled = false;
-
-    const fail = (error: Error) => {
-      if (settled) return;
-      settled = true;
-      reject(error);
-    };
-
-    const succeed = (text: string) => {
-      if (settled) return;
-      settled = true;
-      resolve(text);
-    };
-
-    const consumeNewText = (raw: string) => {
-      if (raw.length <= lastIndex) return;
-      const chunk = raw.slice(lastIndex);
-      lastIndex = raw.length;
-      pending += chunk;
-      const { events, rest } = parseSseDataLines(pending);
-      pending = rest;
-      for (const event of events) {
-        try {
-          const delta = extractDeltaContent(event);
-          if (delta) {
-            full += delta;
-            onDelta(delta);
-          }
-        } catch (error) {
-          fail(error instanceof Error ? error : new Error("流式解析失败"));
-        }
-      }
-    };
-
-    xhr.open("POST", url);
-    Object.entries(headers).forEach(([key, value]) => xhr.setRequestHeader(key, value));
-    xhr.responseType = "text";
-    xhr.onprogress = () => {
-      if (typeof xhr.responseText === "string") {
-        consumeNewText(xhr.responseText);
-      }
-    };
-    xhr.onerror = () => fail(new Error("网络错误，流式请求失败"));
-    xhr.onload = () => {
-      if (typeof xhr.responseText === "string") {
-        consumeNewText(xhr.responseText.endsWith("\n\n") ? xhr.responseText : `${xhr.responseText}\n\n`);
-      }
-      if (xhr.status < 200 || xhr.status >= 300) {
-        try {
-          const payload = JSON.parse(xhr.responseText) as { error?: string | { message?: string } };
-          const message =
-            typeof payload.error === "string"
-              ? payload.error
-              : payload.error?.message ?? `模型请求失败（HTTP ${xhr.status}）`;
-          fail(new Error(message));
-          return;
-        } catch {
-          fail(new Error(`模型请求失败（HTTP ${xhr.status}）`));
-          return;
-        }
-      }
-      if (!full.trim()) {
-        // 非 SSE 整包 JSON 回落
-        try {
-          const payload = JSON.parse(xhr.responseText) as ChatCompletionResponse & { content?: string };
-          const content = payload.choices?.[0]?.message?.content ?? payload.content;
-          if (content?.trim()) {
-            onDelta(content);
-            succeed(content);
-            return;
-          }
-        } catch {
-          // ignore
-        }
-        fail(new Error("模型返回为空，请检查模型名或中转服务是否可用"));
-        return;
-      }
-      succeed(full);
-    };
-    xhr.send(JSON.stringify(body));
-  });
-}
-
 export async function llmChat(messages: LlmChatMessage[]): Promise<string> {
   return llmChatStream(messages, { onDelta: () => undefined });
 }
 
 /** 流式对话：优先 SSE，失败时回落非流式。 */
-export async function llmChatStream(
-  messages: LlmChatMessage[],
-  handlers: StreamHandlers
-): Promise<string> {
-  const config = await resolveAiConfig();
-  assertLlmReady(config);
+type StreamRequest = {
+  url: string;
+  headers: Record<string, string>;
+  body: unknown;
+  onDelta: (chunk: string) => void;
+  fallback: () => Promise<string>;
+};
 
-  if (config.mode === "openai_compatible") {
-    const url = `${config.baseUrl}/chat/completions`;
-    const body = {
-      model: config.model,
-      temperature: 0.7,
-      stream: true,
-      messages
-    };
-    const headers = {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${config.apiKey}`
-    };
-
+async function streamWithFallback(request: StreamRequest): Promise<string> {
+  try {
+    return await streamViaXhr(request);
+  } catch {
     try {
-      // RN 优先 XHR 流式；Web 也可用
-      return await streamViaXhr(url, headers, body, handlers.onDelta);
-    } catch (xhrError) {
-      try {
-        const response = await fetch(url, {
-          method: "POST",
-          headers,
-          body: JSON.stringify(body)
-        });
-        return await consumeSseResponse(response, handlers.onDelta);
-      } catch {
-        // 最终回落非流式，整段吐出一次
-        const content = await postChatCompletions(config, { messages });
-        handlers.onDelta(content);
-        return content;
-      }
+      const response = await fetch(request.url, {
+        method: "POST",
+        headers: request.headers,
+        body: JSON.stringify(request.body)
+      });
+      return await consumeSseResponse(response, request.onDelta);
+    } catch {
+      const content = await request.fallback();
+      request.onDelta(content);
+      return content;
     }
   }
+}
 
-  // 习惯后端代理流式
+async function streamOpenAi(config: ResolvedAiConfig, messages: LlmChatMessage[], onDelta: StreamHandlers["onDelta"]) {
+  const body = { model: config.model, temperature: 0.7, stream: true, messages };
+  return streamWithFallback({
+    url: `${config.baseUrl}/chat/completions`,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.apiKey}` },
+    body,
+    onDelta,
+    fallback: () => postChatCompletions(config, { messages })
+  });
+}
+
+async function requestBackendChat(
+  config: ResolvedAiConfig,
+  messages: LlmChatMessage[],
+  headers: Record<string, string>
+): Promise<string> {
+  const response = await fetch(`${config.baseUrl}/api/ai/chat`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(config.model ? { messages, model: config.model } : { messages })
+  });
+  const payload = await response.json().catch(() => null);
+  if (!response.ok) throw new Error(payload?.error ?? `对话失败（HTTP ${response.status}）`);
+  if (!payload?.content || typeof payload.content !== "string") throw new Error("后端未返回对话内容");
+  return payload.content;
+}
+
+async function streamBackend(config: ResolvedAiConfig, messages: LlmChatMessage[], onDelta: StreamHandlers["onDelta"]) {
   const url = `${config.baseUrl}/api/ai/chat`;
   const body = config.model
     ? { messages, model: config.model, stream: true }
     : { messages, stream: true };
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(config.apiKey ? { "x-api-key": config.apiKey } : {})
+    ...(await commandAuthorizationHeaders())
   };
 
-  try {
-    return await streamViaXhr(url, headers, body, handlers.onDelta);
-  } catch {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body)
-      });
-      return await consumeSseResponse(response, handlers.onDelta);
-    } catch {
-      const response = await fetch(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(config.model ? { messages, model: config.model } : { messages })
-      });
-      const payload = await response.json().catch(() => null);
-      if (!response.ok) {
-        throw new Error(payload?.error ?? `对话失败（HTTP ${response.status}）`);
-      }
-      const content = payload?.content;
-      if (!content || typeof content !== "string") {
-        throw new Error("后端未返回对话内容");
-      }
-      handlers.onDelta(content);
-      return content;
-    }
-  }
+  return streamWithFallback({
+    url,
+    headers,
+    body,
+    onDelta,
+    fallback: () => requestBackendChat(config, messages, headers)
+  });
+}
+
+export async function llmChatStream(messages: LlmChatMessage[], handlers: StreamHandlers): Promise<string> {
+  const config = await resolveAiConfig();
+  assertLlmReady(config);
+  return config.mode === "openai_compatible"
+    ? streamOpenAi(config, messages, handlers.onDelta)
+    : streamBackend(config, messages, handlers.onDelta);
 }
 
 const PLAN_SYSTEM = `你是习惯计划助手。只生成温和、可执行、低压力的习惯入门计划。

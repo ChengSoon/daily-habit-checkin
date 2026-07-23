@@ -8,11 +8,12 @@ export type TtsAudioChunk = {
   encoding: "pcm_s16le";
 };
 
-export type TtsStreamFn = (
-  text: string,
-  onAudio: (chunk: TtsAudioChunk) => void,
-  signal?: AbortSignal
-) => Promise<void>;
+export type TtsStreamOptions = {
+  text: string;
+  onAudio: (chunk: TtsAudioChunk) => void;
+  signal?: AbortSignal;
+};
+export type TtsStreamFn = (options: TtsStreamOptions) => Promise<void>;
 
 export type ParsedTtsSse = {
   chunks: TtsAudioChunk[];
@@ -65,7 +66,34 @@ export function parseCompanionTtsSse(input: string): ParsedTtsSse {
   return { chunks, done, error, rest };
 }
 
-export const streamCompanionTts: TtsStreamFn = async (text, onAudio, signal) => {
+type TtsStreamState = { consumed: number; pending: string; sawAudio: boolean; settled: boolean };
+
+function consumeTtsResponse(xhr: XMLHttpRequest, state: TtsStreamState, onAudio: (chunk: TtsAudioChunk) => void) {
+  if (typeof xhr.responseText !== "string" || xhr.responseText.length <= state.consumed) return null;
+  state.pending += xhr.responseText.slice(state.consumed);
+  state.consumed = xhr.responseText.length;
+  const parsed = parseCompanionTtsSse(state.pending);
+  state.pending = parsed.rest;
+  parsed.chunks.forEach((chunk) => {
+    state.sawAudio = true;
+    onAudio(chunk);
+  });
+  return parsed.error;
+}
+
+function completeTtsResponse(xhr: XMLHttpRequest, state: TtsStreamState, onAudio: (chunk: TtsAudioChunk) => void) {
+  const error = consumeTtsResponse(xhr, state, onAudio);
+  if (error) throw new SyncError(error);
+  const parsed = parseCompanionTtsSse(`${state.pending}\n\n`);
+  parsed.chunks.forEach((chunk) => {
+    state.sawAudio = true;
+    onAudio(chunk);
+  });
+  if (parsed.error) throw new SyncError(parsed.error);
+  if (!state.sawAudio) throw new SyncError("卡卡没有生成语音");
+}
+
+export const streamCompanionTts: TtsStreamFn = async (options) => {
   const baseUrl = getApiBaseUrl();
   const token = await getAuthToken();
   if (!baseUrl) throw new SyncError("应用未正确配置后端地址");
@@ -73,26 +101,19 @@ export const streamCompanionTts: TtsStreamFn = async (text, onAudio, signal) => 
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    let consumed = 0;
-    let pending = "";
-    let sawAudio = false;
-    let settled = false;
+    const state: TtsStreamState = { consumed: 0, pending: "", sawAudio: false, settled: false };
     const fail = (error: Error) => {
-      if (settled) return;
-      settled = true;
+      if (state.settled) return;
+      state.settled = true;
       reject(error);
     };
     const consume = () => {
-      if (typeof xhr.responseText !== "string" || xhr.responseText.length <= consumed) return;
-      pending += xhr.responseText.slice(consumed);
-      consumed = xhr.responseText.length;
-      const parsed = parseCompanionTtsSse(pending);
-      pending = parsed.rest;
-      for (const chunk of parsed.chunks) {
-        sawAudio = true;
-        onAudio(chunk);
+      try {
+        const error = consumeTtsResponse(xhr, state, options.onAudio);
+        if (error) fail(new SyncError(error));
+      } catch (error) {
+        fail(error instanceof Error ? error : new SyncError("语音流解析失败"));
       }
-      if (parsed.error) fail(new SyncError(parsed.error));
     };
     xhr.open("POST", `${baseUrl}/api/companion/tts`);
     xhr.setRequestHeader("Content-Type", "application/json");
@@ -113,33 +134,18 @@ export const streamCompanionTts: TtsStreamFn = async (text, onAudio, signal) => 
           fail(new SyncError("卡卡暂时没接上语音服务"));
           return;
         }
-        if (typeof xhr.responseText === "string") {
-          pending += xhr.responseText.slice(consumed);
-          const parsed = parseCompanionTtsSse(`${pending}\n\n`);
-          for (const chunk of parsed.chunks) {
-            sawAudio = true;
-            onAudio(chunk);
-          }
-          if (parsed.error) {
-            fail(new SyncError(parsed.error));
-            return;
-          }
-        }
-        if (!sawAudio) {
-          fail(new SyncError("卡卡没有生成语音"));
-          return;
-        }
-        settled = true;
+        completeTtsResponse(xhr, state, options.onAudio);
+        state.settled = true;
         resolve();
       } catch (error) {
         fail(error instanceof Error ? error : new SyncError("语音流解析失败"));
       }
     };
-    signal?.addEventListener(
+    options.signal?.addEventListener(
       "abort",
       () => xhr.abort(),
       { once: true }
     );
-    xhr.send(JSON.stringify({ text }));
+    xhr.send(JSON.stringify({ text: options.text }));
   });
 };

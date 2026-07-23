@@ -1,11 +1,9 @@
-import { applyXpTransactions, getWallet } from "../xp/xpRepository";
+import { postCommand } from "../sync/commandClient";
 import {
-  createRedemption,
   createReward,
-  getRedemptionById,
-  getRewardById,
   listRewards,
-  updateRedemptionStatus
+  mapRedemption,
+  type RedemptionDto
 } from "./rewardRepository";
 import { CreateRewardInput, RewardRedemption } from "./types";
 
@@ -55,92 +53,16 @@ export async function ensureDefaultRewards(): Promise<void> {
 }
 
 export async function redeemReward(rewardId: string): Promise<RewardRedemption> {
-  const reward = await getRewardById(rewardId);
-
-  if (!reward || reward.status !== "active") {
-    throw new Error("奖励不可兑换");
-  }
-
-  const wallet = await getWallet();
-  const missing = reward.priceXp - wallet.balance;
-
-  if (missing > 0) {
-    throw new Error(`积分不足，还差 ${missing} 积分`);
-  }
-
-  // 购买只扣积分并进入「待核销」，实际使用/领取由核销那一步完成。
-  const redemption = await createRedemption({
-    rewardId: reward.id,
-    priceXp: reward.priceXp,
-    status: "pending_fulfillment",
-    note: null
-  });
-
-  await applyXpTransactions([
-    {
-      uniqueKey: `reward_redeem:${redemption.id}`,
-      amount: -reward.priceXp,
-      type: "spend",
-      reason: "reward_redeem",
-      habitId: null,
-      checkInId: null,
-      rewardId: reward.id,
-      redemptionId: redemption.id,
-      dateKey: null
-    }
-  ]);
-
-  return redemption;
+  const result = await postCommand<{ redemption: RedemptionDto }>(`/api/rewards/${rewardId}/redeem`);
+  return mapRedemption(result.redemption);
 }
 
 export async function fulfillRedemption(id: string): Promise<RewardRedemption> {
-  const redemption = await getRedemptionById(id);
-
-  if (!redemption) {
-    throw new Error("兑换记录不存在");
-  }
-  if (redemption.status === "cancelled") {
-    throw new Error("已取消的奖励不能兑现");
-  }
-
-  const updated = await updateRedemptionStatus(id, "fulfilled");
-  if (!updated) {
-    throw new Error("兑现失败");
-  }
-  return updated;
+  const result = await postCommand<{ redemption: RedemptionDto }>(`/api/rewards/redemptions/${id}/fulfill`);
+  return mapRedemption(result.redemption);
 }
 
 export async function cancelRedemption(id: string): Promise<RewardRedemption> {
-  const redemption = await getRedemptionById(id);
-
-  if (!redemption) {
-    throw new Error("兑换记录不存在");
-  }
-  if (redemption.status === "fulfilled") {
-    throw new Error("已兑现的奖励不能取消");
-  }
-  if (redemption.status === "cancelled") {
-    return redemption;
-  }
-
-  const updated = await updateRedemptionStatus(id, "cancelled");
-  if (!updated) {
-    throw new Error("取消失败");
-  }
-
-  await applyXpTransactions([
-    {
-      uniqueKey: `redemption_cancel:${redemption.id}`,
-      amount: redemption.priceXp,
-      type: "refund",
-      reason: "redemption_cancel",
-      habitId: null,
-      checkInId: null,
-      rewardId: redemption.rewardId,
-      redemptionId: redemption.id,
-      dateKey: null
-    }
-  ]);
-
-  return updated;
+  const result = await postCommand<{ redemption: RedemptionDto }>(`/api/rewards/redemptions/${id}/cancel`);
+  return mapRedemption(result.redemption);
 }

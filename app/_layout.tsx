@@ -8,7 +8,8 @@ import { AppState, Platform, StyleSheet, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { initializeDatabase } from "../src/db/database";
-import { configureNotificationHandler, refreshScheduledReminders } from "../src/reminders/reminderService";
+import { refreshAuthenticatedReminders } from "../src/reminders/reminderRefresh";
+import { configureNotificationHandler } from "../src/reminders/reminderService";
 import { GlobalPet, PetProvider } from "../src/pet";
 import { AppSplash } from "../src/ui/AppSplash";
 import { ThemeProvider, useTheme } from "../src/ui/ThemeContext";
@@ -21,18 +22,15 @@ function ThemedStack() {
     void SystemUI.setBackgroundColorAsync(colors.background).catch(() => undefined);
   }, [colors.background]);
 
-  return (
-    <>
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
-      <Stack
-        screenOptions={{
+  const screenOptions = {
           headerStyle: { backgroundColor: colors.background },
           headerTintColor: colors.ink,
           headerTitleStyle: { fontWeight: "700", fontSize: 17 },
+          headerBackButtonDisplayMode: "minimal",
           headerShadowVisible: false,
           contentStyle: { backgroundColor: colors.background },
           // 跨端统一推入感：Android 用 iOS 风格侧滑；web 不用 fade，避免露黑底
-          animation: Platform.select({
+          animation: Platform.select<"default" | "ios_from_right">({
             ios: "default",
             android: "ios_from_right",
             default: "default"
@@ -41,8 +39,18 @@ function ThemedStack() {
           gestureEnabled: true,
           // Android 全屏手势 + 自定义动画偶发空白页，仅 iOS 开启
           fullScreenGestureEnabled: Platform.OS === "ios"
-        }}
-      >
+  } as const;
+  return (
+    <>
+      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <AppRoutes screenOptions={screenOptions} />
+    </>
+  );
+}
+
+function AppRoutes({ screenOptions }: { screenOptions: React.ComponentProps<typeof Stack>["screenOptions"] }) {
+  return (
+    <Stack screenOptions={screenOptions}>
         <Stack.Screen name="(tabs)" options={{ headerShown: false, animation: "none" }} />
         <Stack.Screen name="habit/new" options={{ title: "新增习惯" }} />
         <Stack.Screen name="habit/[id]" options={{ headerShown: false }} />
@@ -70,8 +78,7 @@ function ThemedStack() {
           name="companion-settings"
           options={{ headerShown: false, animation: "slide_from_bottom", animationDuration: 320 }}
         />
-      </Stack>
-    </>
+    </Stack>
   );
 }
 
@@ -92,7 +99,7 @@ export default function RootLayout() {
     configureNotificationHandler();
     void initializeDatabase()
       .then(async () => {
-        await refreshScheduledReminders();
+        await refreshAuthenticatedReminders();
       })
       .catch((error) => {
         console.warn("Failed to initialize app reminders", error);
@@ -101,7 +108,7 @@ export default function RootLayout() {
     // 回前台时重排本地提醒
     const sub = AppState.addEventListener("change", (next) => {
       if (next === "active") {
-        void refreshScheduledReminders().catch((error) => {
+        void refreshAuthenticatedReminders().catch((error) => {
           console.warn("Failed to refresh reminders on foreground", error);
         });
       }

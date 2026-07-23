@@ -12,11 +12,14 @@ import {
   leaveSpace,
   listSpaceMembers,
   registerAccount,
+  revokeAccountSessions,
   updateAvatarKey,
   updatePasswordHash
 } from "./accountRepository.js";
 import { requireAuth } from "./authMiddleware.js";
+import { toPublicAccount } from "./accountPresenter.js";
 import { createRateLimiter } from "../middleware.js";
+import { isObjectKeyForScope } from "../r2/r2Client.js";
 
 export const authRouter = Router();
 
@@ -45,9 +48,9 @@ const JoinSchema = z.object({
   inviteCode: z.string().min(4).max(16)
 });
 
-async function withInviteCode<T extends { spaceId: string }>(account: T) {
+async function withInviteCode(account: Parameters<typeof toPublicAccount>[0]) {
   const inviteCode = await getSpaceInviteCode(account.spaceId);
-  return { ...account, inviteCode };
+  return { ...toPublicAccount(account), inviteCode };
 }
 
 authRouter.post("/register", authRateLimit, async (request, response) => {
@@ -59,7 +62,7 @@ authRouter.post("/register", authRateLimit, async (request, response) => {
       displayName: input.displayName,
       passwordHash
     });
-    const token = signToken({ accountId: account.id, spaceId: account.spaceId });
+    const token = signToken({ accountId: account.id, spaceId: account.spaceId, sessionVersion: account.sessionVersion });
     response.json({ token, account: await withInviteCode(account) });
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : "注册失败" });
@@ -74,7 +77,7 @@ authRouter.post("/login", authRateLimit, async (request, response) => {
       response.status(401).json({ error: "邮箱或密码错误" });
       return;
     }
-    const token = signToken({ accountId: account.id, spaceId: account.spaceId });
+    const token = signToken({ accountId: account.id, spaceId: account.spaceId, sessionVersion: account.sessionVersion });
     response.json({ token, account: await withInviteCode(account) });
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : "登录失败" });
@@ -86,7 +89,7 @@ authRouter.post("/join-space", authRateLimit, requireAuth, async (request, respo
     const input = JoinSchema.parse(request.body);
     const account = await joinSpaceByInviteCode(request.accountId!, input.inviteCode);
     // 空间变了，重新签发携带新 spaceId 的 token
-    const token = signToken({ accountId: account.id, spaceId: account.spaceId });
+    const token = signToken({ accountId: account.id, spaceId: account.spaceId, sessionVersion: account.sessionVersion });
     response.json({ token, account: await withInviteCode(account) });
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : "加入空间失败" });
@@ -125,6 +128,10 @@ const AvatarSchema = z.object({
 authRouter.put("/me/avatar", requireAuth, async (request, response) => {
   try {
     const input = AvatarSchema.parse(request.body);
+    if (input.avatarKey && !isObjectKeyForScope("avatar", request.accountId!, input.avatarKey)) {
+      response.status(400).json({ error: "头像对象不属于当前账号" });
+      return;
+    }
     await updateAvatarKey(request.accountId!, input.avatarKey);
     response.status(204).end();
   } catch (error) {
@@ -140,7 +147,7 @@ const ChangePasswordSchema = z.object({
 
 /**
  * 修改当前登录账号的密码。需提供正确的旧密码，避免他人拿着已登录设备直接改密。
- * 改密后不使旧 token 失效（无吊销机制，双人场景可接受），客户端可自行选择重登。
+ * 改密后递增 session_version，吊销其他设备旧 token，并给当前设备签发新 token。
  */
 authRouter.put("/me/password", requireAuth, authRateLimit, async (request, response) => {
   try {
@@ -155,8 +162,11 @@ authRouter.put("/me/password", requireAuth, authRateLimit, async (request, respo
       return;
     }
     const newHash = await hashPassword(input.newPassword);
-    await updatePasswordHash(request.accountId!, newHash);
-    response.status(204).end();
+    const sessionVersion = await updatePasswordHash(request.accountId!, newHash);
+    const account = await getAccountById(request.accountId!);
+    if (!account) throw new Error("账号不存在");
+    const token = signToken({ accountId: account.id, spaceId: account.spaceId, sessionVersion });
+    response.json({ token });
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : "修改密码失败" });
   }
@@ -169,7 +179,7 @@ authRouter.put("/me/password", requireAuth, authRateLimit, async (request, respo
 authRouter.post("/leave-space", requireAuth, async (request, response) => {
   try {
     const account = await leaveSpace(request.accountId!);
-    const token = signToken({ accountId: account.id, spaceId: account.spaceId });
+    const token = signToken({ accountId: account.id, spaceId: account.spaceId, sessionVersion: account.sessionVersion });
     response.json({ token, account: await withInviteCode(account) });
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : "退出空间失败" });
@@ -187,4 +197,9 @@ authRouter.delete("/me", requireAuth, async (request, response) => {
   } catch (error) {
     response.status(400).json({ error: error instanceof Error ? error.message : "删除账号失败" });
   }
+});
+
+authRouter.post("/logout", requireAuth, async (request, response) => {
+  await revokeAccountSessions(request.accountId!);
+  response.status(204).end();
 });

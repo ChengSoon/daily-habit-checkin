@@ -19,13 +19,13 @@ export type CompanionEventPayloads = {
 };
 
 export type CompanionEventType = keyof CompanionEventPayloads;
-export type CompanionEventOf<T extends CompanionEventType> = {
+export type CompanionEventOf<T extends CompanionEventType> = T extends CompanionEventType ? {
   id: string;
   type: T;
   occurredAt: string;
   timezoneOffsetMinutes: number;
   payload: CompanionEventPayloads[T];
-};
+} : never;
 export type CompanionEvent = {
   [T in CompanionEventType]: CompanionEventOf<T>;
 }[CompanionEventType];
@@ -120,13 +120,17 @@ export type CompanionChatInput = {
 export type SharedVisibility = "shared";
 
 export function createCompanionEvent<T extends CompanionEventType>(
-  id: string,
-  type: T,
-  payload: CompanionEventPayloads[T],
-  occurredAt = new Date(),
-  timezoneOffsetMinutes = occurredAt.getTimezoneOffset()
+  input: {
+    id: string;
+    type: T;
+    payload: CompanionEventPayloads[T];
+    occurredAt?: Date;
+    timezoneOffsetMinutes?: number;
+  }
 ): CompanionEventOf<T> {
-  return { id, type, occurredAt: occurredAt.toISOString(), timezoneOffsetMinutes, payload };
+  const occurredAt = input.occurredAt ?? new Date();
+  return { id: input.id, type: input.type, payload: input.payload, occurredAt: occurredAt.toISOString(),
+    timezoneOffsetMinutes: input.timezoneOffsetMinutes ?? occurredAt.getTimezoneOffset() } as CompanionEventOf<T>;
 }
 
 export function parseCompanionReply(value: unknown): CompanionReply {

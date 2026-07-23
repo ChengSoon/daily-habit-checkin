@@ -1,6 +1,8 @@
 import { deleteResource, listResource, upsertResource } from "../sync/dataClient";
 import { createId } from "../utils/id";
 import { CheckIn } from "./types";
+import { postCommand } from "../sync/commandClient";
+import type { XpAward, XpTransaction, XpWallet } from "../xp/types";
 
 type CheckInDto = {
   id: string;
@@ -69,6 +71,47 @@ export async function completeCheckIn(input: {
 
   await upsertResource<CheckInDto>("check_ins", checkIn.id, toFields(checkIn));
   return checkIn;
+}
+
+export type CompleteCheckInResult = {
+  checkIn: CheckIn;
+  awards: XpAward[];
+  insertedTransactions: XpTransaction[];
+  wallet: XpWallet;
+  earnedDelta: number;
+  streak: number;
+};
+
+export async function completeCheckInWithXp(input: {
+  habitId: string;
+  date: string;
+  value: number | null;
+  note: string | null;
+}): Promise<CompleteCheckInResult> {
+  const result = await postCommand<Omit<CompleteCheckInResult, "wallet"> & { wallet: Omit<XpWallet, "id"> }>(
+    "/api/checkins/complete",
+    { ...input, timezoneOffsetMinutes: new Date().getTimezoneOffset() }
+  );
+  return { ...result, wallet: { id: "default", ...result.wallet } };
+}
+
+export async function undoCheckInWithXp(input: {
+  habitId: string;
+  date: string;
+  checkInId: string;
+}): Promise<{
+  removed: CheckIn;
+  reversedAmount: number;
+  insertedTransactions: XpTransaction[];
+  wallet: XpWallet;
+}> {
+  const result = await postCommand<{
+    removed: CheckIn;
+    reversedAmount: number;
+    insertedTransactions: XpTransaction[];
+    wallet: Omit<XpWallet, "id">;
+  }>("/api/checkins/undo", input);
+  return { ...result, wallet: { id: "default", ...result.wallet } };
 }
 
 export async function undoCheckIn(input: {

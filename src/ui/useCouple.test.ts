@@ -86,8 +86,8 @@ describe("buildCouple", () => {
 
 describe("shouldApplyCoupleReload", () => {
   it("只允许最新请求在 token 未变化时写入状态", () => {
-    expect(shouldApplyCoupleReload(2, 2, "token-a", "token-a")).toBe(true);
-    expect(shouldApplyCoupleReload(1, 2, "token-a", "token-a")).toBe(false);
-    expect(shouldApplyCoupleReload(2, 2, "token-a", "token-b")).toBe(false);
+    expect(shouldApplyCoupleReload({ requestId: 2, latestRequestId: 2, tokenAtStart: "token-a", tokenAtEnd: "token-a" })).toBe(true);
+    expect(shouldApplyCoupleReload({ requestId: 1, latestRequestId: 2, tokenAtStart: "token-a", tokenAtEnd: "token-a" })).toBe(false);
+    expect(shouldApplyCoupleReload({ requestId: 2, latestRequestId: 2, tokenAtStart: "token-a", tokenAtEnd: "token-b" })).toBe(false);
   });
 });

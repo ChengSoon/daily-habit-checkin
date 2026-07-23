@@ -98,12 +98,9 @@ export function buildCouple(members: SpaceMember[], me: MeAccount): Couple {
 }
 
 export function shouldApplyCoupleReload(
-  requestId: number,
-  latestRequestId: number,
-  tokenAtStart: string | null,
-  tokenAtEnd: string | null
+  input: { requestId: number; latestRequestId: number; tokenAtStart: string | null; tokenAtEnd: string | null }
 ): boolean {
-  return requestId === latestRequestId && tokenAtStart === tokenAtEnd;
+  return input.requestId === input.latestRequestId && input.tokenAtStart === input.tokenAtEnd;
 }
 
 export function useCouple(): Couple & { reload: () => void } {
@@ -119,7 +116,8 @@ export function useCouple(): Couple & { reload: () => void } {
       const [members, account] = await Promise.all([listSpaceMembers(), getCurrentAccount()]);
       const tokenAtEnd = await getAuthToken();
 
-      if (!shouldApplyCoupleReload(requestId, latestRequestIdRef.current, tokenAtStart, tokenAtEnd)) {
+      if (!shouldApplyCoupleReload({ requestId, latestRequestId: latestRequestIdRef.current,
+        tokenAtStart, tokenAtEnd })) {
         return;
       }
 

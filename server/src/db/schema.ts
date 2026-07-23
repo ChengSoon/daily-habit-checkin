@@ -5,7 +5,7 @@ import { runCompanionSchema } from "../companion/companionSchema.js";
  * PostgreSQL 建表脚本。所有业务数据都挂在 space_id 下，实现按空间隔离。
  * 使用 IF NOT EXISTS，可重复执行（幂等）。
  */
-const SCHEMA_SQL = `
+export const SCHEMA_SQL = `
 CREATE TABLE IF NOT EXISTS spaces (
   id TEXT PRIMARY KEY,
   invite_code TEXT NOT NULL UNIQUE,
@@ -19,12 +19,14 @@ CREATE TABLE IF NOT EXISTS accounts (
   display_name TEXT NOT NULL,
   space_id TEXT NOT NULL REFERENCES spaces(id) ON DELETE CASCADE,
   role TEXT NOT NULL DEFAULT 'member',
+  session_version INTEGER NOT NULL DEFAULT 0,
   avatar_key TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_accounts_space ON accounts(space_id);
 -- 兼容已有部署：老库没有 role 列时补上
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'member';
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS session_version INTEGER NOT NULL DEFAULT 0;
 -- 头像改存 Cloudflare R2：这里只保留对象 key（如 avatars/<accountId>/<uuid>.jpg），
 -- 图片字节走 R2 公开域名直连，不再进 Postgres，也不塞进任何 JSON 接口。
 ALTER TABLE accounts ADD COLUMN IF NOT EXISTS avatar_key TEXT;
@@ -148,8 +150,9 @@ CREATE TABLE IF NOT EXISTS admin_settings (
   PRIMARY KEY (space_id, key)
 );
 
--- 兼容旧版站点闯关：同名 adventure_progress 结构不同（无 highest_unlocked_order），
--- CREATE TABLE IF NOT EXISTS 不会改已有表，启动时检测并重建为章节解锁模型。
+-- 兼容旧版站点闯关：把整套旧表移入 legacy schema，再创建章节解锁模型的新表。
+-- SET SCHEMA 会一并隔离旧索引名，避免仅改表名后新版主键索引发生重名冲突。
+CREATE SCHEMA IF NOT EXISTS legacy;
 DO $$
 BEGIN
   IF EXISTS (
@@ -161,13 +164,28 @@ BEGIN
       AND table_name = 'adventure_progress'
       AND column_name = 'highest_unlocked_order'
   ) THEN
-    DROP TABLE IF EXISTS adventure_point_transactions CASCADE;
-    DROP TABLE IF EXISTS adventure_station_rewards CASCADE;
-    DROP TABLE IF EXISTS adventure_stations CASCADE;
-    DROP TABLE IF EXISTS adventure_campaigns CASCADE;
-    DROP TABLE IF EXISTS adventure_claims CASCADE;
-    DROP TABLE IF EXISTS adventure_chapters CASCADE;
-    DROP TABLE IF EXISTS adventure_progress CASCADE;
+    IF to_regclass('legacy.adventure_progress') IS NOT NULL THEN
+      RAISE EXCEPTION 'legacy adventure backup already exists; manual migration required';
+    END IF;
+    IF to_regclass('public.adventure_point_transactions') IS NOT NULL THEN
+      ALTER TABLE adventure_point_transactions SET SCHEMA legacy;
+    END IF;
+    IF to_regclass('public.adventure_station_rewards') IS NOT NULL THEN
+      ALTER TABLE adventure_station_rewards SET SCHEMA legacy;
+    END IF;
+    IF to_regclass('public.adventure_stations') IS NOT NULL THEN
+      ALTER TABLE adventure_stations SET SCHEMA legacy;
+    END IF;
+    IF to_regclass('public.adventure_campaigns') IS NOT NULL THEN
+      ALTER TABLE adventure_campaigns SET SCHEMA legacy;
+    END IF;
+    IF to_regclass('public.adventure_claims') IS NOT NULL THEN
+      ALTER TABLE adventure_claims SET SCHEMA legacy;
+    END IF;
+    IF to_regclass('public.adventure_chapters') IS NOT NULL THEN
+      ALTER TABLE adventure_chapters SET SCHEMA legacy;
+    END IF;
+    ALTER TABLE adventure_progress SET SCHEMA legacy;
   END IF;
 END $$;
 

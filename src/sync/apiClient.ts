@@ -50,6 +50,12 @@ export function getR2PublicBase(): string | null {
   return R2_PUBLIC_BASE || null;
 }
 
+export async function getAuthorizationHeaders(): Promise<Record<string, string>> {
+  const token = await getAuthToken();
+  if (!token) throw new UnauthorizedError("尚未登录");
+  return { Authorization: `Bearer ${token}` };
+}
+
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
@@ -62,11 +68,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   const headers: Record<string, string> = { "Content-Type": "application/json" };
 
   if (!options.anonymous) {
-    const token = await getAuthToken();
-    if (!token) {
-      throw new UnauthorizedError("尚未登录");
-    }
-    headers.Authorization = `Bearer ${token}`;
+    Object.assign(headers, await getAuthorizationHeaders());
   }
 
   let response: Response;

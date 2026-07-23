@@ -88,6 +88,71 @@ function habitRunsOn(habit: SourceHabit, dateKey: string): boolean {
   return habit.frequency.daysOfWeek.includes(day);
 }
 
+type ContextData = {
+  members: SourceMember[];
+  habits: SourceHabit[];
+  checkIns: SourceCheckIn[];
+  messages: CompanionMessage[];
+  memories: CompanionMemory[];
+  bond: BondState;
+  manageableHabits: ManageableHabit[];
+};
+
+async function loadContextData(input: {
+  source: CompanionContextSource;
+  spaceId: string;
+  dateKeys: string[];
+  today: string;
+}): Promise<ContextData> {
+  const { source, spaceId, dateKeys, today } = input;
+  const [members, habits, checkIns, messages, memories, bond, manageableHabits] = await Promise.all([
+    source.listMembers(spaceId), source.listActiveHabits(spaceId), source.listCheckIns(spaceId, dateKeys[0], today),
+    source.listRecentMessages(spaceId, 12), source.listMemories(spaceId), source.getBondState(spaceId),
+    source.listManageableHabits?.(spaceId) ?? Promise.resolve([])
+  ]);
+  return { members, habits, checkIns, messages, memories, bond, manageableHabits };
+}
+
+function completionSet(checkIns: SourceCheckIn[]) {
+  return new Set(checkIns.filter((checkIn) => checkIn.status === "completed")
+    .map((checkIn) => `${checkIn.habitId}:${checkIn.date}`));
+}
+
+function buildContextSummary(input: {
+  accountId: string;
+  today: string;
+  dateKeys: string[];
+  data: ContextData;
+}): CompanionContext {
+  const { accountId, today, dateKeys, data } = input;
+  const completed = completionSet(data.checkIns);
+  const counts = dateKeys.reduce((total, dateKey) => {
+    for (const habit of data.habits) {
+      if (!habitRunsOn(habit, dateKey)) continue;
+      total.due += 1;
+      if (completed.has(`${habit.id}:${dateKey}`)) total.completed += 1;
+    }
+    return total;
+  }, { due: 0, completed: 0 });
+  const dueToday = data.habits.filter((habit) => habitRunsOn(habit, today));
+  const current = data.members.find((member) => member.id === accountId);
+  return {
+    currentMemberName: current?.displayName ?? "你",
+    partnerNames: data.members.filter((member) => member.id !== accountId).map((member) => member.displayName),
+    today: { dateKey: today, due: dueToday.length,
+      completed: dueToday.filter((habit) => completed.has(`${habit.id}:${today}`)).length },
+    lastSevenDays: { ...counts, completionRate: counts.due === 0 ? 0 : Math.round((counts.completed / counts.due) * 100) },
+    activeHabits: data.habits.slice(0, 12).map((habit) => ({ id: habit.id, name: habit.name })),
+    manageableHabits: data.manageableHabits.slice(0, 24).map((habit) => ({ ...habit,
+      completedToday: completed.has(`${habit.id}:${today}`) })),
+    recentMessages: data.messages.slice(-12).map((message) => ({
+      role: message.role, content: message.content, senderName: message.senderName
+    })),
+    memories: data.memories.map((memory) => ({ category: memory.category, content: memory.content })),
+    bond: data.bond
+  };
+}
+
 export async function buildCompanionContext(input: {
   source: CompanionContextSource;
   spaceId: string;
@@ -97,64 +162,8 @@ export async function buildCompanionContext(input: {
 }): Promise<CompanionContext> {
   const today = localDateKey(input.now, input.timezoneOffsetMinutes);
   const dateKeys = Array.from({ length: 7 }, (_, index) => shiftDateKey(today, index - 6));
-  const [members, habits, checkIns, messages, memories, bond, manageableHabits] = await Promise.all([
-    input.source.listMembers(input.spaceId),
-    input.source.listActiveHabits(input.spaceId),
-    input.source.listCheckIns(input.spaceId, dateKeys[0], today),
-    input.source.listRecentMessages(input.spaceId, 12),
-    input.source.listMemories(input.spaceId),
-    input.source.getBondState(input.spaceId),
-    input.source.listManageableHabits?.(input.spaceId) ?? Promise.resolve([])
-  ]);
-  const completed = new Set(
-    checkIns
-      .filter((checkIn) => checkIn.status === "completed")
-      .map((checkIn) => `${checkIn.habitId}:${checkIn.date}`)
-  );
-  const counts = dateKeys.reduce(
-    (total, dateKey) => {
-      for (const habit of habits) {
-        if (!habitRunsOn(habit, dateKey)) continue;
-        total.due += 1;
-        if (completed.has(`${habit.id}:${dateKey}`)) total.completed += 1;
-      }
-      return total;
-    },
-    { due: 0, completed: 0 }
-  );
-  const dueToday = habits.filter((habit) => habitRunsOn(habit, today));
-  const current = members.find((member) => member.id === input.accountId);
-  return {
-    currentMemberName: current?.displayName ?? "你",
-    partnerNames: members.filter((member) => member.id !== input.accountId).map((member) => member.displayName),
-    today: {
-      dateKey: today,
-      due: dueToday.length,
-      completed: dueToday.filter((habit) => completed.has(`${habit.id}:${today}`)).length
-    },
-    lastSevenDays: {
-      ...counts,
-      completionRate: counts.due === 0 ? 0 : Math.round((counts.completed / counts.due) * 100)
-    },
-    activeHabits: habits.slice(0, 12).map((habit) => ({ id: habit.id, name: habit.name })),
-    manageableHabits: manageableHabits.slice(0, 24).map((habit) => ({
-      id: habit.id,
-      name: habit.name,
-      isPaused: habit.isPaused,
-      frequency: habit.frequency,
-      reminderTime: habit.reminderTime,
-      trackType: habit.trackType,
-      numericUnit: habit.numericUnit,
-      completedToday: completed.has(`${habit.id}:${today}`)
-    })),
-    recentMessages: messages.slice(-12).map((message) => ({
-      role: message.role,
-      content: message.content,
-      senderName: message.senderName
-    })),
-    memories: memories.map((memory) => ({ category: memory.category, content: memory.content })),
-    bond
-  };
+  const data = await loadContextData({ source: input.source, spaceId: input.spaceId, dateKeys, today });
+  return buildContextSummary({ accountId: input.accountId, today, dateKeys, data });
 }
 
 function parseFrequency(raw: unknown): HabitFrequency {
@@ -167,6 +176,42 @@ function parseFrequency(raw: unknown): HabitFrequency {
   return { type: "daily" };
 }
 
+function listMembers(db: CompanionDb, spaceId: string) {
+  return db.query<{ id: string; display_name: string }>(
+    "SELECT id, display_name FROM accounts WHERE space_id = $1 ORDER BY created_at ASC", [spaceId]
+  ).then((result) => result.rows.map((row) => ({ id: row.id, displayName: row.display_name })));
+}
+
+function listActiveHabits(db: CompanionDb, spaceId: string) {
+  return db.query<{ id: string; name: string; frequency_json: string; created_at: string | Date }>(
+    `SELECT id, name, frequency_json, created_at FROM habits
+     WHERE space_id = $1 AND is_paused = false ORDER BY sort_order ASC`, [spaceId]
+  ).then((result) => result.rows.map((row) => ({ id: row.id, name: row.name,
+    frequency: parseFrequency(row.frequency_json), createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at) })));
+}
+
+function listManageableHabits(db: CompanionDb, spaceId: string): Promise<ManageableHabit[]> {
+  return db.query<{
+    id: string; name: string; frequency_json: string; created_at: string | Date; is_paused: boolean;
+    reminder_time: string | null; track_type: string; numeric_unit: string | null;
+  }>(`SELECT id, name, frequency_json, created_at, is_paused, reminder_time, track_type, numeric_unit
+      FROM habits WHERE space_id = $1 ORDER BY sort_order ASC, created_at ASC`, [spaceId]).then((result) =>
+    result.rows.map((row) => ({ id: row.id, name: row.name, frequency: parseFrequency(row.frequency_json),
+      createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
+      isPaused: row.is_paused, reminderTime: row.reminder_time,
+      trackType: row.track_type === "numeric" ? "numeric" : "check", numericUnit: row.numeric_unit }))
+  );
+}
+
+function listCheckIns(db: CompanionDb, options: { spaceId: string; fromDate: string; toDate: string }) {
+  const { spaceId, fromDate, toDate } = options;
+  return db.query<{ habit_id: string; date: string; status: string; created_by: string | null }>(
+    `SELECT habit_id, date, status, created_by FROM check_ins
+     WHERE space_id = $1 AND date >= $2 AND date <= $3`, [spaceId, fromDate, toDate]
+  ).then((result) => result.rows.map((row) => ({ habitId: row.habit_id, date: row.date,
+    status: row.status, createdBy: row.created_by })));
+}
+
 export function createSqlCompanionContextSource(options: {
   db?: CompanionDb;
   repository?: Pick<CompanionRepository, "listRecentMessages" | "listMemories">;
@@ -176,76 +221,10 @@ export function createSqlCompanionContextSource(options: {
   const repository = options.repository ?? createCompanionRepository({ db });
   const stateRepository = options.stateRepository ?? createCompanionStateRepository({ db });
   return {
-    async listMembers(spaceId) {
-      const rows = await db.query<{ id: string; display_name: string }>(
-        "SELECT id, display_name FROM accounts WHERE space_id = $1 ORDER BY created_at ASC",
-        [spaceId]
-      );
-      return rows.rows.map((row) => ({ id: row.id, displayName: row.display_name }));
-    },
-    async listActiveHabits(spaceId) {
-      const rows = await db.query<{
-        id: string;
-        name: string;
-        frequency_json: string;
-        created_at: string | Date;
-      }>(
-        `SELECT id, name, frequency_json, created_at FROM habits
-         WHERE space_id = $1 AND is_paused = false ORDER BY sort_order ASC`,
-        [spaceId]
-      );
-      return rows.rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        frequency: parseFrequency(row.frequency_json),
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at)
-      }));
-    },
-    async listManageableHabits(spaceId) {
-      const rows = await db.query<{
-        id: string;
-        name: string;
-        frequency_json: string;
-        created_at: string | Date;
-        is_paused: boolean;
-        reminder_time: string | null;
-        track_type: string;
-        numeric_unit: string | null;
-      }>(
-        `SELECT id, name, frequency_json, created_at, is_paused, reminder_time,
-                track_type, numeric_unit
-           FROM habits WHERE space_id = $1 ORDER BY sort_order ASC, created_at ASC`,
-        [spaceId]
-      );
-      return rows.rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-        frequency: parseFrequency(row.frequency_json),
-        createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : String(row.created_at),
-        isPaused: row.is_paused,
-        reminderTime: row.reminder_time,
-        trackType: row.track_type === "numeric" ? "numeric" : "check",
-        numericUnit: row.numeric_unit
-      }));
-    },
-    async listCheckIns(spaceId, fromDate, toDate) {
-      const rows = await db.query<{
-        habit_id: string;
-        date: string;
-        status: string;
-        created_by: string | null;
-      }>(
-        `SELECT habit_id, date, status, created_by FROM check_ins
-         WHERE space_id = $1 AND date >= $2 AND date <= $3`,
-        [spaceId, fromDate, toDate]
-      );
-      return rows.rows.map((row) => ({
-        habitId: row.habit_id,
-        date: row.date,
-        status: row.status,
-        createdBy: row.created_by
-      }));
-    },
+    listMembers: (spaceId) => listMembers(db, spaceId),
+    listActiveHabits: (spaceId) => listActiveHabits(db, spaceId),
+    listManageableHabits: (spaceId) => listManageableHabits(db, spaceId),
+    listCheckIns: (spaceId, fromDate, toDate) => listCheckIns(db, { spaceId, fromDate, toDate }),
     listRecentMessages: (spaceId, limit) => repository.listRecentMessages(spaceId, limit),
     listMemories: (spaceId) => repository.listMemories(spaceId),
     getBondState: (spaceId) => stateRepository.getBondState(spaceId)

@@ -4,7 +4,7 @@ import { createCompanionEvent } from "./companionTypes";
 
 describe("companion fallback", () => {
   it("returns natural event-specific copy without technical details", () => {
-    const event = createCompanionEvent("event-1", "all_done", { dateKey: "2026-07-19" });
+    const event = createCompanionEvent({ id: "event-1", type: "all_done", payload: { dateKey: "2026-07-19" } });
     const fallback = fallbackForEvent(event);
 
     expect(fallback.message).toContain("完成");

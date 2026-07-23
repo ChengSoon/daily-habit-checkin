@@ -98,12 +98,9 @@ export function motionStateForDelta(
 }
 
 export function motionStateForGesture(
-  deltaX: number,
-  deltaY: number,
-  velocityX = 0,
-  velocityY = 0,
-  threshold = 3
+  input: { deltaX: number; deltaY: number; velocityX?: number; velocityY?: number; threshold?: number }
 ): PetAnimationState | null {
+  const { deltaX, deltaY, velocityX = 0, velocityY = 0, threshold = 3 } = input;
   const horizontal = Math.abs(velocityX) > 0.04 ? velocityX : deltaX;
   const vertical = Math.abs(velocityY) > 0.04 ? velocityY : deltaY;
   if (Math.max(Math.abs(horizontal), Math.abs(vertical)) < threshold) return null;

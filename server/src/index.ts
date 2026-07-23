@@ -9,19 +9,21 @@ import { createCompanionRouter } from "./companion/companionRoutes.js";
 import { createDataRouter, createWalletRouter } from "./data/dataRoutes.js";
 import { createSettingsRouter } from "./data/settingsRoutes.js";
 import { runSchema } from "./db/schema.js";
-import { createRateLimiter, requireApiKey } from "./middleware.js";
+import { createRateLimiter } from "./middleware.js";
 import { chatWithModel, streamChatWithModel } from "./openaiChat.js";
 import { generateHabitPlan } from "./openaiHabitPlanner.js";
 import { syncChangeHub } from "./sync/changeHub.js";
 import { attachSyncWebSocketServer } from "./sync/syncWebSocketServer.js";
 import { createUploadRouter } from "./uploads/uploadRoutes.js";
+import { createCheckInRouter } from "./checkins/checkinRoutes.js";
+import { createRewardCommandRouter } from "./rewards/rewardCommandRoutes.js";
 
 const app = express();
 const port = Number(process.env.PORT ?? 8787);
+app.set("trust proxy", Number(process.env.TRUST_PROXY_HOPS ?? 1));
 
 app.use(cors());
-// 图片以 base64 存入数据库，放宽请求体上限以容纳压缩后的图片
-app.use(express.json({ limit: "8mb" }));
+app.use(express.json({ limit: "1mb" }));
 
 // 每个来源默认 1 分钟 10 次，防止刷爆模型额度
 const rateLimit = createRateLimiter({
@@ -33,7 +35,7 @@ app.get("/health", (_request, response) => {
   response.json({ ok: true });
 });
 
-app.post("/api/ai/habit-plan", requireApiKey, rateLimit, async (request, response) => {
+app.post("/api/ai/habit-plan", requireAuth, rateLimit, async (request, response) => {
   try {
     const plan = await generateHabitPlan(request.body);
     response.json(plan);
@@ -43,7 +45,7 @@ app.post("/api/ai/habit-plan", requireApiKey, rateLimit, async (request, respons
   }
 });
 
-app.post("/api/ai/chat", requireApiKey, rateLimit, async (request, response) => {
+app.post("/api/ai/chat", requireAuth, rateLimit, async (request, response) => {
   try {
     if (request.body?.stream) {
       await streamChatWithModel(request.body, response);
@@ -79,8 +81,10 @@ app.use(
   createCompanionRouter({ onChange: notifySyncChange })
 );
 app.use("/api/adventure", requireAuth, createAdventureRouter({ onChange: notifySyncChange }));
+app.use("/api/checkins", requireAuth, createCheckInRouter({ onChange: notifySyncChange }));
+app.use("/api/rewards", requireAuth, createRewardCommandRouter({ onChange: notifySyncChange }));
 app.use("/api/data", requireAuth, createDataRouter({ onChange: notifySyncChange }));
-app.use("/api/wallet", requireAuth, createWalletRouter({ onChange: notifySyncChange }));
+app.use("/api/wallet", requireAuth, createWalletRouter());
 app.use("/api/settings", requireAuth, createSettingsRouter({ onChange: notifySyncChange }));
 
 async function start(): Promise<void> {

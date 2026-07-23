@@ -71,15 +71,65 @@ function appConfigValue(fileEnv, baseName) {
   ]) ?? "";
 }
 
+function buildPlugins(plugins, allowCleartext) {
+  return plugins.map((plugin) => {
+    if (!Array.isArray(plugin) || plugin[0] !== "expo-build-properties") {
+      return plugin;
+    }
+    return [
+      plugin[0],
+      {
+        ...plugin[1],
+        android: {
+          ...plugin[1]?.android,
+          usesCleartextTraffic: allowCleartext
+        }
+      }
+    ];
+  });
+}
+
+function assertProductionUrl(name, value, required) {
+  if (!value) {
+    if (required) throw new Error(`${name} is required for production builds`);
+    return;
+  }
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    throw new Error(`${name} must be a valid HTTPS URL for production builds`);
+  }
+  if (parsed.protocol !== "https:") {
+    throw new Error(`${name} must use HTTPS for production builds`);
+  }
+}
+
 module.exports = ({ config }) => {
   const appEnv = envName(process.env.APP_ENV);
   const fileEnv = loadEnvFiles(appEnv);
   const apiBaseUrl = appConfigValue(fileEnv, "API_BASE_URL");
   const r2PublicBase = appConfigValue(fileEnv, "R2_PUBLIC_BASE");
+  const allowCleartext = appEnv === "development";
+  if (!allowCleartext) {
+    assertProductionUrl("API_BASE_URL", apiBaseUrl, true);
+    assertProductionUrl("R2_PUBLIC_BASE", r2PublicBase, false);
+  }
 
   return {
     ...config,
     ...base.expo,
+    ios: {
+      ...base.expo.ios,
+      infoPlist: {
+        ...base.expo.ios?.infoPlist,
+        NSAppTransportSecurity: {
+          ...base.expo.ios?.infoPlist?.NSAppTransportSecurity,
+          NSAllowsArbitraryLoads: allowCleartext
+        }
+      }
+    },
+    plugins: buildPlugins(base.expo.plugins, allowCleartext),
     extra: {
       ...base.expo.extra,
       appEnv,

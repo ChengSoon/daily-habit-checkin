@@ -102,87 +102,78 @@ function streamFrom(raw: unknown): AsyncIterable<unknown> {
   return raw as AsyncIterable<unknown>;
 }
 
-export function createCompanionModel(options: CompanionModelOptions = {}): CompanionModel {
-  let client = options.client;
-  const model = options.model ?? process.env.OPENAI_MODEL;
-  const timeoutMs = options.timeoutMs ?? Number(process.env.COMPANION_TIMEOUT_MS ?? 15_000);
+type ModelRuntime = {
+  client: () => CompanionOpenAiClient;
+  model: () => string;
+  timeoutMs: number;
+};
+
+function createModelRuntime(options: CompanionModelOptions): ModelRuntime {
+  let currentClient = options.client;
+  const modelName = options.model ?? process.env.OPENAI_MODEL;
   const createClient = options.createClient ?? createSdkClient;
-
-  function configuredClient(): CompanionOpenAiClient {
-    if (client) return client;
-    const apiKey =
-      options.apiKey === undefined ? process.env.OPENAI_API_KEY?.trim() : options.apiKey.trim();
-    if (!apiKey) throw new Error("OPENAI_API_KEY is required");
-    const baseUrl =
-      options.baseUrl === undefined ? process.env.OPENAI_BASE_URL?.trim() : options.baseUrl.trim();
-    client = createClient(apiKey, baseUrl || undefined);
-    return client;
-  }
-
-  function configuredModel(): string {
-    if (!model) throw new Error("OPENAI_MODEL is required");
-    return model;
-  }
-
   return {
-    async respond(input) {
-      const raw = await withTimeout(timeoutMs, (signal) =>
-        configuredClient().chat.completions.create(
-          {
-            model: configuredModel(),
-            temperature: 0.7,
-            stream: false,
-            response_format: { type: "json_object" },
-            messages: buildCompanionPrompt(input)
-          },
-          { signal }
-        )
-      );
-      const reply = CompanionReplySchema.parse(parseJson(messageContent(raw)));
-      if (reply.eventId !== input.event.id) {
-        throw new Error("模型返回的 eventId 与请求不一致");
-      }
-      return reply;
+    timeoutMs: options.timeoutMs ?? Number(process.env.COMPANION_TIMEOUT_MS ?? 15_000),
+    client() {
+      if (currentClient) return currentClient;
+      const apiKey = options.apiKey === undefined ? process.env.OPENAI_API_KEY?.trim() : options.apiKey.trim();
+      if (!apiKey) throw new Error("OPENAI_API_KEY is required");
+      const baseUrl = options.baseUrl === undefined ? process.env.OPENAI_BASE_URL?.trim() : options.baseUrl.trim();
+      currentClient = createClient(apiKey, baseUrl || undefined);
+      return currentClient;
     },
-
-    async planAction(input): Promise<CompanionActionPlan> {
-      const raw = await withTimeout(timeoutMs, (signal) =>
-        configuredClient().chat.completions.create(
-          {
-            model: configuredModel(),
-            temperature: 0.1,
-            stream: false,
-            response_format: { type: "json_object" },
-            messages: buildCompanionActionPrompt(input)
-          },
-          { signal }
-        )
-      );
-      return CompanionActionPlanSchema.parse(parseJson(messageContent(raw)));
-    },
-
-    async streamChat(input, onDelta) {
-      return withTimeout(timeoutMs, async (signal) => {
-        const raw = await configuredClient().chat.completions.create(
-          {
-            model: configuredModel(),
-            temperature: 0.7,
-            stream: true,
-            messages: buildCompanionChatPrompt(input)
-          },
-          { signal }
-        );
-        let full = "";
-        for await (const item of streamFrom(raw)) {
-          const chunk = item as { choices?: Array<{ delta?: { content?: string | null } }> };
-          const content = chunk.choices?.[0]?.delta?.content;
-          if (!content) continue;
-          full += content;
-          onDelta(content);
-        }
-        if (!full.trim()) throw new Error("模型返回为空");
-        return full;
-      });
+    model() {
+      if (!modelName) throw new Error("OPENAI_MODEL is required");
+      return modelName;
     }
+  };
+}
+
+async function requestJson(runtime: ModelRuntime, options: { messages: unknown; temperature: number }) {
+  return withTimeout(runtime.timeoutMs, (signal) => runtime.client().chat.completions.create({
+    model: runtime.model(),
+    temperature: options.temperature,
+    stream: false,
+    response_format: { type: "json_object" },
+    messages: options.messages
+  }, { signal }));
+}
+
+async function respond(runtime: ModelRuntime, input: ModelCompanionInput): Promise<CompanionReply> {
+  const raw = await requestJson(runtime, { messages: buildCompanionPrompt(input), temperature: 0.7 });
+  const reply = CompanionReplySchema.parse(parseJson(messageContent(raw)));
+  if (reply.eventId !== input.event.id) throw new Error("模型返回的 eventId 与请求不一致");
+  return reply;
+}
+
+async function planAction(runtime: ModelRuntime, input: ModelActionInput): Promise<CompanionActionPlan> {
+  const raw = await requestJson(runtime, { messages: buildCompanionActionPrompt(input), temperature: 0.1 });
+  return CompanionActionPlanSchema.parse(parseJson(messageContent(raw)));
+}
+
+async function streamChat(runtime: ModelRuntime, input: ModelChatInput, onDelta: (text: string) => void) {
+  return withTimeout(runtime.timeoutMs, async (signal) => {
+    const raw = await runtime.client().chat.completions.create({
+      model: runtime.model(), temperature: 0.7, stream: true, messages: buildCompanionChatPrompt(input)
+    }, { signal });
+    let full = "";
+    for await (const item of streamFrom(raw)) {
+      const chunk = item as { choices?: Array<{ delta?: { content?: string | null } }> };
+      const content = chunk.choices?.[0]?.delta?.content;
+      if (!content) continue;
+      full += content;
+      onDelta(content);
+    }
+    if (!full.trim()) throw new Error("模型返回为空");
+    return full;
+  });
+}
+
+export function createCompanionModel(options: CompanionModelOptions = {}): CompanionModel {
+  const runtime = createModelRuntime(options);
+  return {
+    respond: (input) => respond(runtime, input),
+    planAction: (input) => planAction(runtime, input),
+    streamChat: (input, onDelta) => streamChat(runtime, input, onDelta)
   };
 }

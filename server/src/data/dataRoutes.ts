@@ -1,11 +1,16 @@
-import { randomUUID } from "node:crypto";
-import { Router } from "express";
-import type { PoolClient } from "pg";
-import { getPool, withTransaction } from "../db/pool.js";
-import { deleteObject } from "../r2/r2Client.js";
-import { OwnerWritePolicy, requiresOwner } from "./ownerWrite.js";
-import { advanceAdventureProgress } from "../adventure/adventureService.js";
-import { walletDelta, WalletTxType } from "./walletMath.js";
+import { Router, type Request, type Response } from "express";
+import { getPool } from "../db/pool.js";
+import { deleteObjectForScope, isObjectKeyForScope } from "../r2/r2Client.js";
+import { requiresOwner } from "./ownerWrite.js";
+import {
+  fromDbRow,
+  READ_ONLY_RESOURCES,
+  RESOURCES,
+  toDbValue,
+  type DataRouterOptions,
+  type ResourceConfig
+} from "./resourceConfig.js";
+export { createWalletRouter } from "./walletRoutes.js";
 
 /**
  * 同步数据路由。
@@ -18,505 +23,173 @@ import { walletDelta, WalletTxType } from "./walletMath.js";
  * 所有操作都强制带上鉴权中间件解析出的 space_id，实现按空间隔离。
  */
 
-type ColumnKind = "text" | "int" | "real" | "bool" | "json";
-
-type Column = {
-  /** 数据库列名（snake_case） */
-  column: string;
-  /** 客户端字段名（camelCase） */
-  field: string;
-  kind: ColumnKind;
-  nullable?: boolean;
-  /**
-   * 为 true 时，若客户端未提供该字段值，则用鉴权中间件解析出的 accountId 兜底写入。
-   * 用于 check_ins.created_by 这类「谁操作的」归属列，避免信任客户端自报身份。
-   */
-  stampAccount?: boolean;
-};
-
-type ResourceConfig = {
-  table: string;
-  columns: Column[];
-  /**
-   * 写操作的 owner 权限要求：
-   * - "always"：所有写（PUT/DELETE）都要求 owner，用于奖励目录管理。
-   * - "onUpdate"：仅更新已有记录时要求 owner，新建放行。用于兑换记录：
-   *   任何人可创建兑换（花积分兑换），但兑现/取消（改已有记录状态）仅 owner。
-   * 不设则任何登录用户都能写（情侣共享的习惯/打卡/计划等）。
-   */
-  ownerWrite?: OwnerWritePolicy;
-  /**
-   * 若该资源有一列存 R2 图片对象 key，在此声明列名。
-   * PUT 换图（新旧 key 不同）与 DELETE 时会 best-effort 删掉不再被引用的旧对象，
-   * 避免孤儿图在 R2 里长期堆积。仅奖励用到（image_key）。
-   */
-  imageKeyColumn?: string;
-};
-
-type ChangeNotifier = (spaceId: string, resource: string) => void;
-
-type DataRouterOptions = {
-  onChange?: ChangeNotifier;
-};
-
-/**
- * 每种资源的字段映射。id 与 space_id 由框架统一处理，这里只列业务列。
- */
-const RESOURCES: Record<string, ResourceConfig> = {
-  habits: {
-    table: "habits",
-    columns: [
-      { column: "name", field: "name", kind: "text" },
-      { column: "description", field: "description", kind: "text", nullable: true },
-      { column: "frequency_json", field: "frequencyJson", kind: "text" },
-      { column: "reminder_time", field: "reminderTime", kind: "text", nullable: true },
-      { column: "is_reminder_enabled", field: "isReminderEnabled", kind: "bool" },
-      { column: "is_paused", field: "isPaused", kind: "bool" },
-      { column: "track_type", field: "trackType", kind: "text" },
-      { column: "numeric_unit", field: "numericUnit", kind: "text", nullable: true },
-      { column: "sort_order", field: "sortOrder", kind: "int" },
-      { column: "created_at", field: "createdAt", kind: "text" }
-    ]
-  },
-  check_ins: {
-    table: "check_ins",
-    columns: [
-      { column: "habit_id", field: "habitId", kind: "text" },
-      { column: "date", field: "date", kind: "text" },
-      { column: "status", field: "status", kind: "text" },
-      { column: "value", field: "value", kind: "real", nullable: true },
-      { column: "note", field: "note", kind: "text", nullable: true },
-      // 记录是谁打的卡（情侣双人归属）。客户端不传时用鉴权账号兜底，见 PUT 处理。
-      { column: "created_by", field: "createdBy", kind: "text", nullable: true, stampAccount: true },
-      { column: "created_at", field: "createdAt", kind: "text" }
-    ]
-  },
-  habit_plans: {
-    table: "habit_plans",
-    columns: [
-      { column: "habit_id", field: "habitId", kind: "text" },
-      { column: "duration_days", field: "durationDays", kind: "int" },
-      { column: "goal_text", field: "goalText", kind: "text" },
-      { column: "daily_actions_json", field: "dailyActionsJson", kind: "text" },
-      { column: "start_date", field: "startDate", kind: "text" },
-      { column: "end_date", field: "endDate", kind: "text" },
-      { column: "current_stage", field: "currentStage", kind: "text" },
-      { column: "created_by", field: "createdBy", kind: "text" }
-    ]
-  },
-  rewards: {
-    table: "rewards",
-    // 奖励目录的增删改仅 owner；兑换记录见下方 onUpdate 规则
-    ownerWrite: "always",
-    // 奖励图存 R2，换图/删奖励时清理旧对象，避免孤儿图堆积
-    imageKeyColumn: "image_key",
-    columns: [
-      { column: "title", field: "title", kind: "text" },
-      { column: "description", field: "description", kind: "text", nullable: true },
-      { column: "type", field: "type", kind: "text" },
-      { column: "price_xp", field: "priceXp", kind: "int" },
-      { column: "status", field: "status", kind: "text" },
-      { column: "virtual_kind", field: "virtualKind", kind: "text" },
-      { column: "inventory_limit", field: "inventoryLimit", kind: "int", nullable: true },
-      // 奖励图改存 R2：只留对象 key，图片走 R2 公开域名直连，不再进 JSON。
-      { column: "image_key", field: "imageKey", kind: "text", nullable: true },
-      { column: "created_at", field: "createdAt", kind: "text" },
-      { column: "updated_at", field: "updatedAt", kind: "text" }
-    ]
-  },
-  reward_redemptions: {
-    table: "reward_redemptions",
-    // 新建（member 兑换）任何登录用户可做；更新已有记录（兑现/取消）仅 owner
-    ownerWrite: "onUpdate",
-    columns: [
-      { column: "reward_id", field: "rewardId", kind: "text" },
-      { column: "price_xp", field: "priceXp", kind: "int" },
-      { column: "status", field: "status", kind: "text" },
-      { column: "created_at", field: "createdAt", kind: "text" },
-      { column: "fulfilled_at", field: "fulfilledAt", kind: "text", nullable: true },
-      { column: "cancelled_at", field: "cancelledAt", kind: "text", nullable: true },
-      { column: "note", field: "note", kind: "text", nullable: true }
-    ]
-  },
-  xp_transactions: {
-    table: "xp_transactions",
-    columns: [
-      { column: "unique_key", field: "uniqueKey", kind: "text" },
-      { column: "amount", field: "amount", kind: "int" },
-      { column: "type", field: "type", kind: "text" },
-      { column: "reason", field: "reason", kind: "text" },
-      { column: "habit_id", field: "habitId", kind: "text", nullable: true },
-      { column: "check_in_id", field: "checkInId", kind: "text", nullable: true },
-      { column: "reward_id", field: "rewardId", kind: "text", nullable: true },
-      { column: "redemption_id", field: "redemptionId", kind: "text", nullable: true },
-      { column: "date_key", field: "dateKey", kind: "text", nullable: true },
-      { column: "created_at", field: "createdAt", kind: "text" }
-    ]
-  }
-};
-
-function toDbValue(kind: ColumnKind, raw: unknown): unknown {
-  if (raw === null || raw === undefined) {
-    return null;
-  }
-  switch (kind) {
-    case "bool":
-      return raw === true || raw === 1 || raw === "true" ? true : false;
-    case "int":
-      return Math.trunc(Number(raw));
-    case "real":
-      return Number(raw);
-    case "json":
-      return typeof raw === "string" ? raw : JSON.stringify(raw);
-    default:
-      return String(raw);
-  }
-}
-
-function fromDbRow(config: ResourceConfig, row: Record<string, unknown>): Record<string, unknown> {
-  const result: Record<string, unknown> = { id: row.id };
-  for (const col of config.columns) {
-    const value = row[col.column];
-    result[col.field] = value === undefined ? null : value;
-  }
-  return result;
-}
-
 export function createDataRouter(options: DataRouterOptions = {}): Router {
   const router = Router();
-
-  router.get("/:resource", async (request, response) => {
-    const config = RESOURCES[request.params.resource];
-    if (!config) {
-      response.status(404).json({ error: "未知的数据类型" });
-      return;
-    }
-
-    const pool = getPool();
-    const cols = ["id", ...config.columns.map((c) => c.column)].join(", ");
-    const { rows } = await pool.query(
-      `SELECT ${cols} FROM ${config.table} WHERE space_id = $1 ORDER BY id ASC`,
-      [request.spaceId]
-    );
-    response.json(rows.map((row) => fromDbRow(config, row as Record<string, unknown>)));
-  });
-
-  router.put("/:resource/:id", async (request, response) => {
-    const config = RESOURCES[request.params.resource];
-    if (!config) {
-      response.status(404).json({ error: "未知的数据类型" });
-      return;
-    }
-
-    const id = request.params.id;
-    const body = (request.body ?? {}) as Record<string, unknown>;
-
-    const columns = ["id", "space_id", ...config.columns.map((c) => c.column)];
-    const values: unknown[] = [id, request.spaceId];
-    for (const col of config.columns) {
-      // 归属列（如 created_by）以服务端解析出的 accountId 为准，不信任客户端自报。
-      // 仅在客户端未提供时兜底盖章，避免更新已有记录时把归属抹掉。
-      if (col.stampAccount && (body[col.field] === undefined || body[col.field] === null)) {
-        values.push(request.accountId ?? null);
-        continue;
-      }
-      if (!col.nullable && (body[col.field] === undefined || body[col.field] === null)) {
-        response.status(400).json({ error: `缺少字段：${col.field}` });
-        return;
-      }
-      values.push(toDbValue(col.kind, body[col.field]));
-    }
-
-    const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
-    // 冲突时按 (space_id, id) 更新，且只更新属于本空间的记录，防止越权覆盖。
-    const updates = config.columns.map((c) => `${c.column} = excluded.${c.column}`).join(", ");
-
-    const pool = getPool();
-
-    // owner 权限门：奖励目录（always）任何写都要 owner；兑换记录（onUpdate）
-    // 新建放行（member 可花积分兑换）、更新已有记录（兑现/取消）要 owner。
-    // onUpdate 需先查记录是否已存在，判定本身交给纯函数 requiresOwner（可单测）。
-    if (config.ownerWrite) {
-      let recordExists = false;
-      if (config.ownerWrite === "onUpdate") {
-        const { rows: existingRows } = await pool.query(
-          `SELECT 1 FROM ${config.table} WHERE id = $1 AND space_id = $2`,
-          [id, request.spaceId]
-        );
-        recordExists = existingRows.length > 0;
-      }
-      if (requiresOwner(config.ownerWrite, "update", recordExists) && request.role !== "owner") {
-        response.status(403).json({ error: "仅空间创建者可执行此操作" });
-        return;
-      }
-    }
-
-    // 若该资源带 R2 图列（如 rewards.image_key），先取旧图 key，
-    // 更新成功后若换了新图则删旧图，避免换图后旧对象在 R2 里成为孤儿。
-    let previousImageKey: string | null = null;
-    if (config.imageKeyColumn) {
-      const { rows: existing } = await pool.query(
-        `SELECT ${config.imageKeyColumn} AS image_key FROM ${config.table} WHERE id = $1 AND space_id = $2`,
-        [id, request.spaceId]
-      );
-      previousImageKey = (existing[0]?.image_key as string | null | undefined) ?? null;
-    }
-
-    const { rows } = await pool.query(
-      `INSERT INTO ${config.table} (${columns.join(", ")})
-       VALUES (${placeholders})
-       ON CONFLICT (id) DO UPDATE SET ${updates}
-       WHERE ${config.table}.space_id = $2
-       RETURNING ${["id", ...config.columns.map((c) => c.column)].join(", ")}`,
-      values
-    );
-
-    if (rows.length === 0) {
-      response.status(403).json({ error: "无权修改该记录" });
-      return;
-    }
-
-    // 换图后清理旧图（best-effort，不阻断响应）。
-    if (config.imageKeyColumn) {
-      const nextImageKey = (rows[0] as Record<string, unknown>)[config.imageKeyColumn] as string | null;
-      if (previousImageKey && previousImageKey !== nextImageKey) {
-        await deleteObject(previousImageKey);
-      }
-    }
-
-    options.onChange?.(request.spaceId!, request.params.resource);
-    response.json(fromDbRow(config, rows[0] as Record<string, unknown>));
-  });
-
-  router.delete("/:resource/:id", async (request, response) => {
-    const config = RESOURCES[request.params.resource];
-    if (!config) {
-      response.status(404).json({ error: "未知的数据类型" });
-      return;
-    }
-
-    // owner 权限门：删除总是针对已存在记录，requiresOwner 对 always/onUpdate 均返回 true。
-    if (requiresOwner(config.ownerWrite, "delete", true) && request.role !== "owner") {
-      response.status(403).json({ error: "仅空间创建者可执行此操作" });
-      return;
-    }
-
-    const pool = getPool();
-
-    // 带图资源：删记录前先取图 key，删成功后清理 R2 对象，避免孤儿图。
-    let removedImageKey: string | null = null;
-    if (config.imageKeyColumn) {
-      const { rows } = await pool.query(
-        `SELECT ${config.imageKeyColumn} AS image_key FROM ${config.table} WHERE id = $1 AND space_id = $2`,
-        [request.params.id, request.spaceId]
-      );
-      removedImageKey = (rows[0]?.image_key as string | null | undefined) ?? null;
-    }
-
-    await pool.query(`DELETE FROM ${config.table} WHERE id = $1 AND space_id = $2`, [
-      request.params.id,
-      request.spaceId
-    ]);
-
-    if (removedImageKey) {
-      await deleteObject(removedImageKey);
-    }
-
-    options.onChange?.(request.spaceId!, request.params.resource);
-    response.status(204).end();
-  });
-
+  router.get("/:resource", (request, response) => void readResource(request, response));
+  router.put("/:resource/:id", (request, response) => void writeResource(request, response, options));
+  router.delete("/:resource/:id", (request, response) => void removeResource(request, response, options));
   return router;
 }
 
-/**
- * XP 钱包是每个空间一条的单例记录，单独处理。
- *
- * - GET  /api/wallet               读取当前空间钱包
- * - POST /api/wallet/transactions  批量提交 XP 交易，服务端在单事务里
- *   幂等插入 xp_transactions 并原子更新 xp_wallet，返回最新钱包
- *
- * 余额由服务端计算，客户端只上报交易，避免两台设备各算各的导致钱包不一致。
- */
-export function createWalletRouter(options: DataRouterOptions = {}): Router {
-  const router = Router();
-
-  router.get("/", async (request, response) => {
-    const pool = getPool();
-    await ensureWallet(pool, request.spaceId!);
-    response.json(await readWallet(pool, request.spaceId!));
-  });
-
-  router.post("/transactions", async (request, response) => {
-    const body = request.body as { transactions?: unknown };
-    const rawList = Array.isArray(body?.transactions) ? body.transactions : null;
-    if (!rawList) {
-      response.status(400).json({ error: "缺少 transactions 数组" });
-      return;
-    }
-
-    let inputs: WalletTransactionInput[];
-    try {
-      inputs = rawList.map(parseTransactionInput);
-    } catch (error) {
-      response.status(400).json({ error: error instanceof Error ? error.message : "交易格式不正确" });
-      return;
-    }
-
-    const spaceId = request.spaceId!;
-    const result = await withTransaction(async (client) => {
-      await ensureWallet(client, spaceId);
-
-      const inserted: Record<string, unknown>[] = [];
-      let balanceDelta = 0;
-      let earnedDelta = 0;
-      let spentDelta = 0;
-
-      for (const input of inputs) {
-        const id = randomUUID();
-        const insertResult = await client.query(
-          `INSERT INTO xp_transactions (
-             id, space_id, unique_key, amount, type, reason,
-             habit_id, check_in_id, reward_id, redemption_id, date_key, created_at
-           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
-           ON CONFLICT (space_id, unique_key) DO NOTHING
-           RETURNING id, unique_key AS "uniqueKey", amount, type, reason,
-                     habit_id AS "habitId", check_in_id AS "checkInId",
-                     reward_id AS "rewardId", redemption_id AS "redemptionId",
-                     date_key AS "dateKey", created_at AS "createdAt"`,
-          [
-            id,
-            spaceId,
-            input.uniqueKey,
-            input.amount,
-            input.type,
-            input.reason,
-            input.habitId,
-            input.checkInId,
-            input.rewardId,
-            input.redemptionId,
-            input.dateKey
-          ]
-        );
-
-        // 已存在（幂等命中）时不重复计入余额
-        if (insertResult.rows.length === 0) {
-          continue;
-        }
-
-        const delta = walletDelta(input.type, input.amount);
-        balanceDelta += delta.balance;
-        earnedDelta += delta.earned;
-        spentDelta += delta.spent;
-        inserted.push(insertResult.rows[0] as Record<string, unknown>);
-      }
-
-      if (inserted.length > 0) {
-        await client.query(
-          `UPDATE xp_wallet SET
-             balance = balance + $2,
-             lifetime_earned = lifetime_earned + $3,
-             lifetime_spent = lifetime_spent + $4,
-             updated_at = now()
-           WHERE space_id = $1`,
-          [spaceId, balanceDelta, earnedDelta, spentDelta]
-        );
-      }
-
-      const wallet = await readWalletWith(client, spaceId);
-      return { inserted, wallet, earnedDelta };
-    });
-
-    if (result.inserted.length > 0) {
-      options.onChange?.(spaceId, "wallet");
-      if (result.earnedDelta > 0) {
-        try {
-          await advanceAdventureProgress(spaceId);
-          options.onChange?.(spaceId, "adventure");
-        } catch (error) {
-          console.warn("adventure advance failed", error);
-        }
-      }
-    }
-    // 保持响应形状与旧客户端兼容
-    response.json({ inserted: result.inserted, wallet: result.wallet });
-  });
-
-  return router;
+function routeParam(request: Request, name: string): string {
+  const value = request.params[name];
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
 }
 
-type WalletTransactionInput = {
-  uniqueKey: string;
-  amount: number;
-  type: WalletTxType;
-  reason: string;
-  habitId: string | null;
-  checkInId: string | null;
-  rewardId: string | null;
-  redemptionId: string | null;
-  dateKey: string | null;
-};
-
-const TRANSACTION_TYPES: WalletTxType[] = ["earn", "spend", "refund", "adjust"];
-
-function parseTransactionInput(raw: unknown): WalletTransactionInput {
-  const record = (raw ?? {}) as Record<string, unknown>;
-  const uniqueKey = record.uniqueKey;
-  const amount = record.amount;
-  const type = record.type;
-  const reason = record.reason;
-
-  if (typeof uniqueKey !== "string" || uniqueKey.length === 0) {
-    throw new Error("交易缺少 uniqueKey");
-  }
-  if (typeof amount !== "number" || !Number.isFinite(amount)) {
-    throw new Error("交易 amount 必须是数字");
-  }
-  if (typeof type !== "string" || !TRANSACTION_TYPES.includes(type as WalletTxType)) {
-    throw new Error("交易 type 不合法");
-  }
-  if (typeof reason !== "string" || reason.length === 0) {
-    throw new Error("交易缺少 reason");
-  }
-
-  const optionalText = (value: unknown): string | null =>
-    typeof value === "string" && value.length > 0 ? value : null;
-
-  return {
-    uniqueKey,
-    amount: Math.trunc(amount),
-    type: type as WalletTxType,
-    reason,
-    habitId: optionalText(record.habitId),
-    checkInId: optionalText(record.checkInId),
-    rewardId: optionalText(record.rewardId),
-    redemptionId: optionalText(record.redemptionId),
-    dateKey: optionalText(record.dateKey)
-  };
+function resourceConfig(request: Request, response: Response): ResourceConfig | null {
+  const config = RESOURCES[routeParam(request, "resource")];
+  if (config) return config;
+  response.status(404).json({ error: "未知的数据类型" });
+  return null;
 }
 
-async function readWallet(pool: { query: PoolClient["query"] }, spaceId: string): Promise<unknown> {
-  return readWalletWith(pool, spaceId);
+function rejectReadOnly(request: Request, response: Response): boolean {
+  if (!READ_ONLY_RESOURCES.has(routeParam(request, "resource"))) return false;
+  response.status(405).json({ error: "该资源只能通过服务端业务命令修改" });
+  return true;
 }
 
-async function readWalletWith(
-  client: { query: PoolClient["query"] },
-  spaceId: string
-): Promise<Record<string, unknown> | undefined> {
-  const { rows } = await client.query(
-    `SELECT balance, lifetime_earned AS "lifetimeEarned",
-            lifetime_spent AS "lifetimeSpent", updated_at AS "updatedAt"
-     FROM xp_wallet WHERE space_id = $1`,
-    [spaceId]
+async function readResource(request: Request, response: Response): Promise<void> {
+  const config = resourceConfig(request, response);
+  if (!config) return;
+  const cols = ["id", ...config.columns.map((column) => column.column)].join(", ");
+  const { rows } = await getPool().query(
+    `SELECT ${cols} FROM ${config.table} WHERE space_id = $1 ORDER BY id ASC`,
+    [request.spaceId]
   );
-  return rows[0] as Record<string, unknown> | undefined;
+  response.json(rows.map((row) => fromDbRow(config, row as Record<string, unknown>)));
 }
 
-async function ensureWallet(client: { query: PoolClient["query"] }, spaceId: string): Promise<void> {
-  await client.query(
-    `INSERT INTO xp_wallet (space_id, balance, lifetime_earned, lifetime_spent, updated_at)
-     VALUES ($1, 0, 0, 0, now())
-     ON CONFLICT (space_id) DO NOTHING`,
-    [spaceId]
+function validateImageKey(config: ResourceConfig, body: Record<string, unknown>, spaceId: string): string | null {
+  if (!config.imageKeyColumn || !config.imageKind) return null;
+  const field = config.columns.find((column) => column.column === config.imageKeyColumn)?.field;
+  const key = field ? body[field] : null;
+  if (typeof key === "string" && !isObjectKeyForScope(config.imageKind, spaceId, key)) {
+    return "图片对象不属于当前空间";
+  }
+  return null;
+}
+
+function buildWriteValues(
+  options: {
+    config: ResourceConfig;
+    id: string;
+    spaceId: string;
+    accountId: string | undefined;
+    body: Record<string, unknown>;
+  }
+): { columns: string[]; values: unknown[]; error?: string } {
+  const { config, id, spaceId, accountId, body } = options;
+  const columns = ["id", "space_id", ...config.columns.map((column) => column.column)];
+  const values: unknown[] = [id, spaceId];
+  for (const column of config.columns) {
+    const raw = body[column.field];
+    if (column.stampAccount && (raw === undefined || raw === null)) {
+      values.push(accountId ?? null);
+    } else if (!column.nullable && (raw === undefined || raw === null)) {
+      return { columns, values, error: `缺少字段：${column.field}` };
+    } else {
+      values.push(toDbValue(column.kind, raw));
+    }
+  }
+  return { columns, values };
+}
+
+async function ownerWriteDenied(
+  config: ResourceConfig,
+  request: Request,
+  id: string
+): Promise<boolean> {
+  if (!config.ownerWrite) return false;
+  let recordExists = false;
+  if (config.ownerWrite === "onUpdate") {
+    const existing = await getPool().query(
+      `SELECT 1 FROM ${config.table} WHERE id = $1 AND space_id = $2`,
+      [id, request.spaceId]
+    );
+    recordExists = existing.rows.length > 0;
+  }
+  return requiresOwner(config.ownerWrite, "update", recordExists) && request.role !== "owner";
+}
+
+async function previousImageKey(config: ResourceConfig, id: string, spaceId: string): Promise<string | null> {
+  if (!config.imageKeyColumn) return null;
+  const { rows } = await getPool().query(
+    `SELECT ${config.imageKeyColumn} AS image_key FROM ${config.table} WHERE id = $1 AND space_id = $2`,
+    [id, spaceId]
   );
+  return (rows[0]?.image_key as string | null | undefined) ?? null;
+}
+
+async function executeUpsert(
+  config: ResourceConfig,
+  columns: string[],
+  values: unknown[]
+): Promise<Record<string, unknown> | null> {
+  const placeholders = columns.map((_, index) => `$${index + 1}`).join(", ");
+  const updates = config.columns.map((column) => `${column.column} = excluded.${column.column}`).join(", ");
+  const { rows } = await getPool().query(
+    `INSERT INTO ${config.table} (${columns.join(", ")}) VALUES (${placeholders})
+     ON CONFLICT (id) DO UPDATE SET ${updates} WHERE ${config.table}.space_id = $2
+     RETURNING ${["id", ...config.columns.map((column) => column.column)].join(", ")}`,
+    values
+  );
+  return (rows[0] as Record<string, unknown> | undefined) ?? null;
+}
+
+async function writeResource(request: Request, response: Response, options: DataRouterOptions): Promise<void> {
+  const config = resourceConfig(request, response);
+  if (!config || rejectReadOnly(request, response)) return;
+  const id = routeParam(request, "id");
+  const body = (request.body ?? {}) as Record<string, unknown>;
+  const imageError = validateImageKey(config, body, request.spaceId!);
+  if (imageError) {
+    response.status(400).json({ error: imageError });
+    return;
+  }
+  const prepared = buildWriteValues({ config, id, spaceId: request.spaceId!, accountId: request.accountId, body });
+  if (prepared.error) {
+    response.status(400).json({ error: prepared.error });
+    return;
+  }
+  if (await ownerWriteDenied(config, request, id)) {
+    response.status(403).json({ error: "仅空间创建者可执行此操作" });
+    return;
+  }
+  const oldImageKey = await previousImageKey(config, id, request.spaceId!);
+  const row = await executeUpsert(config, prepared.columns, prepared.values);
+  if (!row) {
+    response.status(403).json({ error: "无权修改该记录" });
+    return;
+  }
+  await cleanupChangedImage({ config, spaceId: request.spaceId!, oldKey: oldImageKey, row });
+  options.onChange?.(request.spaceId!, routeParam(request, "resource"));
+  response.json(fromDbRow(config, row));
+}
+
+async function cleanupChangedImage(
+  options: { config: ResourceConfig; spaceId: string; oldKey: string | null; row: Record<string, unknown> }
+): Promise<void> {
+  const { config, spaceId, oldKey, row } = options;
+  if (!config.imageKeyColumn || !oldKey) return;
+  const nextKey = row[config.imageKeyColumn] as string | null;
+  if (oldKey !== nextKey) await deleteObjectForScope(config.imageKind!, spaceId, oldKey);
+}
+
+async function removeResource(request: Request, response: Response, options: DataRouterOptions): Promise<void> {
+  const config = resourceConfig(request, response);
+  if (!config || rejectReadOnly(request, response)) return;
+  if (requiresOwner(config.ownerWrite, "delete", true) && request.role !== "owner") {
+    response.status(403).json({ error: "仅空间创建者可执行此操作" });
+    return;
+  }
+
+  const id = routeParam(request, "id");
+  const removedImageKey = await previousImageKey(config, id, request.spaceId!);
+  await getPool().query(`DELETE FROM ${config.table} WHERE id = $1 AND space_id = $2`, [id, request.spaceId]);
+  if (removedImageKey) {
+    await deleteObjectForScope(config.imageKind!, request.spaceId!, removedImageKey);
+  }
+  options.onChange?.(request.spaceId!, routeParam(request, "resource"));
+  response.status(204).end();
 }

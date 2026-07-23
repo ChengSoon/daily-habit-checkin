@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { S3Client, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
 
 /**
- * Cloudflare R2（S3 兼容）客户端。图片走「presigned PUT 直传 + 公开域名直读」：
+ * Cloudflare R2（S3 兼容）客户端。图片走「presigned POST 直传 + 公开域名直读」：
  * - 服务端只签发上传用的临时 URL，不经手图片字节；
- * - 客户端拿 URL 直接 PUT 到 R2；显示时用公开域名拼 key 直连（走 CDN）。
+ * - 客户端按签名字段 multipart POST 到 R2；显示时用公开域名拼 key 直连（走 CDN）。
  *
  * 需要的环境变量（缺任一则 R2 相关端点返回 500，其余接口不受影响）：
  *   R2_ACCOUNT_ID          Cloudflare 账号 ID，用于拼 endpoint
@@ -22,10 +22,16 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/gif": "gif"
 };
 
-/** presigned URL 有效期（秒）。够客户端压缩后上传，又不至于长期有效。 */
+/** presigned POST 有效期（秒）。够客户端压缩后上传，又不至于长期有效。 */
 const UPLOAD_URL_TTL_SECONDS = 300;
 
 export type UploadKind = "avatar" | "reward" | "adventure";
+
+const PREFIX_BY_KIND: Record<UploadKind, string> = {
+  avatar: "avatars",
+  reward: "rewards",
+  adventure: "adventure"
+};
 
 let client: S3Client | null = null;
 
@@ -66,37 +72,51 @@ export function isAllowedImageMime(mime: string): boolean {
   return mime in EXT_BY_MIME;
 }
 
+export function isObjectKeyForScope(kind: UploadKind, scope: string, key: string): boolean {
+  if (kind === "adventure" && isAdventureBadgeKeyForSpace(key, scope)) return true;
+  const prefix = `${PREFIX_BY_KIND[kind]}/${scope}/`;
+  if (!key.startsWith(prefix)) return false;
+  const filename = key.slice(prefix.length);
+  return /^[0-9a-f-]+\.(?:jpg|png|webp|gif)$/iu.test(filename);
+}
+
 /**
- * 为一次上传生成对象 key 与 presigned PUT URL。
+ * 为一次上传生成对象 key 与 presigned POST 表单。
  * key 按 kind + 作用域（账号/空间）+ 随机 UUID 组织，避免碰撞也便于人工排查。
  *
  * @param scope 作用域标识（头像用 accountId、奖励用 spaceId），仅用于组织路径。
  */
 export async function createPresignedUpload(
-  kind: UploadKind,
-  scope: string,
-  contentType: string
-): Promise<{ key: string; uploadUrl: string }> {
+  options: { kind: UploadKind; scope: string; contentType: string; sizeBytes: number }
+): Promise<{ key: string; uploadUrl: string; fields: Record<string, string> }> {
+  const { kind, scope, contentType, sizeBytes } = options;
   const ext = EXT_BY_MIME[contentType];
   if (!ext) {
     throw new Error("不支持的图片类型");
   }
 
-  const prefix = kind === "avatar" ? "avatars" : kind === "adventure" ? "adventure" : "rewards";
+  const prefix = PREFIX_BY_KIND[kind];
   const key = `${prefix}/${scope}/${randomUUID()}.${ext}`;
 
   const { s3, bucket } = getClient();
-  const uploadUrl = await getSignedUrl(
-    s3,
-    new PutObjectCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
-    { expiresIn: UPLOAD_URL_TTL_SECONDS }
-  );
+  const upload = await createPresignedPost(s3, {
+    Bucket: bucket,
+    Key: key,
+    Expires: UPLOAD_URL_TTL_SECONDS,
+    Fields: { "Content-Type": contentType },
+    Conditions: [
+      ["eq", "$Content-Type", contentType],
+      ["content-length-range", 1, sizeBytes]
+    ]
+  });
 
-  return { key, uploadUrl };
+  return { key, uploadUrl: upload.url, fields: upload.fields };
 }
 
 export function isAdventureBadgeKeyForSpace(key: string, spaceId: string): boolean {
-  return key.startsWith(`adventure_badges/${spaceId}/`);
+  const prefix = `adventure_badges/${spaceId}/`;
+  if (!key.startsWith(prefix)) return false;
+  return /^[a-z0-9._-]+\.(?:jpg|png|webp|gif)$/iu.test(key.slice(prefix.length));
 }
 
 /**
@@ -104,7 +124,7 @@ export function isAdventureBadgeKeyForSpace(key: string, spaceId: string): boole
  * best-effort：删除失败只记日志、不抛出，绝不因清理旧图而阻断主流程。
  * 传入空 key 直接跳过。R2 未配置时同样静默跳过（自建环境常见）。
  */
-export async function deleteObject(key: string | null | undefined): Promise<void> {
+async function deleteObject(key: string | null | undefined): Promise<void> {
   if (!key) {
     return;
   }
@@ -115,4 +135,17 @@ export async function deleteObject(key: string | null | undefined): Promise<void
     const message = error instanceof Error ? error.message : String(error);
     console.warn(`R2 对象删除失败（已忽略）：${key} — ${message}`);
   }
+}
+
+export async function deleteObjectForScope(
+  kind: UploadKind,
+  scope: string,
+  key: string | null | undefined
+): Promise<void> {
+  if (!key) return;
+  if (!isObjectKeyForScope(kind, scope, key)) {
+    console.warn(`拒绝删除不属于当前作用域的 R2 对象：${key}`);
+    return;
+  }
+  await deleteObject(key);
 }

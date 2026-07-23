@@ -91,12 +91,8 @@ function createPetPanResponder(args: {
     onPanResponderGrant: args.onDragStart,
     onPanResponderMove: (_, gesture) => {
       const next = offsetForGesture(args.resting, gesture, args.bounds);
-      const gestureState = motionStateForGesture(
-        gesture.dx,
-        gesture.dy,
-        gesture.vx,
-        gesture.vy
-      );
+      const gestureState = motionStateForGesture({ deltaX: gesture.dx, deltaY: gesture.dy,
+        velocityX: gesture.vx, velocityY: gesture.vy });
       if (gestureState) args.setTravel(gestureState);
       args.position.setValue(next);
       args.setBubbleOnLeft(bubbleIsOnLeft(next, args.bounds));

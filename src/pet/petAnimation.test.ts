@@ -78,13 +78,13 @@ describe("motionStateForDelta", () => {
 
 describe("motionStateForGesture", () => {
   it("把明显的上下拖动映射为跳跃和等待", () => {
-    expect(motionStateForGesture(4, -24)).toBe("jumping");
-    expect(motionStateForGesture(-3, 24)).toBe("waiting");
+    expect(motionStateForGesture({ deltaX: 4, deltaY: -24 })).toBe("jumping");
+    expect(motionStateForGesture({ deltaX: -3, deltaY: 24 })).toBe("waiting");
   });
 
   it("保留横向拖动的方向步态", () => {
-    expect(motionStateForGesture(28, 3)).toBe("running-right");
-    expect(motionStateForGesture(-28, 3)).toBe("running-left");
+    expect(motionStateForGesture({ deltaX: 28, deltaY: 3 })).toBe("running-right");
+    expect(motionStateForGesture({ deltaX: -28, deltaY: 3 })).toBe("running-left");
   });
 });
 

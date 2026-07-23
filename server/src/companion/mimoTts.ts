@@ -34,7 +34,21 @@ type MimoChunk = {
   choices?: Array<{ delta?: { audio?: { data?: unknown } } }>;
 };
 
-const DEFAULT_STYLE = "温柔、轻快、亲近，像一只陪伴用户的小海豹。";
+type MimoRuntime = {
+  request: typeof fetch;
+  apiKey: string | undefined;
+  baseUrl: string;
+  model: string;
+  voice: (typeof MIMO_TTS_VOICES)[number];
+  timeoutMs: number;
+};
+
+const DEFAULT_STYLE = [
+  "角色：卡卡，一只亲近、温柔但不幼稚的小海豹伙伴。",
+  "场景：和熟悉的用户面对面聊日常，正在自然接话，不是在播报或朗诵。",
+  "指导：语速中等偏慢，发声松弛，停连和重音跟随句意变化；疑问句自然微微上扬，安慰时更柔和，开心时更明亮。不要客服腔、播音腔、字字等重、刻意卖萌或拖长尾音。"
+].join("\n");
+const DEFAULT_STYLE_TAG = "(自然聊天，松弛，温柔)";
 
 function trimBaseUrl(value: string): string {
   return value.replace(/\/+$/u, "");
@@ -83,74 +97,78 @@ function consumeSse(
   return { rest, done };
 }
 
-export function createMimoTtsService(options: MimoTtsOptions = {}): MimoTtsService {
-  const request = options.fetch ?? fetch;
-  const apiKey = options.apiKey ?? process.env.MIMO_API_KEY?.trim();
-  const baseUrl = trimBaseUrl(options.baseUrl ?? process.env.MIMO_TTS_BASE_URL ?? "https://api.xiaomimimo.com/v1");
-  const model = options.model ?? process.env.MIMO_TTS_MODEL ?? "mimo-v2.5-tts";
-  const voice = resolveVoice(options.voice ?? process.env.MIMO_TTS_VOICE);
-  const timeoutMs = options.timeoutMs ?? Number(process.env.MIMO_TTS_TIMEOUT_MS ?? 15_000);
+function emitAudio(onAudio: (chunk: MimoTtsAudioChunk) => void) {
+  return (data: string) => onAudio({ data, sampleRate: MIMO_TTS_SAMPLE_RATE,
+    channels: MIMO_TTS_CHANNELS, encoding: "pcm_s16le" });
+}
 
+async function requestAudio(runtime: MimoRuntime, input: CompanionTtsRequest, signal: AbortSignal) {
+  const response = await runtime.request(`${runtime.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "api-key": runtime.apiKey! },
+    body: JSON.stringify({
+      model: runtime.model,
+      messages: [
+        { role: "user", content: DEFAULT_STYLE },
+        { role: "assistant", content: `${DEFAULT_STYLE_TAG}${input.text}` }
+      ],
+      audio: { format: MIMO_TTS_FORMAT, voice: runtime.voice },
+      stream: true
+    }),
+    signal
+  });
+  if (!response.ok || !response.body) throw new Error(`MiMo TTS 请求失败（HTTP ${response.status}）`);
+  return response.body.getReader();
+}
+
+async function consumeAudioStream(reader: ReadableStreamDefaultReader<Uint8Array>, onAudio: (chunk: MimoTtsAudioChunk) => void) {
+  const decoder = new TextDecoder("utf-8");
+  const emit = emitAudio(onAudio);
+  let pending = "";
+  let done = false;
+  while (!done) {
+    const next = await reader.read();
+    if (next.done) break;
+    pending += decoder.decode(next.value, { stream: true });
+    const parsed = consumeSse(pending, emit);
+    pending = parsed.rest;
+    done = parsed.done;
+  }
+  pending += decoder.decode();
+  consumeSse(pending.endsWith("\n\n") ? pending : `${pending}\n\n`, emit);
+}
+
+async function streamAudio(options: {
+  runtime: MimoRuntime;
+  input: CompanionTtsRequest;
+  onAudio: (chunk: MimoTtsAudioChunk) => void;
+  signal?: AbortSignal;
+}) {
+  const { runtime, input, onAudio, signal } = options;
+  if (!runtime.apiKey) throw new Error("MIMO_API_KEY is required");
+  const timeout = new AbortController();
+  const timer = setTimeout(() => timeout.abort(), runtime.timeoutMs);
+  const abort = () => timeout.abort();
+  signal?.addEventListener("abort", abort, { once: true });
+  try {
+    const reader = await requestAudio(runtime, input, timeout.signal);
+    await consumeAudioStream(reader, onAudio);
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener("abort", abort);
+  }
+}
+
+export function createMimoTtsService(options: MimoTtsOptions = {}): MimoTtsService {
+  const runtime: MimoRuntime = {
+    request: options.fetch ?? fetch,
+    apiKey: options.apiKey ?? process.env.MIMO_API_KEY?.trim(),
+    baseUrl: trimBaseUrl(options.baseUrl ?? process.env.MIMO_TTS_BASE_URL ?? "https://api.xiaomimimo.com/v1"),
+    model: options.model ?? process.env.MIMO_TTS_MODEL ?? "mimo-v2.5-tts",
+    voice: resolveVoice(options.voice ?? process.env.MIMO_TTS_VOICE),
+    timeoutMs: options.timeoutMs ?? Number(process.env.MIMO_TTS_TIMEOUT_MS ?? 15_000)
+  };
   return {
-    async stream(input, onAudio, signal) {
-      if (!apiKey) throw new Error("MIMO_API_KEY is required");
-      const timeout = new AbortController();
-      const timer = setTimeout(() => timeout.abort(), timeoutMs);
-      const abort = () => timeout.abort();
-      signal?.addEventListener("abort", abort, { once: true });
-      try {
-        const response = await request(`${baseUrl}/chat/completions`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "api-key": apiKey
-          },
-          body: JSON.stringify({
-            model,
-            messages: [
-              { role: "user", content: DEFAULT_STYLE },
-              { role: "assistant", content: input.text }
-            ],
-            audio: { format: MIMO_TTS_FORMAT, voice },
-            stream: true
-          }),
-          signal: timeout.signal
-        });
-        if (!response.ok || !response.body) {
-          throw new Error(`MiMo TTS 请求失败（HTTP ${response.status}）`);
-        }
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let pending = "";
-        let done = false;
-        while (!done) {
-          const next = await reader.read();
-          if (next.done) break;
-          pending += decoder.decode(next.value, { stream: true });
-          const parsed = consumeSse(pending, (data) =>
-            onAudio({
-              data,
-              sampleRate: MIMO_TTS_SAMPLE_RATE,
-              channels: MIMO_TTS_CHANNELS,
-              encoding: "pcm_s16le"
-            })
-          );
-          pending = parsed.rest;
-          done = parsed.done;
-        }
-        pending += decoder.decode();
-        consumeSse(pending.endsWith("\n\n") ? pending : `${pending}\n\n`, (data) =>
-          onAudio({
-            data,
-            sampleRate: MIMO_TTS_SAMPLE_RATE,
-            channels: MIMO_TTS_CHANNELS,
-            encoding: "pcm_s16le"
-          })
-        );
-      } finally {
-        clearTimeout(timer);
-        signal?.removeEventListener("abort", abort);
-      }
-    }
+    stream: (input, onAudio, signal) => streamAudio({ runtime, input, onAudio, signal })
   };
 }

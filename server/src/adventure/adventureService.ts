@@ -425,7 +425,7 @@ function toAdminDto(row: AdventureChapterRow, claimCount: number): AdminChapterD
   };
 }
 
-function normalizeAdminInput(raw: ChapterAdminInput, fallbackSortOrder: number): ChapterWriteInput {
+function validateAdminInput(raw: ChapterAdminInput, fallbackSortOrder: number) {
   const title = raw.title.trim();
   const storyText = raw.storyText.trim();
   const badgeName = raw.badgeName.trim();
@@ -455,11 +455,17 @@ function normalizeAdminInput(raw: ChapterAdminInput, fallbackSortOrder: number):
     throw Object.assign(new Error("奖励类型不合法"), { status: 400 });
   }
 
-  const optionalKey = (value: string | null | undefined): string | null => {
-    if (value === undefined || value === null) return null;
-    const trimmed = value.trim();
-    return trimmed ? trimmed : null;
-  };
+  return { title, storyText, badgeName, status, sortOrder, rewardType };
+}
+
+function optionalKey(value: string | null | undefined): string | null {
+  if (value === undefined || value === null) return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+function normalizeAdminInput(raw: ChapterAdminInput, fallbackSortOrder: number): ChapterWriteInput {
+  const { title, storyText, badgeName, status, sortOrder, rewardType } = validateAdminInput(raw, fallbackSortOrder);
 
   return {
     sortOrder,
@@ -522,7 +528,7 @@ export async function updateAdminChapter(
     const input = normalizeAdminInput(raw, existing.sortOrder);
     // 更新时保持原排序，排序走 reorder 接口
     input.sortOrder = existing.sortOrder;
-    const row = await updateChapter(client, spaceId, chapterId, input);
+    const row = await updateChapter(client, { spaceId, chapterId, input });
     if (!row) {
       throw Object.assign(new Error("章节不存在"), { status: 404 });
     }
@@ -544,7 +550,7 @@ export async function setAdminChapterStatus(
     if (!existing) {
       throw Object.assign(new Error("章节不存在"), { status: 404 });
     }
-    const row = await updateChapter(client, spaceId, chapterId, {
+    const row = await updateChapter(client, { spaceId, chapterId, input: {
       sortOrder: existing.sortOrder,
       title: existing.title,
       subtitle: existing.subtitle,
@@ -559,7 +565,7 @@ export async function setAdminChapterStatus(
       rewardType: existing.rewardType,
       mapThemeKey: existing.mapThemeKey,
       status
-    });
+    } });
     if (!row) {
       throw Object.assign(new Error("章节不存在"), { status: 404 });
     }
@@ -649,7 +655,9 @@ export async function fulfillAdventureClaim(
     if (current.fulfillmentStatus !== "pending") {
       throw Object.assign(new Error("仅待兑现记录可确认兑现"), { status: 400 });
     }
-    const updated = await updateClaimFulfillment(client, spaceId, claimId, "fulfilled", note ?? null);
+    const updated = await updateClaimFulfillment(client, {
+      spaceId, claimId, status: "fulfilled", note: note ?? null
+    });
     if (!updated) {
       throw Object.assign(new Error("领取记录不存在"), { status: 404 });
     }
@@ -683,7 +691,9 @@ export async function cancelAdventureClaim(
     if (current.fulfillmentStatus !== "pending") {
       throw Object.assign(new Error("仅待兑现记录可取消"), { status: 400 });
     }
-    const updated = await updateClaimFulfillment(client, spaceId, claimId, "cancelled", note ?? null);
+    const updated = await updateClaimFulfillment(client, {
+      spaceId, claimId, status: "cancelled", note: note ?? null
+    });
     if (!updated) {
       throw Object.assign(new Error("领取记录不存在"), { status: 404 });
     }

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCompanionClient, parseCompanionSse } from "./companionClient";
 import { parseCompanionTtsSse } from "./ttsClient";
-import { createCompanionEvent } from "./companionTypes";
+import { createCompanionEvent, type CompanionChatInput } from "./companionTypes";
 
 vi.mock("../sync/apiClient", () => {
   class SyncError extends Error {}
@@ -82,7 +82,7 @@ describe("companion client", () => {
     });
     const stream = vi.fn(async () => "流式回复");
     const client = createCompanionClient({ request, stream });
-    const event = createCompanionEvent("event-1", "app_returned", {});
+    const event = createCompanionEvent({ id: "event-1", type: "app_returned", payload: {} });
 
     await expect(client.respond(event)).resolves.toMatchObject({ eventId: "event-1" });
     await expect(client.listMemories()).resolves.toEqual([]);
@@ -94,21 +94,18 @@ describe("companion client", () => {
 
   it("delegates chat streaming without duplicating the message", async () => {
     const request = vi.fn();
-    const stream = vi.fn(async (_body, onDelta: (value: string) => void) => {
-      onDelta("回复");
+    const stream = vi.fn(async (options: { body: CompanionChatInput; onDelta: (value: string) => void }) => {
+      options.onDelta("回复");
       return "回复";
     });
     const client = createCompanionClient({ request, stream });
     const deltas: string[] = [];
 
-    await client.chat(
-      { messageId: "message-1", message: "陪我聊聊", timezoneOffsetMinutes: -480 },
-      (delta) => deltas.push(delta)
-    );
+    await client.chat({ messageId: "message-1", message: "陪我聊聊", timezoneOffsetMinutes: -480 },
+      { onDelta: (delta) => deltas.push(delta) });
 
     expect(stream).toHaveBeenCalledWith(
-      { messageId: "message-1", message: "陪我聊聊", timezoneOffsetMinutes: -480 },
-      expect.any(Function)
+      { body: { messageId: "message-1", message: "陪我聊聊", timezoneOffsetMinutes: -480 }, onDelta: expect.any(Function) }
     );
     expect(deltas).toEqual(["回复"]);
   });

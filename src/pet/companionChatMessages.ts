@@ -3,22 +3,22 @@ import type { CompanionAction } from "./companionActionTypes";
 
 export const CHAT_FAILURE_MESSAGE = "我暂时没接上话，但我还在这里。";
 
-export function assistantMessage(
-  id: string,
-  content: string,
-  riskLevel: CompanionMessage["riskLevel"],
-  action: CompanionAction | null = null
-): CompanionMessage {
+export function assistantMessage(input: {
+  id: string;
+  content: string;
+  riskLevel: CompanionMessage["riskLevel"];
+  action?: CompanionAction | null;
+}): CompanionMessage {
   return {
-    id,
+    id: input.id,
     role: "assistant",
-    content,
+    content: input.content,
     senderAccountId: null,
     senderName: null,
-    riskLevel,
+    riskLevel: input.riskLevel,
     memoryProposal: null,
     memoryConfirmed: false,
-    action,
+    action: input.action ?? null,
     createdAt: new Date().toISOString()
   };
 }

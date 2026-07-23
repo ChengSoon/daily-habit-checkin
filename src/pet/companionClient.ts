@@ -16,12 +16,13 @@ import { CompanionActionSchema, type CompanionAction } from "./companionActionTy
 
 type RequestOptions = { method?: "GET" | "POST" | "PUT" | "DELETE"; body?: unknown };
 type RequestFn = (path: string, options?: RequestOptions) => Promise<unknown>;
-type StreamFn = (
-  body: CompanionChatInput,
-  onDelta: (value: string) => void,
-  onAction?: (action: CompanionAction) => void,
-  signal?: AbortSignal
-) => Promise<{ text: string; action: CompanionAction | null } | string>;
+type StreamOptions = {
+  body: CompanionChatInput;
+  onDelta: (value: string) => void;
+  onAction?: (action: CompanionAction) => void;
+  signal?: AbortSignal;
+};
+type StreamFn = (options: StreamOptions) => Promise<{ text: string; action: CompanionAction | null } | string>;
 
 export function parseCompanionSse(input: string): {
   deltas: string[];
@@ -68,12 +69,7 @@ export function parseCompanionSse(input: string): {
   return { deltas, actions, done, rest };
 }
 
-async function streamCompanionChat(
-  body: CompanionChatInput,
-  onDelta: (value: string) => void,
-  onAction?: (action: CompanionAction) => void,
-  signal?: AbortSignal
-): Promise<{ text: string; action: CompanionAction | null }> {
+async function streamCompanionChat(options: StreamOptions): Promise<{ text: string; action: CompanionAction | null }> {
   const baseUrl = getApiBaseUrl();
   const token = await getAuthToken();
   if (!baseUrl) throw new SyncError("应用未正确配置后端地址");
@@ -99,11 +95,11 @@ async function streamCompanionChat(
       pending = parsed.rest;
       for (const delta of parsed.deltas) {
         full += delta;
-        onDelta(delta);
+        options.onDelta(delta);
       }
       for (const nextAction of parsed.actions) {
         action = nextAction;
-        onAction?.(nextAction);
+        options.onAction?.(nextAction);
       }
     };
     xhr.open("POST", `${baseUrl}/api/companion/chat`);
@@ -130,7 +126,7 @@ async function streamCompanionChat(
       settled = true;
       resolve({ text: full, action });
     };
-    signal?.addEventListener(
+    options.signal?.addEventListener(
       "abort",
       () => {
         xhr.abort();
@@ -138,8 +134,75 @@ async function streamCompanionChat(
       },
       { once: true }
     );
-    xhr.send(JSON.stringify(body));
+    xhr.send(JSON.stringify(options.body));
   });
+}
+
+function normalizeChatResult(result: { text: string; action: CompanionAction | null } | string) {
+  return typeof result === "string" ? { text: result, action: null } : result;
+}
+
+function createCompanionChat(stream: StreamFn) {
+  return async (input: CompanionChatInput, callbacks: Omit<StreamOptions, "body">) => {
+    const result = await stream({ body: input, ...callbacks });
+    return normalizeChatResult(result);
+  };
+}
+
+function createMemoryMethods(request: RequestFn) {
+  return {
+    async listMemories(): Promise<CompanionMemory[]> {
+      const value = (await request("/api/companion/memories")) as { memories?: unknown };
+      return CompanionMemorySchema.array().parse(value.memories);
+    },
+    async saveMemory(proposal: MemoryProposal, sourceMessageId?: string): Promise<CompanionMemory> {
+      const value = (await request("/api/companion/memories", { method: "POST",
+        body: { ...proposal, ...(sourceMessageId ? { sourceMessageId } : {}) } })) as { memory?: unknown };
+      return CompanionMemorySchema.parse(value.memory);
+    },
+    deleteMemory: (id: string) => request(`/api/companion/memories/${encodeURIComponent(id)}`, { method: "DELETE" }),
+    clearMessages: () => request("/api/companion/messages", { method: "DELETE" })
+  };
+}
+
+function createStateMethods(request: RequestFn) {
+  return {
+    async getState(): Promise<CompanionState> {
+      return CompanionStateSchema.parse(await request("/api/companion/state"));
+    },
+    async updateState(preferences: MemberPreferences): Promise<CompanionState> {
+      return CompanionStateSchema.parse(await request("/api/companion/state", { method: "PUT", body: preferences }));
+    }
+  };
+}
+
+function createActionMethods(request: RequestFn) {
+  const run = async (actionId: string, verb: "confirm" | "cancel") => {
+    const value = (await request(`/api/companion/actions/${encodeURIComponent(actionId)}/${verb}`, {
+      method: "POST"
+    })) as { action?: unknown; message?: unknown; resources?: unknown };
+    return {
+      action: CompanionActionSchema.parse(value.action),
+      message: typeof value.message === "string" ? value.message : verb === "confirm" ? "动作处理完成。" : "已取消。",
+      resources: Array.isArray(value.resources)
+        ? value.resources.filter((item): item is string => typeof item === "string")
+        : []
+    };
+  };
+  return { confirmAction: (actionId: string) => run(actionId, "confirm"), cancelAction: (actionId: string) => run(actionId, "cancel") };
+}
+
+function createMessageMethods(request: RequestFn) {
+  return {
+    async listMessages(cursor?: string | null) {
+      const suffix = cursor ? `?limit=30&cursor=${encodeURIComponent(cursor)}` : "?limit=30";
+      const value = (await request(`/api/companion/messages${suffix}`)) as { items?: unknown; nextCursor?: unknown };
+      return {
+        items: CompanionMessageSchema.array().parse(value.items),
+        nextCursor: typeof value.nextCursor === "string" ? value.nextCursor : null
+      };
+    }
+  };
 }
 
 export function createCompanionClient(options: {
@@ -148,84 +211,21 @@ export function createCompanionClient(options: {
 } = {}) {
   const request = options.request ?? ((path, config) => apiRequest<unknown>(path, config));
   const stream = options.stream ?? streamCompanionChat;
+  const memoryMethods = createMemoryMethods(request);
+  const stateMethods = createStateMethods(request);
+  const messageMethods = createMessageMethods(request);
+  const actionMethods = createActionMethods(request);
   return {
     async respond(event: CompanionEvent) {
       return parseCompanionReply(
         await request("/api/companion/respond", { method: "POST", body: { event } })
       );
     },
-    chat: async (
-      input: CompanionChatInput,
-      onDelta: (value: string) => void,
-      onAction?: (action: CompanionAction) => void,
-      signal?: AbortSignal
-    ) => {
-      const result =
-        onAction || signal
-          ? await stream(input, onDelta, onAction, signal)
-          : await stream(input, onDelta);
-      return typeof result === "string" ? { text: result, action: null } : result;
-    },
-    async listMessages(cursor?: string | null) {
-      const suffix = cursor ? `?limit=30&cursor=${encodeURIComponent(cursor)}` : "?limit=30";
-      const value = (await request(`/api/companion/messages${suffix}`)) as {
-        items?: unknown;
-        nextCursor?: unknown;
-      };
-      return {
-        items: CompanionMessageSchema.array().parse(value.items),
-        nextCursor: typeof value.nextCursor === "string" ? value.nextCursor : null
-      };
-    },
-    async listMemories(): Promise<CompanionMemory[]> {
-      const value = (await request("/api/companion/memories")) as { memories?: unknown };
-      return CompanionMemorySchema.array().parse(value.memories);
-    },
-    async saveMemory(
-      proposal: MemoryProposal,
-      sourceMessageId?: string
-    ): Promise<CompanionMemory> {
-      const value = (await request("/api/companion/memories", {
-        method: "POST",
-        body: { ...proposal, ...(sourceMessageId ? { sourceMessageId } : {}) }
-      })) as { memory?: unknown };
-      return CompanionMemorySchema.parse(value.memory);
-    },
-    deleteMemory: (id: string) =>
-      request(`/api/companion/memories/${encodeURIComponent(id)}`, { method: "DELETE" }),
-    clearMessages: () => request("/api/companion/messages", { method: "DELETE" }),
-    async getState(): Promise<CompanionState> {
-      return CompanionStateSchema.parse(await request("/api/companion/state"));
-    },
-    async updateState(preferences: MemberPreferences): Promise<CompanionState> {
-      return CompanionStateSchema.parse(
-        await request("/api/companion/state", { method: "PUT", body: preferences })
-      );
-    },
-    async confirmAction(actionId: string) {
-      const value = (await request(`/api/companion/actions/${encodeURIComponent(actionId)}/confirm`, {
-        method: "POST"
-      })) as { action?: unknown; message?: unknown; resources?: unknown };
-      return {
-        action: CompanionActionSchema.parse(value.action),
-        message: typeof value.message === "string" ? value.message : "动作处理完成。",
-        resources: Array.isArray(value.resources)
-          ? value.resources.filter((item): item is string => typeof item === "string")
-          : []
-      };
-    },
-    async cancelAction(actionId: string) {
-      const value = (await request(`/api/companion/actions/${encodeURIComponent(actionId)}/cancel`, {
-        method: "POST"
-      })) as { action?: unknown; message?: unknown; resources?: unknown };
-      return {
-        action: CompanionActionSchema.parse(value.action),
-        message: typeof value.message === "string" ? value.message : "已取消。",
-        resources: Array.isArray(value.resources)
-          ? value.resources.filter((item): item is string => typeof item === "string")
-          : []
-      };
-    }
+    chat: createCompanionChat(stream),
+    ...messageMethods,
+    ...memoryMethods,
+    ...stateMethods,
+    ...actionMethods
   };
 }
 

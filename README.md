@@ -87,8 +87,8 @@ flowchart LR
   API --> LLM
   API --> ASR
   API --> TTS
-  API -->|"presigned upload"| R2
-  App -->|"direct upload / public read"| R2
+  API -->|"presigned POST"| R2
+  App -->|"multipart upload / public read"| R2
   CI -->|"APK + latest.json"| R2
   CI -->|"Docker deploy"| API
 ```
@@ -141,9 +141,11 @@ flowchart LR
 │   ├── adventure/          # 闯关 API 与持久化
 │   ├── auth/               # 账号、空间与 JWT
 │   ├── companion/          # 卡卡模型、ASR、TTS、记忆与动作
-│   ├── data/               # 习惯、打卡、奖励与设置 API
+│   ├── checkins/           # 打卡与 XP 原子命令
+│   ├── data/               # 通用业务数据与设置 API
+│   ├── rewards/            # 奖励兑换原子命令
 │   ├── sync/               # WebSocket 资源失效通知
-│   └── uploads/            # R2 presigned upload
+│   └── uploads/            # R2 presigned POST
 ├── assets/                 # App、宠物和岛屿视觉资源
 ├── docs/                   # 设计方案、实现计划与原型
 ├── .github/workflows/      # CI、移动端发布与服务端部署
@@ -182,6 +184,7 @@ cd server && npm ci
 - `production` / `prod` 读取 `.env.prod`
 - 本机私密覆盖放在 `.env.dev.local` / `.env.prod.local`
 - 服务端还会读取 `server/.env` 与 `server/.env.local`
+- production 构建的 `API_BASE_URL` 必须使用 HTTPS；仅 development 允许 localhost HTTP
 
 不要把真实密钥提交到仓库。推荐在根目录创建 `.env.dev.local`：
 
@@ -230,7 +233,8 @@ APP_UPDATE_MANIFEST_URL=https://cdn.example.com/releases/android/latest.json
 | `MIMO_*` | 卡卡流式语音合成 | 卡卡云端语音输出 |
 | `R2_*` | 图片上传、公开资源和 APK 镜像 | R2 相关功能 |
 | `APP_UPDATE_MANIFEST_URL` | 服务端代理 Android 更新清单 | App 内更新 |
-| `API_KEY` | 保护旧版 `/api/ai/*` 接口 | 需要额外访问控制时 |
+
+`/api/ai/*` 与其他业务接口一样要求有效 JWT 登录；服务端模型密钥不会下发到客户端。
 
 ### 3. 启动 PostgreSQL
 

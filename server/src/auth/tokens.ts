@@ -29,6 +29,7 @@ function getSecret(): string {
 export type TokenPayload = {
   accountId: string;
   spaceId: string;
+  sessionVersion: number;
 };
 
 export function signToken(payload: TokenPayload, expiresInSeconds = 60 * 60 * 24 * 30): string {
@@ -64,8 +65,17 @@ export function verifyToken(token: string): (TokenPayload & { exp: number }) | n
   }
 
   try {
+    const decodedHeader = JSON.parse(fromBase64url(header).toString("utf8")) as { alg?: unknown; typ?: unknown };
+    if (decodedHeader.alg !== "HS256" || decodedHeader.typ !== "JWT") return null;
     const decoded = JSON.parse(fromBase64url(body).toString("utf8")) as TokenPayload & { exp: number };
-    if (decoded.exp * 1000 < Date.now()) {
+    if (
+      typeof decoded.accountId !== "string" ||
+      typeof decoded.spaceId !== "string" ||
+      !Number.isInteger(decoded.sessionVersion) ||
+      decoded.sessionVersion < 0 ||
+      typeof decoded.exp !== "number" ||
+      decoded.exp * 1000 < Date.now()
+    ) {
       return null;
     }
     return decoded;

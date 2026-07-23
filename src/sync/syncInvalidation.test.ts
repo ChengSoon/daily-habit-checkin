@@ -8,7 +8,7 @@ class FakeSocket implements SyncSocketLike {
   onopen: (() => void) | null = null;
   readyState = 0;
 
-  constructor(readonly url: string) {}
+  constructor(readonly url: string, readonly protocols: string[]) {}
 
   close(): void {
     this.readyState = 3;
@@ -31,8 +31,8 @@ describe("sync invalidation client", () => {
     const client = createSyncInvalidationClient({
       getApiBaseUrl: () => "https://api.example.com",
       getAuthToken: async () => "token_123",
-      socketFactory: (url) => {
-        const socket = new FakeSocket(url);
+      socketFactory: (url, protocols) => {
+        const socket = new FakeSocket(url, protocols);
         sockets.push(socket);
         return socket;
       }
@@ -41,7 +41,8 @@ describe("sync invalidation client", () => {
     const unsubscribe = client.subscribe(() => undefined);
     await flushPromises();
 
-    expect(sockets[0].url).toBe("wss://api.example.com/api/sync/events?token=token_123");
+    expect(sockets[0].url).toBe("wss://api.example.com/api/sync/events");
+    expect(sockets[0].protocols).toEqual(["habit-sync", "auth.token_123"]);
     unsubscribe();
   });
 
@@ -51,8 +52,8 @@ describe("sync invalidation client", () => {
     const client = createSyncInvalidationClient({
       getApiBaseUrl: () => "http://api.example.com",
       getAuthToken: async () => "token_123",
-      socketFactory: (url) => {
-        const socket = new FakeSocket(url);
+      socketFactory: (url, protocols) => {
+        const socket = new FakeSocket(url, protocols);
         sockets.push(socket);
         return socket;
       }

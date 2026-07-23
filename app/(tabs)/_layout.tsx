@@ -187,17 +187,17 @@ function AnimatedTabLabel({ color, focused, title }: TabLabelProps) {
   );
 }
 
-function tabIcon(active: IoniconName, inactive: IoniconName, inactiveColor: string, motion: TabMotion, routeName: string) {
+function tabIcon(item: TabItem, inactiveColor: string) {
   return function renderTabIcon({ color, focused, size }: { color: ColorValue; focused: boolean; size: number }) {
     return (
       <AnimatedTabIcon
-        active={active}
+        active={item.active}
         color={color}
         focused={focused}
-        inactive={inactive}
+        inactive={item.inactive}
         inactiveColor={inactiveColor}
-        motion={motion}
-        routeName={routeName}
+        motion={item.motion}
+        routeName={item.name}
         size={size}
       />
     );
@@ -210,50 +210,44 @@ function tabLabel(title: string) {
   };
 }
 
+function tabScreenOptions(colors: ReturnType<typeof useTheme>["colors"], bottomInset: number) {
+  return {
+    headerShown: false,
+    animation: "none" as const,
+    sceneStyle: { backgroundColor: colors.background },
+    tabBarActiveTintColor: colors.primaryInk,
+    tabBarInactiveTintColor: colors.faint,
+    tabBarStyle: {
+      backgroundColor: colors.surface,
+      borderTopColor: colors.line,
+      borderTopWidth: 1,
+      height: 58 + bottomInset,
+      paddingTop: 8,
+      paddingBottom: bottomInset > 0 ? bottomInset : 6,
+      shadowColor: "#283048",
+      shadowOpacity: 0.06,
+      shadowRadius: 12,
+      shadowOffset: { width: 0, height: -2 },
+      elevation: 6
+    },
+    tabBarLabelStyle: { fontSize: 11.5, fontWeight: "800" as const, letterSpacing: 0, marginTop: 2 },
+    tabBarIconStyle: { marginTop: 0 }
+  };
+}
+
 export default function TabLayout() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        // 关闭内容区转场：fade/shift 在部分机型会停在透明/错位，表现为内容加载不出来
-        animation: "none",
-        sceneStyle: {
-          backgroundColor: colors.background
-        },
-        tabBarActiveTintColor: colors.primaryInk,
-        tabBarInactiveTintColor: colors.faint,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.line,
-          borderTopWidth: 1,
-          height: 58 + insets.bottom,
-          paddingTop: 8,
-          paddingBottom: insets.bottom > 0 ? insets.bottom : 6,
-          shadowColor: "#283048",
-          shadowOpacity: 0.06,
-          shadowRadius: 12,
-          shadowOffset: { width: 0, height: -2 },
-          elevation: 6
-        },
-        tabBarLabelStyle: {
-          fontSize: 11.5,
-          fontWeight: "800",
-          letterSpacing: 0,
-          marginTop: 2
-        },
-        tabBarIconStyle: { marginTop: 0 }
-      }}
-    >
+    <Tabs screenOptions={tabScreenOptions(colors, insets.bottom)}>
       {TAB_ITEMS.map((item) => (
         <Tabs.Screen
           key={item.name}
           name={item.name}
           options={{
             title: item.title,
-            tabBarIcon: tabIcon(item.active, item.inactive, colors.faint, item.motion, item.name),
+            tabBarIcon: tabIcon(item, colors.faint),
             tabBarLabel: tabLabel(item.title)
           }}
           listeners={{

@@ -13,13 +13,15 @@ vi.mock("./apiClient", () => ({
 
 vi.mock("expo-file-system", () => ({
   File: class FakeFile {
+    readonly size = 1234;
+
     constructor(readonly uri: string) {}
 
     upload(url: string, options: unknown) {
       return mocks.fileUpload(url, options, this.uri);
     }
   },
-  UploadType: { BINARY_CONTENT: 0 }
+  UploadType: { BINARY_CONTENT: 0, MULTIPART: 1 }
 }));
 
 describe("uploadImage", () => {
@@ -31,7 +33,8 @@ describe("uploadImage", () => {
   it("使用原生文件上传直传 R2，避免 Blob 转换", async () => {
     mocks.apiRequest.mockResolvedValue({
       key: "avatars/account/avatar.jpg",
-      uploadUrl: "https://r2-upload.example/avatar.jpg"
+      uploadUrl: "https://r2-upload.example/avatar.jpg",
+      fields: { key: "avatars/account/avatar.jpg", policy: "signed-policy" }
     });
     mocks.fileUpload.mockResolvedValue({ status: 200, body: "", headers: {} });
 
@@ -40,15 +43,16 @@ describe("uploadImage", () => {
     expect(key).toBe("avatars/account/avatar.jpg");
     expect(mocks.apiRequest).toHaveBeenCalledWith("/api/uploads/presign", {
       method: "POST",
-      body: { kind: "avatar", contentType: "image/jpeg" }
+      body: { kind: "avatar", contentType: "image/jpeg", sizeBytes: 1234 }
     });
     expect(mocks.fileUpload).toHaveBeenCalledWith(
       "https://r2-upload.example/avatar.jpg",
       {
-        httpMethod: "PUT",
-        uploadType: 0,
+        httpMethod: "POST",
+        uploadType: 1,
+        fieldName: "file",
         mimeType: "image/jpeg",
-        headers: { "Content-Type": "image/jpeg" }
+        parameters: { key: "avatars/account/avatar.jpg", policy: "signed-policy" }
       },
       "file:///tmp/avatar.jpg"
     );
@@ -57,7 +61,8 @@ describe("uploadImage", () => {
   it("R2 返回非 2xx 时抛出上传失败", async () => {
     mocks.apiRequest.mockResolvedValue({
       key: "avatars/account/avatar.jpg",
-      uploadUrl: "https://r2-upload.example/avatar.jpg"
+      uploadUrl: "https://r2-upload.example/avatar.jpg",
+      fields: {}
     });
     mocks.fileUpload.mockResolvedValue({ status: 403, body: "", headers: {} });
 
@@ -69,7 +74,8 @@ describe("uploadImage", () => {
   it("上传自定义勋章时提交文件大小", async () => {
     mocks.apiRequest.mockResolvedValue({
       key: "adventures/space-1/badge.png",
-      uploadUrl: "https://r2-upload.example/badge.png"
+      uploadUrl: "https://r2-upload.example/badge.png",
+      fields: {}
     });
     mocks.fileUpload.mockResolvedValue({ status: 200, body: "", headers: {} });
 

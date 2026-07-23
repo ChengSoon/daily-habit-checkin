@@ -24,7 +24,7 @@ type RewardDto = {
   updatedAt: string;
 };
 
-type RedemptionDto = {
+export type RedemptionDto = {
   id: string;
   rewardId: string;
   priceXp: number;
@@ -51,7 +51,7 @@ function mapReward(dto: RewardDto): Reward {
   };
 }
 
-function mapRedemption(dto: RedemptionDto): RewardRedemption {
+export function mapRedemption(dto: RedemptionDto): RewardRedemption {
   return {
     id: dto.id,
     rewardId: dto.rewardId,

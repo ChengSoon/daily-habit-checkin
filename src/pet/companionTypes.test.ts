@@ -51,7 +51,8 @@ describe("client companion contracts", () => {
 
   it("stamps events with timezone and stable caller identity", () => {
     expect(
-      createCompanionEvent("event-1", "quick_encouragement", {}, new Date("2026-07-19T12:00:00.000Z"), -480)
+      createCompanionEvent({ id: "event-1", type: "quick_encouragement", payload: {},
+        occurredAt: new Date("2026-07-19T12:00:00.000Z"), timezoneOffsetMinutes: -480 })
     ).toEqual({
       id: "event-1",
       type: "quick_encouragement",

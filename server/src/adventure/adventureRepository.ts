@@ -267,10 +267,9 @@ export async function insertChapter(
 
 export async function updateChapter(
   client: Queryable,
-  spaceId: string,
-  chapterId: string,
-  input: ChapterWriteInput
+  options: { spaceId: string; chapterId: string; input: ChapterWriteInput }
 ): Promise<AdventureChapterRow | null> {
+  const { spaceId, chapterId, input } = options;
   const result = await client.query(
     `UPDATE adventure_chapters SET
        sort_order = $3,
@@ -439,11 +438,14 @@ export async function listClaims(client: Queryable, spaceId: string): Promise<Ad
 
 export async function updateClaimFulfillment(
   client: Queryable,
-  spaceId: string,
-  claimId: string,
-  status: Extract<AdventureFulfillmentStatus, "fulfilled" | "cancelled">,
-  note: string | null
+  options: {
+    spaceId: string;
+    claimId: string;
+    status: Extract<AdventureFulfillmentStatus, "fulfilled" | "cancelled">;
+    note: string | null;
+  }
 ): Promise<AdventureClaimRow | null> {
+  const { spaceId, claimId, status, note } = options;
   const result = await client.query(
     status === "fulfilled"
       ? `UPDATE adventure_claims SET

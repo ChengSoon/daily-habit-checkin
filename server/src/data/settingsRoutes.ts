@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { getPool } from "../db/pool.js";
 
 /**
@@ -21,64 +21,83 @@ type SettingsRouterOptions = {
   onChange?: (spaceId: string, resource: string) => void;
 };
 
+function requireAdminOwner(
+  scope: string,
+  role: string | undefined,
+  response: { status: (code: number) => { json: (body: unknown) => void } }
+): boolean {
+  if (scope !== "admin" || role === "owner") return true;
+  response.status(403).json({ error: "仅空间创建者可访问管理设置" });
+  return false;
+}
+
+function settingsScope(request: Request): string {
+  const value = request.params.scope;
+  return Array.isArray(value) ? value[0] ?? "" : value ?? "";
+}
+
 export function createSettingsRouter(options: SettingsRouterOptions = {}): Router {
   const router = Router();
-
-  router.get("/:scope", async (request, response) => {
-    const table = SCOPE_TABLES[request.params.scope];
-    if (!table) {
-      response.status(404).json({ error: "未知的设置类型" });
-      return;
-    }
-
-    const pool = getPool();
-    const { rows } = await pool.query(
-      `SELECT key, value FROM ${table} WHERE space_id = $1`,
-      [request.spaceId]
-    );
-
-    const entries: Record<string, string> = {};
-    for (const row of rows as { key: string; value: string }[]) {
-      entries[row.key] = row.value;
-    }
-    response.json({ entries });
-  });
-
-  router.put("/:scope", async (request, response) => {
-    const table = SCOPE_TABLES[request.params.scope];
-    if (!table) {
-      response.status(404).json({ error: "未知的设置类型" });
-      return;
-    }
-
-    const body = request.body as { entries?: unknown };
-    const entries = body?.entries;
-    if (!entries || typeof entries !== "object" || Array.isArray(entries)) {
-      response.status(400).json({ error: "缺少 entries 对象" });
-      return;
-    }
-
-    const pairs = Object.entries(entries as Record<string, unknown>);
-    for (const [, value] of pairs) {
-      if (typeof value !== "string") {
-        response.status(400).json({ error: "设置值必须是字符串" });
-        return;
-      }
-    }
-
-    const pool = getPool();
-    for (const [key, value] of pairs) {
-      await pool.query(
-        `INSERT INTO ${table} (space_id, key, value)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (space_id, key) DO UPDATE SET value = excluded.value`,
-        [request.spaceId, key, value]
-      );
-    }
-
-    options.onChange?.(request.spaceId!, `settings:${request.params.scope}`);
-    response.status(204).end();
-  });
-
+  router.get("/:scope", (request, response) => void readSettings(request, response));
+  router.put("/:scope", (request, response) => void writeSettings(request, response, options));
   return router;
+}
+
+async function readSettings(request: Request, response: Response): Promise<void> {
+  const scope = settingsScope(request);
+  const table = SCOPE_TABLES[scope];
+  if (!table) {
+    response.status(404).json({ error: "未知的设置类型" });
+    return;
+  }
+  if (!requireAdminOwner(scope, request.role, response)) return;
+
+  const { rows } = await getPool().query(
+    `SELECT key, value FROM ${table} WHERE space_id = $1`,
+    [request.spaceId]
+  );
+  const entries: Record<string, string> = {};
+  for (const row of rows as { key: string; value: string }[]) entries[row.key] = row.value;
+  response.json({ entries });
+}
+
+async function writeSettings(
+  request: Request,
+  response: Response,
+  options: SettingsRouterOptions
+): Promise<void> {
+  const scope = settingsScope(request);
+  const table = SCOPE_TABLES[scope];
+  if (!table) {
+    response.status(404).json({ error: "未知的设置类型" });
+    return;
+  }
+  if (!requireAdminOwner(scope, request.role, response)) return;
+
+  const entries = (request.body as { entries?: unknown })?.entries;
+  if (!entries || typeof entries !== "object" || Array.isArray(entries)) {
+    response.status(400).json({ error: "缺少 entries 对象" });
+    return;
+  }
+
+  const pairs = Object.entries(entries as Record<string, unknown>);
+  for (const [, value] of pairs) {
+    if (typeof value !== "string") {
+      response.status(400).json({ error: "设置值必须是字符串" });
+      return;
+    }
+  }
+
+  const pool = getPool();
+  for (const [key, value] of pairs) {
+    await pool.query(
+      `INSERT INTO ${table} (space_id, key, value)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (space_id, key) DO UPDATE SET value = excluded.value`,
+      [request.spaceId, key, value]
+    );
+  }
+
+  options.onChange?.(request.spaceId!, `settings:${scope}`);
+  response.status(204).end();
 }

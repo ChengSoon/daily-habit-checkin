@@ -108,7 +108,13 @@ export async function refreshAccount(): Promise<Account | null> {
 }
 
 export async function logout(): Promise<void> {
-  await clearAuthToken();
+  try {
+    await apiRequest<void>("/api/auth/logout", { method: "POST" });
+  } catch {
+    // 离线时无法吊销服务端会话，但仍必须允许用户清除本地登录态。
+  } finally {
+    await clearAuthToken();
+  }
 }
 
 /**
@@ -136,17 +142,18 @@ export async function updateMyAvatar(avatarKey: string | null): Promise<void> {
 }
 
 /**
- * 修改当前登录账号的密码。服务端校验旧密码后更新，成功即完成——
- * 不改变登录态（token 仍有效），失败会抛出带原因的错误交给调用方展示。
+ * 修改当前登录账号的密码。服务端校验旧密码后吊销旧 token，
+ * 返回的新 token 会立即替换本地登录态。
  */
 export async function changePassword(input: {
   currentPassword: string;
   newPassword: string;
 }): Promise<void> {
-  await apiRequest<void>("/api/auth/me/password", {
+  const result = await apiRequest<{ token: string }>("/api/auth/me/password", {
     method: "PUT",
     body: input
   });
+  await saveAuthToken(result.token);
 }
 
 /**

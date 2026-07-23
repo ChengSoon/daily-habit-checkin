@@ -263,6 +263,7 @@ describe("companion service chat and shared state", () => {
       )
     ).resolves.toBe("我在这里。");
     expect(resolveModel).toHaveBeenCalledWith("space-1");
+    expect(resolveModel).toHaveBeenCalledTimes(1);
     expect(deltas).toEqual(["我在", "这里。"]);
     expect(deps.repository.appendExchange).toHaveBeenCalledWith(
       "space-1",

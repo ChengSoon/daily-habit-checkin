@@ -13,12 +13,17 @@ import { listenOnceWithCloudAsr } from "./cloudVoiceListen";
 import { CLOUD_CONVERSATION_RECORD_OPTIONS } from "./cloudVoiceRecordOptions";
 import { prepareVoiceSession, USE_CLOUD_ASR } from "./prepareVoiceSession";
 import { useStopVoiceOnBackground } from "./useStopVoiceOnBackground";
-import { speakReplyText, stopSpeechPlayback } from "./voiceReplyPlayer";
+import {
+  createStreamingReplySpeaker,
+  speakReplyText,
+  stopSpeechPlayback,
+  type SpeakReplyDeps
+} from "./voiceReplyPlayer";
 
 const RESTART_DELAY_MS = 850;
 type VoiceConversationOptions = {
   disabled: boolean;
-  sendMessage: (text: string) => Promise<string | null>;
+  sendMessage: (text: string, options?: { onDelta?: (delta: string) => void }) => Promise<string | null>;
   streamTts?: TtsStreamFn;
   createPlayer?: () => PcmPlayer;
 };
@@ -159,21 +164,56 @@ export function usePetVoiceConversation({
     [createPlayer, streamTts]
   );
 
+  const createReplyPlayback = useCallback((): SpeakReplyDeps => ({
+    active: () => activeRef.current,
+    createPlayer,
+    streamTts,
+    onSpeaking: () => dispatch({ type: "speaking" }),
+    onResumeListening: () => resumeListeningRef.current(),
+    onStreamInterrupted: () => {
+      processingRef.current = false;
+      dispatch({ type: "failed", message: "语音流中断了，我再听一次" });
+      scheduleRestartRef.current();
+    },
+    setTtsController: (value) => {
+      ttsControllerRef.current = value;
+    },
+    setPlayer: (value) => {
+      playerRef.current = value;
+    },
+    getPlayer: () => playerRef.current,
+    getTtsController: () => ttsControllerRef.current
+  }), [createPlayer, streamTts]);
+
   const submitTranscript = useCallback(
     async (transcript: string) => {
       processingRef.current = true;
       dispatch({ type: "thinking", transcript });
-      const reply = await sendMessageRef.current(transcript);
-      if (!activeRef.current) return;
-      if (reply) {
-        speakReply(reply);
+      const replyPlayback = createStreamingReplySpeaker(createReplyPlayback());
+      let reply: string | null;
+      try {
+        reply = await sendMessageRef.current(transcript, { onDelta: replyPlayback.push });
+      } catch {
+        replyPlayback.cancel();
+        processingRef.current = false;
+        dispatch({ type: "failed", message: "卡卡暂时没接上话，我再听一次" });
+        scheduleRestart();
         return;
       }
+      if (!activeRef.current) {
+        replyPlayback.cancel();
+        return;
+      }
+      if (reply) {
+        replyPlayback.finish(reply);
+        return;
+      }
+      replyPlayback.cancel();
       processingRef.current = false;
       dispatch({ type: "failed", message: "卡卡暂时没接上话，我再听一次" });
       scheduleRestart();
     },
-    [scheduleRestart, speakReply]
+    [createReplyPlayback, scheduleRestart]
   );
 
   useEffect(() => {

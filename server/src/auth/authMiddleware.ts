@@ -27,7 +27,7 @@ export async function requireAuth(request: Request, response: Response, next: Ne
   // 避免下游拿着已失效的 spaceId 去写库撞外键约束（500）。
   try {
     const account = await getAccountById(payload.accountId);
-    if (!account) {
+    if (!account || account.sessionVersion !== payload.sessionVersion) {
       response.status(401).json({ error: "登录已失效，请重新登录" });
       return;
     }

@@ -1,5 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { applyDeltas, walletDelta, type WalletTxType } from "../../server/src/data/walletMath";
+import {
+  completeCheckInCommand,
+  redeemRewardCommand,
+  undoCheckInCommand,
+  updateRedemptionCommand,
+  type FakeCommandStore
+} from "./syncCommandBackend";
 
 /**
  * 内存版同步后端，供仓储层单元测试使用。
@@ -72,6 +79,15 @@ class SyncBackend {
   /** 测试辅助：设置空间成员，供双人 UI 相关测试使用。 */
   setMembers(members: Array<{ id: string; displayName: string; role: string; avatarKey?: string | null }>): void {
     this.members = members.map((member) => ({ ...member }));
+  }
+
+  seedWallet(balance: number): void {
+    this.wallet = {
+      balance,
+      lifetimeEarned: balance,
+      lifetimeSpent: 0,
+      updatedAt: new Date().toISOString()
+    };
   }
 
   private listResource(resource: ResourceName): Row[] {
@@ -167,10 +183,39 @@ class SyncBackend {
     }
   }
 
+  private commandStore(): FakeCommandStore {
+    return {
+      tables: this.tables,
+      seenTxKeys: this.seenTxKeys,
+      getWallet: () => this.getWallet(),
+      postTransactions: (transactions) => this.postTransactions(transactions)
+    };
+  }
+
   /**
    * 复现 apiClient.apiRequest 的行为：按 method + path 分发到内存操作，返回与服务端一致的形状。
    */
   handle(path: string, method: string, body: unknown): unknown {
+    if (path === "/api/checkins/complete" && method === "POST") {
+      return completeCheckInCommand(this.commandStore(), body as Row);
+    }
+    if (path === "/api/checkins/undo" && method === "POST") {
+      return undoCheckInCommand(this.commandStore(), body as Row);
+    }
+
+    const redeemMatch = /^\/api\/rewards\/([^/]+)\/redeem$/.exec(path);
+    if (redeemMatch && method === "POST") {
+      return redeemRewardCommand(this.commandStore(), redeemMatch[1]);
+    }
+    const redemptionCommand = /^\/api\/rewards\/redemptions\/([^/]+)\/(fulfill|cancel)$/.exec(path);
+    if (redemptionCommand && method === "POST") {
+      return updateRedemptionCommand(
+        this.commandStore(),
+        redemptionCommand[1],
+        redemptionCommand[2] === "fulfill" ? "fulfilled" : "cancelled"
+      );
+    }
+
     // /api/data/:resource(/:id)
     const dataMatch = /^\/api\/data\/([^/]+)(?:\/(.+))?$/.exec(path);
     if (dataMatch) {
@@ -246,4 +291,8 @@ export function resetSyncBackend(): void {
 /** 测试辅助：设置当前空间成员，供 space-members 接口返回。 */
 export function setSyncMembers(members: Array<{ id: string; displayName: string; role: string; avatarKey?: string | null }>): void {
   syncBackend.setMembers(members);
+}
+
+export function seedSyncWallet(balance: number): void {
+  syncBackend.seedWallet(balance);
 }

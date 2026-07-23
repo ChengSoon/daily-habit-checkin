@@ -76,6 +76,71 @@ function BadgeVisual({
   );
 }
 
+function JourneyCard({ chapter, currentOrder, colors, scheme, onOpen }: {
+  chapter: AdventureChapterView;
+  currentOrder: number;
+  colors: Palette;
+  scheme: "light" | "dark";
+  onOpen: (chapterId: string) => void;
+}) {
+  const meta = statusMeta(chapter, colors);
+  const locked = chapter.viewStatus === "locked";
+  const isCurrent = chapter.sortOrder === currentOrder;
+  const statusLabel = chapter.viewStatus === "claimable" ? "当前" : chapter.viewStatus === "claimed" ? "已获" : "锁定";
+  return <Pressable accessibilityRole="button" accessibilityLabel={chapter.title + "，" + statusLabel} disabled={locked}
+    onPress={() => onOpen(chapter.id)} style={({ pressed }) => ({
+      width: 96, alignSelf: "flex-start", borderRadius: 16, borderWidth: isCurrent ? 1.5 : 1,
+      borderColor: isCurrent ? colors.primary : colors.line, backgroundColor: scheme === "dark" ? colors.surface : "#FAFBFE",
+      paddingTop: 10, paddingBottom: 10, paddingHorizontal: 8, gap: 6, alignItems: "center" as const,
+      opacity: pressed && !locked ? 0.88 : locked ? 0.92 : 1,
+      ...(isCurrent ? { shadowColor: colors.primary, shadowOpacity: 0.16, shadowRadius: 10,
+        shadowOffset: { width: 0, height: 5 }, elevation: 3 } : { shadowColor: "#283048", shadowOpacity: 0.04,
+        shadowRadius: 8, shadowOffset: { width: 0, height: 3 }, elevation: 1 })
+    })}>
+    <Image source={resolveChapterIslandSource(chapter)} style={{ width: 58, height: 58, opacity: locked ? 0.48 : 1,
+      ...(Platform.OS === "web" && locked ? ({ filter: "grayscale(0.8) brightness(1.05)" } as object) : {}) }} resizeMode="contain" />
+    <AppText variant="small" numberOfLines={1} style={{ fontWeight: "800", fontSize: 12, lineHeight: 15,
+      color: locked ? colors.muted : colors.ink, maxWidth: 80, textAlign: "center" }}>{chapter.title}</AppText>
+    <View style={{ borderRadius: 999, backgroundColor: meta.bg, paddingHorizontal: 9, paddingVertical: 3,
+      borderWidth: chapter.viewStatus === "claimable" ? 1 : 0,
+      borderColor: chapter.viewStatus === "claimable" ? colors.primary : "transparent" }}>
+      <AppText variant="small" style={{ color: meta.fg, fontWeight: "800", fontSize: 11, lineHeight: 14 }}>{statusLabel}</AppText>
+    </View>
+  </Pressable>;
+}
+
+function JourneyRailList({ sorted, currentOrder, colors, scheme, onOpen }: {
+  sorted: AdventureChapterView[];
+  currentOrder: number;
+  colors: Palette;
+  scheme: "light" | "dark";
+  onOpen: (chapterId: string) => void;
+}) {
+  return <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }}
+    contentContainerStyle={{ gap: 9, alignItems: "flex-start", paddingVertical: 2, paddingRight: 4 }}>
+    {sorted.map((chapter) => <JourneyCard key={chapter.id} chapter={chapter} currentOrder={currentOrder}
+      colors={colors} scheme={scheme} onOpen={onOpen} />)}
+  </ScrollView>;
+}
+
+function currentJourneyOrder(chapters: AdventureChapterView[]): number {
+  const claimable = chapters.find((chapter) => chapter.viewStatus === "claimable");
+  if (claimable) return claimable.sortOrder;
+  const unlocked = chapters.filter((chapter) => chapter.viewStatus !== "locked");
+  return unlocked.at(-1)?.sortOrder ?? -1;
+}
+
+function JourneyRailCard({ chapters, children }: { chapters: AdventureChapterView[]; children: React.ReactNode }) {
+  const unlockedCount = chapters.filter((chapter) => chapter.viewStatus !== "locked").length;
+  return <Card elevated={false} style={{ gap: 12, marginTop: 12 }}>
+    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+      <AppText variant="section">章节航线</AppText>
+      <AppText variant="small" tone="muted">共 {chapters.length} 站 · {unlockedCount} 已点亮</AppText>
+    </View>
+    {children}
+  </Card>;
+}
+
 /** 章节航线：board .rail-isle 紧凑卡；横向滚动时禁止子项被纵向 stretch 拉高。 */
 export function JourneyRail({
   chapters,
@@ -97,126 +162,49 @@ export function JourneyRail({
     return null;
   }
 
-  const currentOrder = (() => {
-    const claimable = sorted.find((c) => c.viewStatus === "claimable");
-    if (claimable) return claimable.sortOrder;
-    const unlocked = sorted.filter((c) => c.viewStatus !== "locked");
-    return unlocked.length ? unlocked[unlocked.length - 1].sortOrder : -1;
-  })();
+  const rail = <JourneyRailList sorted={sorted} currentOrder={currentJourneyOrder(sorted)}
+    colors={colors} scheme={scheme} onOpen={onOpen} />;
 
-  const rail = (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      // flexGrow:0 避免在父 ScrollView 里被撑满；alignItems 防止子卡纵向拉长
-      style={{ flexGrow: 0 }}
-      contentContainerStyle={{ gap: 9, alignItems: "flex-start", paddingVertical: 2, paddingRight: 4 }}
-    >
-      {sorted.map((chapter) => {
-        const meta = statusMeta(chapter, colors);
-        const locked = chapter.viewStatus === "locked";
-        const isCurrent = chapter.sortOrder === currentOrder;
-        const statusLabel =
-          chapter.viewStatus === "claimable" ? "当前" : chapter.viewStatus === "claimed" ? "已获" : "锁定";
+  if (bare) return rail;
 
-        return (
-          <Pressable
-            key={chapter.id}
-            accessibilityRole="button"
-            accessibilityLabel={`${chapter.title}，${statusLabel}`}
-            disabled={locked}
-            onPress={() => onOpen(chapter.id)}
-            style={({ pressed }) => ({
-              width: 96,
-              alignSelf: "flex-start",
-              borderRadius: 16,
-              borderWidth: isCurrent ? 1.5 : 1,
-              borderColor: isCurrent ? colors.primary : colors.line,
-              backgroundColor: scheme === "dark" ? colors.surface : "#FAFBFE",
-              paddingTop: 10,
-              paddingBottom: 10,
-              paddingHorizontal: 8,
-              gap: 6,
-              alignItems: "center" as const,
-              opacity: pressed && !locked ? 0.88 : locked ? 0.92 : 1,
-              ...(isCurrent
-                ? {
-                    shadowColor: colors.primary,
-                    shadowOpacity: 0.16,
-                    shadowRadius: 10,
-                    shadowOffset: { width: 0, height: 5 },
-                    elevation: 3
-                  }
-                : {
-                    shadowColor: "#283048",
-                    shadowOpacity: 0.04,
-                    shadowRadius: 8,
-                    shadowOffset: { width: 0, height: 3 },
-                    elevation: 1
-                  })
-            })}
-          >
-            <Image
-              source={resolveChapterIslandSource(chapter)}
-              style={{
-                width: 58,
-                height: 58,
-                opacity: locked ? 0.48 : 1,
-                ...(Platform.OS === "web" && locked
-                  ? ({ filter: "grayscale(0.8) brightness(1.05)" } as object)
-                  : {})
-              }}
-              resizeMode="contain"
-            />
-            <AppText
-              variant="small"
-              numberOfLines={1}
-              style={{
-                fontWeight: "800",
-                fontSize: 12,
-                lineHeight: 15,
-                color: locked ? colors.muted : colors.ink,
-                maxWidth: 80,
-                textAlign: "center"
-              }}
-            >
-              {chapter.title}
-            </AppText>
-            <View
-              style={{
-                borderRadius: 999,
-                backgroundColor: meta.bg,
-                paddingHorizontal: 9,
-                paddingVertical: 3,
-                borderWidth: chapter.viewStatus === "claimable" ? 1 : 0,
-                borderColor: chapter.viewStatus === "claimable" ? colors.primary : "transparent"
-              }}
-            >
-              <AppText variant="small" style={{ color: meta.fg, fontWeight: "800", fontSize: 11, lineHeight: 14 }}>
-                {statusLabel}
-              </AppText>
-            </View>
-          </Pressable>
-        );
-      })}
-    </ScrollView>
-  );
+  return <JourneyRailCard chapters={sorted}>{rail}</JourneyRailCard>;
+}
 
-  if (bare) {
-    return rail;
-  }
+function BadgePreviewHeader({ claimed, total }: { claimed: number; total: number }) {
+  return <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+    <AppText variant="section">徽章收藏</AppText>
+    <Pressable onPress={() => router.push("/adventure/badges")}>
+      <AppText variant="caption" tone="primary" style={{ textTransform: "none", letterSpacing: 0 }}>
+        {claimed}/{total} · 全部
+      </AppText>
+    </Pressable>
+  </View>;
+}
 
-  return (
-    <Card elevated={false} style={{ gap: 12, marginTop: 12 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <AppText variant="section">章节航线</AppText>
-        <AppText variant="small" tone="muted">
-          共 {sorted.length} 站 · {sorted.filter((c) => c.viewStatus !== "locked").length} 已点亮
-        </AppText>
-      </View>
-      {rail}
-    </Card>
-  );
+function EmptyBadgePreview({ onOpenMap }: { onOpenMap: () => void }) {
+  return <View style={{ gap: 8 }}>
+    <AppText variant="body" tone="muted">还没有徽章。去地图点亮第一座岛，读完故事就能领取。</AppText>
+    <AppButton title="去点亮岛屿" variant="secondary" compact onPress={onOpenMap} />
+  </View>;
+}
+
+function BadgePreviewItem({ chapter, colors }: { chapter: AdventureChapterView; colors: Palette }) {
+  return <Pressable onPress={() => router.push({ pathname: "/adventure/[chapterId]", params: { chapterId: chapter.id } })}
+    style={({ pressed }) => ({ width: "30%", minWidth: 96, flexGrow: 1, borderRadius: radius.lg,
+      borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surfaceMuted, paddingVertical: 8,
+      paddingHorizontal: 4, alignItems: "center", gap: 6, opacity: pressed ? 0.88 : 1 })}>
+    <BadgeVisual chapter={chapter} size={56} />
+    <AppText variant="small" numberOfLines={1} style={{ fontWeight: "600" }}>{chapter.badgeName}</AppText>
+    <AppText variant="caption" tone="muted" numberOfLines={1}
+      style={{ textTransform: "none", letterSpacing: 0 }}>{chapter.title}</AppText>
+  </Pressable>;
+}
+
+function BadgePreviewGrid({ chapters, colors }: { chapters: AdventureChapterView[]; colors: Palette }) {
+  return <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+    {chapters.map((chapter) => <BadgePreviewItem key={chapter.id} chapter={chapter} colors={colors} />)}
+    <AppButton title="查看徽章墙" variant="secondary" compact onPress={() => router.push("/adventure/badges")} />
+  </View>;
 }
 
 /** 已获徽章墙预览：优先显示上传图。 */
@@ -236,60 +224,9 @@ export function BadgePreview({
 
   return (
     <Card elevated={false} style={{ gap: 12, marginTop: 8 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-        <AppText variant="section">徽章收藏</AppText>
-        <Pressable onPress={() => router.push("/adventure/badges")}>
-          <AppText variant="caption" tone="primary" style={{ textTransform: "none", letterSpacing: 0 }}>
-            {claimed.length}/{total || 0} · 全部
-          </AppText>
-        </Pressable>
-      </View>
-
-      {claimed.length === 0 ? (
-        <View style={{ gap: 8 }}>
-          <AppText variant="body" tone="muted">
-            还没有徽章。去地图点亮第一座岛，读完故事就能领取。
-          </AppText>
-          <AppButton title="去点亮岛屿" variant="secondary" compact onPress={onOpenMap} />
-        </View>
-      ) : (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {claimed.map((chapter) => (
-            <Pressable
-              key={chapter.id}
-              onPress={() => router.push({ pathname: "/adventure/[chapterId]", params: { chapterId: chapter.id } })}
-              style={({ pressed }) => ({
-                width: "30%",
-                minWidth: 96,
-                flexGrow: 1,
-                borderRadius: radius.lg,
-                borderWidth: 1,
-                borderColor: colors.line,
-                backgroundColor: colors.surfaceMuted,
-                paddingVertical: 8,
-                paddingHorizontal: 4,
-                alignItems: "center",
-                gap: 6,
-                opacity: pressed ? 0.88 : 1
-              })}
-            >
-              <BadgeVisual chapter={chapter} size={56} />
-              <AppText variant="small" numberOfLines={1} style={{ fontWeight: "600" }}>
-                {chapter.badgeName}
-              </AppText>
-              <AppText
-                variant="caption"
-                tone="muted"
-                numberOfLines={1}
-                style={{ textTransform: "none", letterSpacing: 0 }}
-              >
-                {chapter.title}
-              </AppText>
-            </Pressable>
-          ))}
-          <AppButton title="查看徽章墙" variant="secondary" compact onPress={() => router.push("/adventure/badges")} />
-        </View>
-      )}
+      <BadgePreviewHeader claimed={claimed.length} total={total} />
+      {claimed.length === 0 ? <EmptyBadgePreview onOpenMap={onOpenMap} />
+        : <BadgePreviewGrid chapters={claimed} colors={colors} />}
     </Card>
   );
 }

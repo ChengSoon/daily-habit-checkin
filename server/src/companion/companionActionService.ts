@@ -153,41 +153,86 @@ async function ensureWallet(client: CompanionDb, spaceId: string): Promise<void>
   );
 }
 
+function validateCompletion(habit: HabitRow, command: Extract<CompanionActionCommand, { type: "complete_checkin" }>, date: string) {
+  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
+  const frequency = parseFrequency(habit.frequency_json);
+  const scheduled = frequency.type === "daily" ||
+    (frequency.type === "weekdays" && day >= 1 && day <= 5) ||
+    (frequency.type === "weekly" && frequency.daysOfWeek.includes(day));
+  if (!scheduled) throw new Error("今天不是这个习惯的计划日");
+  const value = command.arguments.value;
+  if (habit.track_type === "numeric" && value === null) throw new Error("这是数值习惯，还需要一个完成数值");
+  if (habit.track_type !== "numeric" && value !== null) throw new Error("这个习惯不需要填写数值");
+}
+
+async function hasCompleted(options: { client: CompanionDb; spaceId: string; habitId: string; date: string }) {
+  const { client, spaceId, habitId, date } = options;
+  const result = await client.query<{ id: string }>(
+    `SELECT id FROM check_ins WHERE space_id = $1 AND habit_id = $2 AND date = $3 AND status = 'completed'`,
+    [spaceId, habitId, date]
+  );
+  return result.rows.length > 0;
+}
+
+async function awardCompletion(options: {
+  client: CompanionDb;
+  spaceId: string;
+  accountId: string;
+  habit: HabitRow;
+  command: Extract<CompanionActionCommand, { type: "complete_checkin" }>;
+  date: string;
+  checkInId: string;
+}): Promise<{ message: string; resources: string[] }> {
+  const { client, spaceId, accountId, habit, command, date, checkInId } = options;
+  const completedRows = await client.query<{ date: string }>(
+    `SELECT date FROM check_ins WHERE space_id = $1 AND habit_id = $2 AND status = 'completed'`, [spaceId, habit.id]
+  );
+  const completed = new Set(completedRows.rows.map((row) => row.date));
+  const streak = currentStreak(scheduledDates(habit, date), completed);
+  const plan = await client.query<{ id: string; end_date: string }>(
+    `SELECT id, end_date FROM habit_plans WHERE space_id = $1 AND habit_id = $2 ORDER BY end_date DESC LIMIT 1`,
+    [spaceId, habit.id]
+  );
+  const awards = [{ key: `checkin:${habit.id}:${date}`, amount: 10, reason: "checkin" }];
+  if (streak === 3) awards.push({ key: `streak_3:${habit.id}:${date}`, amount: 20, reason: "streak_3" });
+  if (streak === 7) awards.push({ key: `streak_7:${habit.id}:${date}`, amount: 50, reason: "streak_7" });
+  if (plan.rows[0] && date >= plan.rows[0].end_date) awards.push({ key: `plan_complete:${plan.rows[0].id}`, amount: 100, reason: "plan_complete" });
+  await ensureWallet(client, spaceId);
+  for (const award of awards) {
+    const inserted = await client.query(
+      `INSERT INTO xp_transactions
+         (id, space_id, unique_key, amount, type, reason, habit_id, check_in_id, date_key, created_at)
+       VALUES ($1, $2, $3, $4, 'earn', $5, $6, $7, $8, now()) ON CONFLICT (space_id, unique_key) DO NOTHING`,
+      [randomUUID(), spaceId, award.key, award.amount, award.reason, habit.id, checkInId, date]
+    );
+    if (inserted.rowCount) await client.query(
+      `UPDATE xp_wallet SET balance = balance + $2, lifetime_earned = lifetime_earned + $2,
+        updated_at = now() WHERE space_id = $1`, [spaceId, award.amount]
+    );
+  }
+  const suffix = streak >= 3 ? ` 已连续 ${streak} 天。` : "";
+  return { message: `已经完成「${habit.name}」今天的打卡，获得 XP。${suffix}`, resources: ["check_ins", "wallet"] };
+}
+
 async function completeCheckIn(
-  client: CompanionDb,
-  spaceId: string,
-  accountId: string,
-  command: Extract<CompanionActionCommand, { type: "complete_checkin" }>,
-  now: Date,
-  offsetMinutes: number
+  options: {
+    client: CompanionDb;
+    spaceId: string;
+    accountId: string;
+    command: Extract<CompanionActionCommand, { type: "complete_checkin" }>;
+    now: Date;
+    offsetMinutes: number;
+  }
 ): Promise<{ message: string; resources: string[] }> {
+  const { client, spaceId, accountId, command, now, offsetMinutes } = options;
   const habit = await readHabit(client, spaceId, command.arguments.habitId);
   if (!habit) throw new Error("找不到这个习惯");
   if (habit.is_paused) throw new Error("这个习惯已经暂停了");
   const date = dateKey(now, offsetMinutes);
-  const frequency = parseFrequency(habit.frequency_json);
-  const day = new Date(`${date}T00:00:00.000Z`).getUTCDay();
-  const scheduledToday =
-    frequency.type === "daily" ||
-    (frequency.type === "weekdays" && day >= 1 && day <= 5) ||
-    (frequency.type === "weekly" && frequency.daysOfWeek.includes(day));
-  if (!scheduledToday) throw new Error("今天不是这个习惯的计划日");
-  if (habit.track_type === "numeric" && command.arguments.value === null) {
-    throw new Error("这是数值习惯，还需要一个完成数值");
-  }
-  if (habit.track_type !== "numeric" && command.arguments.value !== null) {
-    throw new Error("这个习惯不需要填写数值");
-  }
-
-  const existing = await client.query<{ id: string }>(
-    `SELECT id FROM check_ins WHERE space_id = $1 AND habit_id = $2 AND date = $3
-       AND status = 'completed'`,
-    [spaceId, habit.id, date]
-  );
-  if (existing.rows.length > 0) {
+  validateCompletion(habit, command, date);
+  if (await hasCompleted({ client, spaceId, habitId: habit.id, date })) {
     return { message: `「${habit.name}」今天已经完成，不需要重复打卡。`, resources: ["check_ins"] };
   }
-
   const checkInId = randomUUID();
   await client.query(
     `INSERT INTO check_ins
@@ -195,42 +240,7 @@ async function completeCheckIn(
      VALUES ($1, $2, $3, $4, 'completed', $5, NULL, $6, now())`,
     [checkInId, spaceId, habit.id, date, command.arguments.value, accountId]
   );
-  const completedRows = await client.query<{ date: string }>(
-    `SELECT date FROM check_ins WHERE space_id = $1 AND habit_id = $2 AND status = 'completed'`,
-    [spaceId, habit.id]
-  );
-  const completed = new Set(completedRows.rows.map((row) => row.date));
-  const streak = currentStreak(scheduledDates(habit, date), completed);
-  const plan = await client.query<{ id: string; end_date: string }>(
-    `SELECT id, end_date FROM habit_plans WHERE space_id = $1 AND habit_id = $2
-       ORDER BY end_date DESC LIMIT 1`,
-    [spaceId, habit.id]
-  );
-  const awards = [{ key: `checkin:${habit.id}:${date}`, amount: 10, reason: "checkin" }];
-  if (streak === 3) awards.push({ key: `streak_3:${habit.id}:${date}`, amount: 20, reason: "streak_3" });
-  if (streak === 7) awards.push({ key: `streak_7:${habit.id}:${date}`, amount: 50, reason: "streak_7" });
-  if (plan.rows[0] && date >= plan.rows[0].end_date) {
-    awards.push({ key: `plan_complete:${plan.rows[0].id}`, amount: 100, reason: "plan_complete" });
-  }
-  await ensureWallet(client, spaceId);
-  for (const award of awards) {
-    const inserted = await client.query(
-      `INSERT INTO xp_transactions
-         (id, space_id, unique_key, amount, type, reason, habit_id, check_in_id, date_key, created_at)
-       VALUES ($1, $2, $3, $4, 'earn', $5, $6, $7, $8, now())
-       ON CONFLICT (space_id, unique_key) DO NOTHING`,
-      [randomUUID(), spaceId, award.key, award.amount, award.reason, habit.id, checkInId, date]
-    );
-    if (inserted.rowCount) {
-      await client.query(
-        `UPDATE xp_wallet SET balance = balance + $2,
-          lifetime_earned = lifetime_earned + $2, updated_at = now() WHERE space_id = $1`,
-        [spaceId, award.amount]
-      );
-    }
-  }
-  const suffix = streak >= 3 ? ` 已连续 ${streak} 天。` : "";
-  return { message: `已经完成「${habit.name}」今天的打卡，获得 XP。${suffix}`, resources: ["check_ins", "wallet"] };
+  return awardCompletion({ client, spaceId, accountId, habit, command, date, checkInId });
 }
 
 export async function executeCompanionAction(input: {
@@ -243,7 +253,8 @@ export async function executeCompanionAction(input: {
 }): Promise<{ message: string; resources: string[] }> {
   switch (input.command.type) {
     case "complete_checkin":
-      return completeCheckIn(input.client, input.spaceId, input.accountId, input.command, input.now, input.timezoneOffsetMinutes);
+      return completeCheckIn({ client: input.client, spaceId: input.spaceId, accountId: input.accountId,
+        command: input.command, now: input.now, offsetMinutes: input.timezoneOffsetMinutes });
     case "create_habit":
       return createHabit(input.client, input.spaceId, input.command);
     case "update_habit":

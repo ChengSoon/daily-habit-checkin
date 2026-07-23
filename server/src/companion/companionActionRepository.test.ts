@@ -39,7 +39,8 @@ describe("companion action repository", () => {
     const repository = createCompanionActionRepository({ db, transact: async (run) => run(db) });
 
     await expect(
-      repository.withLockedAction("space-1", "account-1", "action-1", async (_client, action) => action)
+      repository.withLockedAction({ spaceId: "space-1", accountId: "account-1", actionId: "action-1",
+        run: async (_client, action) => action })
     ).resolves.toMatchObject({ id: "action-1", requestedBy: "account-1" });
     expect(queries[0]).toContain("FOR UPDATE");
     expect(queries[0]).toContain("space_id = $2");
@@ -50,7 +51,8 @@ describe("companion action repository", () => {
     const repository = createCompanionActionRepository({ db, transact: async (run) => run(db) });
 
     await expect(
-      repository.withLockedAction("space-1", "account-2", "action-1", async () => undefined)
+      repository.withLockedAction({ spaceId: "space-1", accountId: "account-2", actionId: "action-1",
+        run: async () => undefined })
     ).rejects.toBeInstanceOf(CompanionActionForbiddenError);
   });
 });

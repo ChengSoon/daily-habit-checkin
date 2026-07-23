@@ -47,9 +47,9 @@ services:
       MIMO_TTS_TIMEOUT_MS: ${MIMO_TTS_TIMEOUT_MS:-15000}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
-      API_KEY: ${API_KEY:-}
       RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-60}
-      # Cloudflare R2：图片 presigned 直传 + 公开域名直读所需凭据。
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-1}
+      # Cloudflare R2：图片 presigned POST 直传 + 公开域名直读所需凭据。
       R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
       R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
       R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
@@ -60,8 +60,6 @@ services:
     networks:
       - default
       - proxy_net
-    ports:
-      - "${APP_PORT:-8787}:8787"
 
 networks:
   proxy_net:

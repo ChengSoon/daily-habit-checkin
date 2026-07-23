@@ -121,125 +121,107 @@ const MESSAGE_SELECT = `SELECT m.id, m.role, m.content, m.sender_account_id,
   LEFT JOIN accounts a ON a.id = m.sender_account_id AND a.space_id = m.space_id
   LEFT JOIN companion_actions ca ON ca.source_message_id = m.id AND ca.space_id = m.space_id`;
 
-export function createCompanionMessageRepository(input: {
-  db: CompanionDb;
-  transact: TransactionRunner;
+type RepositoryInput = { db: CompanionDb; transact: TransactionRunner };
+type Exchange = {
+  userMessageId: string;
+  userText: string;
+  assistantMessageId: string;
+  assistantText: string;
+  riskLevel: CompanionRiskLevel;
+  memoryProposal: MemoryProposal | null;
+  action?: { id: string; command: CompanionActionCommand; summary: string; expiresAt: string; timezoneOffsetMinutes: number };
+};
+
+async function listRecentMessages(input: RepositoryInput, spaceId: string, limit: number) {
+  const result = await input.db.query<MessageRow>(
+    `${MESSAGE_SELECT}
+     WHERE m.space_id = $1 AND m.expires_at > now()
+     ORDER BY m.created_at DESC,
+       CASE m.role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END, m.id DESC
+     LIMIT $2`, [spaceId, limit]
+  );
+  return result.rows.reverse().map(mapMessage);
+}
+
+async function listMessagePage(input: RepositoryInput, options: {
+  spaceId: string; limit: number; cursor: string | null;
 }) {
+  const page = await input.db.query<MessageRow>(
+    `${MESSAGE_SELECT}
+     WHERE m.space_id = $1 AND m.expires_at > now()
+       AND ($2::timestamptz IS NULL OR m.created_at < $2)
+     ORDER BY m.created_at DESC,
+       CASE m.role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END, m.id DESC
+     LIMIT $3`, [options.spaceId, options.cursor, options.limit + 1]
+  );
+  const rows = page.rows.slice(0, options.limit);
+  return { items: rows.reverse().map(mapMessage),
+    nextCursor: page.rows.length > options.limit ? timestamp(rows[0].created_at) : null };
+}
+
+async function insertAction(client: CompanionDb, options: {
+  spaceId: string; accountId: string; exchange: Exchange;
+}) {
+  const action = options.exchange.action;
+  if (!action) return;
+  await client.query(
+    `INSERT INTO companion_actions
+       (id, space_id, requested_by, source_message_id, action_type,
+        arguments_json, summary, timezone_offset_minutes, expires_at)
+     VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)`,
+    [action.id, options.spaceId, options.accountId, options.exchange.assistantMessageId,
+      action.command.type, JSON.stringify(action.command.arguments), action.summary,
+      action.timezoneOffsetMinutes, action.expiresAt]
+  );
+}
+
+async function insertExchange(client: CompanionDb, options: {
+  spaceId: string; accountId: string; exchange: Exchange; userCreatedAt: Date;
+}) {
+  const { spaceId, accountId, exchange, userCreatedAt } = options;
+  const assistantCreatedAt = new Date(userCreatedAt.getTime() + 1);
+  await client.query(
+    `INSERT INTO companion_messages
+       (id, space_id, sender_account_id, role, content, risk_level, created_at)
+     VALUES ($1, $2, $3, 'user', $4, $5, $6)`,
+    [exchange.userMessageId, spaceId, accountId, exchange.userText,
+      exchange.riskLevel, userCreatedAt.toISOString()]
+  );
+  await client.query(
+    `INSERT INTO companion_messages
+       (id, space_id, sender_account_id, role, content, risk_level, memory_proposal_json, created_at)
+     VALUES ($1, $2, NULL, 'assistant', $3, $4, $5::jsonb, $6)`,
+    [exchange.assistantMessageId, spaceId, exchange.assistantText, exchange.riskLevel,
+      exchange.memoryProposal ? JSON.stringify(exchange.memoryProposal) : null, assistantCreatedAt.toISOString()]
+  );
+  await insertAction(client, { spaceId, accountId, exchange });
+}
+
+async function appendExchange(input: RepositoryInput, options: { spaceId: string; accountId: string; exchange: Exchange }) {
+  const userCreatedAt = new Date();
+  await input.transact((client) => insertExchange(client, { ...options, userCreatedAt }));
+}
+
+async function appendAssistantMessage(input: RepositoryInput, spaceId: string,
+  message: { id: string; eventId: string; content: string; riskLevel: CompanionRiskLevel }) {
+  await input.db.query(
+    `INSERT INTO companion_messages
+       (id, space_id, sender_account_id, role, content, event_id, risk_level)
+     VALUES ($1, $2, NULL, 'assistant', $3, $4, $5)`,
+    [message.id, spaceId, message.content, message.eventId, message.riskLevel]
+  );
+}
+
+export function createCompanionMessageRepository(input: RepositoryInput) {
   return {
-    async listRecentMessages(spaceId: string, limit: number): Promise<CompanionMessage[]> {
-      const result = await input.db.query<MessageRow>(
-        `${MESSAGE_SELECT}
-         WHERE m.space_id = $1 AND m.expires_at > now()
-         ORDER BY m.created_at DESC,
-           CASE m.role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END,
-           m.id DESC
-         LIMIT $2`,
-        [spaceId, limit]
-      );
-      return result.rows.reverse().map(mapMessage);
-    },
-
-    async listMessagePage(spaceId: string, limit: number, cursor: string | null) {
-      const page = await input.db.query<MessageRow>(
-        `${MESSAGE_SELECT}
-         WHERE m.space_id = $1 AND m.expires_at > now()
-           AND ($2::timestamptz IS NULL OR m.created_at < $2)
-         ORDER BY m.created_at DESC,
-           CASE m.role WHEN 'assistant' THEN 0 WHEN 'user' THEN 1 ELSE 2 END,
-           m.id DESC
-         LIMIT $3`,
-        [spaceId, cursor, limit + 1]
-      );
-      const rows = page.rows.slice(0, limit);
-      return {
-        items: rows.reverse().map(mapMessage),
-        nextCursor: page.rows.length > limit ? timestamp(rows[0].created_at) : null
-      };
-    },
-
-    async appendExchange(
-      spaceId: string,
-      accountId: string,
-      exchange: {
-        userMessageId: string;
-        userText: string;
-        assistantMessageId: string;
-        assistantText: string;
-        riskLevel: CompanionRiskLevel;
-        memoryProposal: MemoryProposal | null;
-        action?: {
-          id: string;
-          command: CompanionActionCommand;
-          summary: string;
-          expiresAt: string;
-          timezoneOffsetMinutes: number;
-        };
-      }
-    ): Promise<void> {
-      // 同一事务里默认 now() 常得到相同时间戳；排序时会把用户消息排到助手后面。
-      // 显式错开 1ms，保证「先用户、后助手」。
-      const userCreatedAt = new Date();
-      const assistantCreatedAt = new Date(userCreatedAt.getTime() + 1);
-      await input.transact(async (client) => {
-        await client.query(
-          `INSERT INTO companion_messages
-             (id, space_id, sender_account_id, role, content, risk_level, created_at)
-           VALUES ($1, $2, $3, 'user', $4, $5, $6)`,
-          [
-            exchange.userMessageId,
-            spaceId,
-            accountId,
-            exchange.userText,
-            exchange.riskLevel,
-            userCreatedAt.toISOString()
-          ]
-        );
-        await client.query(
-          `INSERT INTO companion_messages
-             (id, space_id, sender_account_id, role, content, risk_level, memory_proposal_json, created_at)
-           VALUES ($1, $2, NULL, 'assistant', $3, $4, $5::jsonb, $6)`,
-          [
-            exchange.assistantMessageId,
-            spaceId,
-            exchange.assistantText,
-            exchange.riskLevel,
-            exchange.memoryProposal ? JSON.stringify(exchange.memoryProposal) : null,
-            assistantCreatedAt.toISOString()
-          ]
-        );
-        if (exchange.action) {
-          await client.query(
-            `INSERT INTO companion_actions
-               (id, space_id, requested_by, source_message_id, action_type,
-                arguments_json, summary, timezone_offset_minutes, expires_at)
-             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)`,
-            [
-              exchange.action.id,
-              spaceId,
-              accountId,
-              exchange.assistantMessageId,
-              exchange.action.command.type,
-              JSON.stringify(exchange.action.command.arguments),
-              exchange.action.summary,
-              exchange.action.timezoneOffsetMinutes,
-              exchange.action.expiresAt
-            ]
-          );
-        }
-      });
-    },
-
-    async appendAssistantMessage(
-      spaceId: string,
-      message: { id: string; eventId: string; content: string; riskLevel: CompanionRiskLevel }
-    ): Promise<void> {
-      await input.db.query(
-        `INSERT INTO companion_messages
-           (id, space_id, sender_account_id, role, content, event_id, risk_level)
-         VALUES ($1, $2, NULL, 'assistant', $3, $4, $5)`,
-        [message.id, spaceId, message.content, message.eventId, message.riskLevel]
-      );
-    },
+    listRecentMessages: (spaceId: string, limit: number) => listRecentMessages(input, spaceId, limit),
+    listMessagePage: (spaceId: string, limit: number, cursor: string | null) =>
+      listMessagePage(input, { spaceId, limit, cursor }),
+    appendExchange: (spaceId: string, accountId: string, exchange: Exchange) =>
+      appendExchange(input, { spaceId, accountId, exchange }),
+    appendAssistantMessage: (spaceId: string,
+      message: { id: string; eventId: string; content: string; riskLevel: CompanionRiskLevel }) =>
+      appendAssistantMessage(input, spaceId, message),
 
     async pruneExpiredMessages(spaceId: string): Promise<void> {
       await input.db.query(

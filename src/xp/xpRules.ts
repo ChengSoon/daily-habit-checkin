@@ -32,30 +32,30 @@ function currentStreak(dateKey: string, scheduledDates: string[], completedDates
   return streak;
 }
 
-function award(habitId: string, dateKey: string, reason: XpAward["reason"], amount: number): XpAward {
+function award(input: { habitId: string; dateKey: string; reason: XpAward["reason"]; amount: number }): XpAward {
   return {
-    reason,
-    amount,
-    label: AWARD_LABELS[reason],
-    uniqueKey: `${reason}:${habitId}:${dateKey}`
+    reason: input.reason,
+    amount: input.amount,
+    label: AWARD_LABELS[input.reason],
+    uniqueKey: `${input.reason}:${input.habitId}:${input.dateKey}`
   };
 }
 
 export function calculateCheckInXpAwards(input: CheckInXpInput): XpAward[] {
   const completedDates = new Set(input.completedDates);
-  const awards: XpAward[] = [award(input.habitId, input.dateKey, "checkin", 10)];
+  const awards: XpAward[] = [award({ ...input, reason: "checkin", amount: 10 })];
   const streak = currentStreak(input.dateKey, input.scheduledDates, completedDates);
 
   if (streak === 3) {
-    awards.push(award(input.habitId, input.dateKey, "streak_3", 20));
+    awards.push(award({ ...input, reason: "streak_3", amount: 20 }));
   }
 
   if (streak === 7) {
-    awards.push(award(input.habitId, input.dateKey, "streak_7", 50));
+    awards.push(award({ ...input, reason: "streak_7", amount: 50 }));
   }
 
   if (input.planCompleted) {
-    awards.push(award(input.habitId, input.dateKey, "plan_complete", 100));
+    awards.push(award({ ...input, reason: "plan_complete", amount: 100 }));
   }
 
   return awards;

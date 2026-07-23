@@ -11,7 +11,10 @@ declare module "ws" {
   }
 
   export class Server {
-    constructor(options: { noServer: true });
+    constructor(options: {
+      noServer: true;
+      handleProtocols?: (protocols: Set<string>) => string | false;
+    });
     handleUpgrade(
       request: IncomingMessage,
       socket: Duplex,

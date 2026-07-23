@@ -60,6 +60,38 @@ function createTencentRecognizer(options: CompanionAsrOptions): TencentSentenceR
   return async (params) => client.SentenceRecognition(params);
 }
 
+async function transcribeAudio(options: {
+  input: CompanionAsrRequest;
+  recognize: TencentSentenceRecognitionFn;
+  engineModelType: string;
+}): Promise<{ text: string }> {
+  const bytes = Buffer.from(options.input.audioBase64, "base64");
+  if (bytes.length < 256) throw new Error("ASR_EMPTY_AUDIO");
+  if (bytes.length > 3_000_000) throw new Error("ASR_TOO_LARGE");
+  let result: { Result?: string | null };
+  try {
+    result = await options.recognize({
+      EngSerViceType: options.engineModelType,
+      SourceType: 1,
+      VoiceFormat: MIME_TO_VOICE_FORMAT[options.input.mimeType],
+      Data: options.input.audioBase64,
+      DataLen: bytes.length,
+      FilterDirty: 0,
+      FilterModal: 1,
+      ConvertNumMode: 1
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/AuthFailure|UnauthorizedOperation|SecretId|SecretKey|InvalidCredential/i.test(message)) {
+      throw new Error("ASR_UNAVAILABLE");
+    }
+    throw error;
+  }
+  const text = normalizeText(result.Result ?? "");
+  if (!text) throw new Error("ASR_NO_SPEECH");
+  return { text };
+}
+
 export function createCompanionAsrService(options: CompanionAsrOptions = {}): CompanionAsrService {
   const engineModelType = (
     options.engineModelType ??
@@ -73,43 +105,8 @@ export function createCompanionAsrService(options: CompanionAsrOptions = {}): Co
 
   return {
     async transcribe(input) {
-      const bytes = Buffer.from(input.audioBase64, "base64");
-      if (bytes.length < 256) {
-        throw new Error("ASR_EMPTY_AUDIO");
-      }
-      // 腾讯云限制：原始音频 ≤ 3MB；base64 后更大，这里按原始字节限制
-      if (bytes.length > 3_000_000) {
-        throw new Error("ASR_TOO_LARGE");
-      }
-
       const run = recognize ?? createTencentRecognizer(options);
-      const voiceFormat = MIME_TO_VOICE_FORMAT[input.mimeType];
-      let result: { Result?: string | null };
-      try {
-        result = await run({
-          EngSerViceType: engineModelType,
-          SourceType: 1,
-          VoiceFormat: voiceFormat,
-          Data: input.audioBase64,
-          DataLen: bytes.length,
-          FilterDirty: 0,
-          FilterModal: 1,
-          ConvertNumMode: 1
-        });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        // 凭证/权限问题统一视为服务未就绪，避免把密钥细节抛给客户端
-        if (/AuthFailure|UnauthorizedOperation|SecretId|SecretKey|InvalidCredential/i.test(message)) {
-          throw new Error("ASR_UNAVAILABLE");
-        }
-        throw error;
-      }
-
-      const text = normalizeText(result.Result ?? "");
-      if (!text) {
-        throw new Error("ASR_NO_SPEECH");
-      }
-      return { text };
+      return transcribeAudio({ input, recognize: run, engineModelType });
     }
   };
 }
