@@ -6,11 +6,13 @@ import {
   animationFrameSequence,
   PET_ANIMATIONS,
   PET_ATLAS,
+  PET_DANCE_ATLAS,
   animationForMood
 } from "./petAnimation";
 import type { PetAnimationState, PetMood } from "./types";
 
 const PET_SPRITESHEET = require("../../assets/images/pet/kaka/spritesheet.webp");
+const PET_DANCING_SPRITESHEET = require("../../assets/images/pet/kaka/dancing.webp");
 
 type PetSpriteProps = {
   mood: PetMood;
@@ -19,11 +21,14 @@ type PetSpriteProps = {
   reversed?: boolean;
 };
 
-/** 固定窗口裁切九行 WebP atlas，并按每一帧的真实时长播放。 */
+/** 固定窗口裁切动作 WebP atlas，并按每一帧的真实时长播放。 */
 export function PetSprite({ mood, size = 88, stateOverride, reversed = false }: PetSpriteProps) {
   const reducedMotion = useReducedMotion();
   const state = stateOverride ?? animationForMood(mood);
   const animation = PET_ANIMATIONS[state];
+  const dancing = animation.sheet === "dancing";
+  const atlas = dancing ? PET_DANCE_ATLAS : PET_ATLAS;
+  const spritesheet = dancing ? PET_DANCING_SPRITESHEET : PET_SPRITESHEET;
   const sequence = useMemo(() => animationFrameSequence(state, reversed), [reversed, state]);
   const [playback, setPlayback] = useState({ state, reversed, frame: sequence[0] });
   const frame =
@@ -55,13 +60,13 @@ export function PetSprite({ mood, size = 88, stateOverride, reversed = false }: 
   }, [animation, reducedMotion, reversed, sequence, state]);
 
   const dimensions = useMemo(() => {
-    const scale = size / PET_ATLAS.cellWidth;
+    const scale = size / atlas.cellWidth;
     return {
-      frameHeight: PET_ATLAS.cellHeight * scale,
-      atlasWidth: PET_ATLAS.width * scale,
-      atlasHeight: PET_ATLAS.height * scale
+      frameHeight: atlas.cellHeight * scale,
+      atlasWidth: atlas.width * scale,
+      atlasHeight: atlas.height * scale
     };
-  }, [size]);
+  }, [atlas, size]);
 
   return (
     <View
@@ -72,7 +77,7 @@ export function PetSprite({ mood, size = 88, stateOverride, reversed = false }: 
       }}
     >
       <Image
-        source={PET_SPRITESHEET}
+        source={spritesheet}
         contentFit="fill"
         cachePolicy="memory-disk"
         accessible={false}

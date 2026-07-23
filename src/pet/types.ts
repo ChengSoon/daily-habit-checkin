@@ -10,7 +10,8 @@ export type PetAnimationState =
   | "failed"
   | "waiting"
   | "running"
-  | "review";
+  | "review"
+  | "dancing";
 
 export type PetTravelState = Extract<PetAnimationState, "running-left" | "running-right">;
 

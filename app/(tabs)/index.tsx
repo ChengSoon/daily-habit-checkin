@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { CheckInCelebration, MiniCheckInBurst } from "../../src/ui/CheckInCelebration";
 import { SyncFallback } from "../../src/ui/SyncScreen";
@@ -9,6 +10,9 @@ import { XpGainLabel } from "../../src/ui/XpGainLabel";
 export default function TodayScreen() {
   const insets = useSafeAreaInsets();
   const view = useTodayController();
+  const { setFullCelebration, setMiniBurst } = view;
+  const hideMiniBurst = useCallback(() => setMiniBurst(null), [setMiniBurst]);
+  const hideFullCelebration = useCallback(() => setFullCelebration(null), [setFullCelebration]);
   if (view.status !== "ready") {
     return <SyncFallback status={view.status} errorMessage={view.errorMessage} onRetry={view.reload} />;
   }
@@ -44,8 +48,8 @@ export default function TodayScreen() {
         onCancel={view.cancelNumeric}
         onComplete={(habit, value) => void view.complete(habit, value, true)}
       />
-      <MiniCheckInBurst trigger={view.miniBurst} onFinish={() => view.setMiniBurst(null)} />
-      <CheckInCelebration celebration={view.fullCelebration} onFinish={() => view.setFullCelebration(null)} />
+      <MiniCheckInBurst trigger={view.miniBurst} onFinish={hideMiniBurst} />
+      <CheckInCelebration celebration={view.fullCelebration} onFinish={hideFullCelebration} />
     </>
   );
 }

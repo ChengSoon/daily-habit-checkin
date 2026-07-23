@@ -28,12 +28,14 @@ export const PET_ACTIONS: Record<PetActionName, readonly PetActionStep[]> = {
   playful: [
     { state: "running-right", durationMs: 620 },
     { state: "running-left", durationMs: 620 },
+    { state: "dancing", durationMs: 1120 },
     { state: "jumping", durationMs: 900 },
     { state: "idle", durationMs: 260 }
   ],
   celebrate: [
     { state: "waving", durationMs: 760 },
     { state: "jumping", durationMs: 900 },
+    { state: "dancing", durationMs: 1120 },
     { state: "waving", durationMs: 680 },
     { state: "idle", durationMs: 260 }
   ],

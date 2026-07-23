@@ -18,9 +18,11 @@ describe("pet action choreography", () => {
     expect(PET_ACTIONS.playful.map((step) => step.state)).toEqual([
       "running-right",
       "running-left",
+      "dancing",
       "jumping",
       "idle"
     ]);
-    expect(totalPetActionDuration("playful")).toBe(2400);
+    expect(PET_ACTIONS.celebrate.map((step) => step.state)).toContain("dancing");
+    expect(totalPetActionDuration("playful")).toBe(3520);
   });
 });

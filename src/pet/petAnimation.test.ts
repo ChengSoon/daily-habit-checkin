@@ -13,11 +13,9 @@ import {
 describe("PET_ANIMATIONS", () => {
   it("遵循 hatch-pet 的九行动画契约", () => {
     expect(
-      Object.entries(PET_ANIMATIONS).map(([state, animation]) => [
-        state,
-        animation.row,
-        animation.frameDurations.length
-      ])
+      Object.entries(PET_ANIMATIONS)
+        .filter(([, animation]) => animation.sheet !== "dancing")
+        .map(([state, animation]) => [state, animation.row, animation.frameDurations.length])
     ).toEqual([
       ["idle", 0, 6],
       ["running-right", 1, 8],
@@ -29,6 +27,16 @@ describe("PET_ANIMATIONS", () => {
       ["running", 7, 6],
       ["review", 8, 6]
     ]);
+  });
+
+  it("使用独立单行图集播放跳舞动作", () => {
+    expect(PET_ANIMATIONS.dancing).toEqual({
+      row: 0,
+      frameDurations: [140, 110, 110, 130, 110, 110, 120, 170],
+      playback: "loop",
+      sheet: "dancing"
+    });
+    expect(animationFrameSequence("dancing")).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
   });
 });
 

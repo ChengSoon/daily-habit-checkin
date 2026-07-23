@@ -9,12 +9,22 @@ export const PET_ATLAS = {
   cellHeight: 208
 } as const;
 
+export const PET_DANCE_ATLAS = {
+  width: 1536,
+  height: 208,
+  columns: 8,
+  rows: 1,
+  cellWidth: 192,
+  cellHeight: 208
+} as const;
+
 export type PetAnimationPlayback = "loop" | "ping-pong" | "once-hold";
 
 export type PetAnimationDefinition = {
   row: number;
   frameDurations: readonly number[];
   playback: PetAnimationPlayback;
+  sheet?: "dancing";
 };
 
 export const PET_ANIMATIONS: Record<PetAnimationState, PetAnimationDefinition> = {
@@ -38,7 +48,13 @@ export const PET_ANIMATIONS: Record<PetAnimationState, PetAnimationDefinition> =
   },
   waiting: { row: 6, frameDurations: [180, 140, 160, 170, 180, 300], playback: "ping-pong" },
   running: { row: 7, frameDurations: [150, 130, 140, 150, 150, 280], playback: "ping-pong" },
-  review: { row: 8, frameDurations: [170, 140, 160, 170, 180, 320], playback: "ping-pong" }
+  review: { row: 8, frameDurations: [170, 140, 160, 170, 180, 320], playback: "ping-pong" },
+  dancing: {
+    row: 0,
+    frameDurations: [140, 110, 110, 130, 110, 110, 120, 170],
+    playback: "loop",
+    sheet: "dancing"
+  }
 };
 
 const MOOD_ANIMATIONS: Record<PetMood, PetAnimationState> = {
