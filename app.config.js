@@ -89,7 +89,7 @@ function buildPlugins(plugins, allowCleartext) {
   });
 }
 
-function assertProductionUrl(name, value, required) {
+function assertProductionUrl(name, value, required, allowHttp = false) {
   if (!value) {
     if (required) throw new Error(`${name} is required for production builds`);
     return;
@@ -100,7 +100,11 @@ function assertProductionUrl(name, value, required) {
   } catch {
     throw new Error(`${name} must be a valid HTTPS URL for production builds`);
   }
-  if (parsed.protocol !== "https:") {
+  const isAllowed = parsed.protocol === "https:" || (allowHttp && parsed.protocol === "http:");
+  if (!isAllowed && name === "API_BASE_URL") {
+    throw new Error("API_BASE_URL must use HTTPS unless ALLOW_CLEARTEXT_API=true");
+  }
+  if (!isAllowed) {
     throw new Error(`${name} must use HTTPS for production builds`);
   }
 }
@@ -110,9 +114,10 @@ module.exports = ({ config }) => {
   const fileEnv = loadEnvFiles(appEnv);
   const apiBaseUrl = appConfigValue(fileEnv, "API_BASE_URL");
   const r2PublicBase = appConfigValue(fileEnv, "R2_PUBLIC_BASE");
-  const allowCleartext = appEnv === "development";
-  if (!allowCleartext) {
-    assertProductionUrl("API_BASE_URL", apiBaseUrl, true);
+  const allowCleartextApi = appConfigValue(fileEnv, "ALLOW_CLEARTEXT_API").toLowerCase() === "true";
+  const allowCleartext = appEnv === "development" || (allowCleartextApi && apiBaseUrl.startsWith("http://"));
+  if (appEnv === "production") {
+    assertProductionUrl("API_BASE_URL", apiBaseUrl, true, allowCleartextApi);
     assertProductionUrl("R2_PUBLIC_BASE", r2PublicBase, false);
   }
 

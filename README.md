@@ -184,7 +184,7 @@ cd server && npm ci
 - `production` / `prod` 读取 `.env.prod`
 - 本机私密覆盖放在 `.env.dev.local` / `.env.prod.local`
 - 服务端还会读取 `server/.env` 与 `server/.env.local`
-- production 构建的 `API_BASE_URL` 必须使用 HTTPS；仅 development 允许 localhost HTTP
+- production 构建的 `API_BASE_URL` 默认必须使用 HTTPS；仅兼容旧 HTTP 后端时可显式设置 `ALLOW_CLEARTEXT_API=true`
 
 不要把真实密钥提交到仓库。推荐在根目录创建 `.env.dev.local`：
 
@@ -226,6 +226,7 @@ APP_UPDATE_MANIFEST_URL=https://cdn.example.com/releases/android/latest.json
 | 配置 | 用途 | 必需场景 |
 | --- | --- | --- |
 | `API_BASE_URL` | App 访问统一后端 | App 联调 |
+| `ALLOW_CLEARTEXT_API` | 临时允许 production 访问旧 HTTP 后端；会明文传输登录凭证与 JWT | 仅旧后端迁移期 |
 | `DATABASE_URL` | 服务端连接 PostgreSQL | 账号与共享数据 |
 | `JWT_SECRET` | 签发和验证登录令牌 | 账号与共享数据 |
 | `OPENAI_*` | AI 计划和卡卡文字模型默认配置 | AI 功能 |
